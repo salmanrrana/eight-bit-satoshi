@@ -10,6 +10,7 @@
   --red: oklch(58% 0.2 25);
   --violet: oklch(62% 0.16 290);
   --outline: oklch(93% 0.018 80);
+  --controls-height: 0px;
   --screen-width: min(100vw, calc(100dvh * 256 / 240));
   --screen-height: min(100dvh, calc(100vw * 240 / 256));
 }
@@ -45,6 +46,7 @@ button {
 .game-shell {
   min-height: 100dvh;
   display: grid;
+  grid-template-rows: 1fr;
   place-items: center;
   padding: 0;
 }
@@ -188,16 +190,7 @@ button {
 }
 
 .touch-controls {
-  position: absolute;
-  left: clamp(8px, 3vw, 18px);
-  right: clamp(8px, 3vw, 18px);
-  bottom: clamp(8px, 3vw, 18px);
-  display: grid;
-  grid-template-columns: 54px 54px 54px;
-  justify-content: space-between;
-  align-items: end;
-  z-index: 15;
-  pointer-events: none;
+  display: none;
 }
 
 .touch-button {
@@ -211,34 +204,76 @@ button {
   pointer-events: auto;
 }
 
-.jump-button {
-  margin-bottom: 28px;
-  background: var(--bitcoin);
-  color: var(--ink);
-}
-
-@media (min-width: 900px) and (pointer: fine) {
-  .touch-controls {
-    opacity: 0.32;
+@media (pointer: coarse), (max-width: 700px) {
+  :root {
+    --controls-height: clamp(88px, 18dvh, 132px);
+    --screen-width: min(100vw, calc((100dvh - var(--controls-height)) * 256 / 240));
+    --screen-height: min(calc(100dvh - var(--controls-height)), calc(100vw * 240 / 256));
   }
 
-  .touch-controls:hover {
-    opacity: 1;
+  .game-shell {
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-content: center;
+    justify-items: center;
+    gap: clamp(6px, 1.8dvh, 14px);
+    padding: clamp(6px, 1.4dvh, 12px) 0 max(8px, env(safe-area-inset-bottom));
   }
-}
 
-@media (max-height: 420px) {
+  .screen-frame {
+    align-self: end;
+  }
+
   .touch-controls {
-    grid-template-columns: 46px 46px 46px;
+    position: relative;
+    width: min(100vw, var(--screen-width));
+    display: grid;
+    grid-template-columns: 58px 58px 1fr 72px;
+    align-items: center;
+    column-gap: 12px;
+    padding: 0 clamp(14px, 4vw, 24px);
+    pointer-events: none;
   }
 
   .touch-button {
-    width: 46px;
-    height: 46px;
+    width: 58px;
+    height: 58px;
+    background: oklch(10% 0.02 255 / 0.9);
+    font-size: 24px;
+  }
+
+  .touch-button[data-action="right"] {
+    grid-column: 2;
+  }
+
+  .jump-button {
+    grid-column: 4;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 0;
+    background: var(--bitcoin);
+    color: var(--ink);
+    font-size: 28px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape), (max-width: 700px) and (max-height: 420px) {
+  :root {
+    --controls-height: clamp(70px, 22dvh, 94px);
+  }
+
+  .touch-controls {
+    grid-template-columns: 50px 50px 1fr 62px;
+  }
+
+  .touch-button {
+    width: 50px;
+    height: 50px;
     font-size: 21px;
   }
 
   .jump-button {
-    margin-bottom: 12px;
+    width: 62px;
+    height: 62px;
+    font-size: 24px;
   }
 }
