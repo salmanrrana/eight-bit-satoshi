@@ -1,0 +1,23 @@
+.claude/
+node_modules/
+.DS_Store
+*.log
+
+# Local design notes and legacy story-engine files are not needed for the
+# playable public build.
+8bit.md
+assets/
+js/animation.js
+js/audio.js
+js/chapters.js
+js/dialog.js
+js/input.js
+js/movement.js
+js/renderer.js
+js/state.js
+js/utils.js
+styles/controls.css
+styles/dialog.css
+styles/loading.css
+styles/menu.css
+styles/title.css

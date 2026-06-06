@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>8-Bit Satoshi</title>
+  <meta name="description" content="Play as Satoshi in a fast 8-bit platformer about building Bitcoin.">
+
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+  <main class="game-shell" aria-label="8-Bit Satoshi playable platformer">
+    <section class="screen-frame" aria-label="Game screen">
+      <canvas id="game-canvas" width="256" height="240" aria-label="8-Bit Satoshi game canvas"></canvas>
+
+      <div id="hud" class="hud" aria-live="polite">
+        <span id="hud-coins">BTC 00</span>
+        <span id="hud-lives">LIVES 3</span>
+        <span id="hud-zone">BROKEN WORLD</span>
+      </div>
+
+      <div id="title-screen" class="overlay title-screen">
+        <div class="title-stack">
+          <h1>8-BIT SATOSHI</h1>
+          <p>Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
+          <button id="start-button" class="primary-button" type="button">START</button>
+        </div>
+      </div>
+
+      <div id="message-screen" class="overlay message-screen hidden">
+        <div class="message-box">
+          <h2 id="message-title">PAUSED</h2>
+          <p id="message-copy">Game paused.</p>
+          <div class="button-row">
+            <button id="continue-button" class="primary-button" type="button">CONTINUE</button>
+            <button id="restart-button" class="primary-button" type="button">RESTART</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="touch-controls" aria-label="Touch controls">
+        <button class="touch-button" type="button" data-action="left" aria-label="Move left">&larr;</button>
+        <button class="touch-button jump-button" type="button" data-action="jump" aria-label="Jump">&uarr;</button>
+        <button class="touch-button" type="button" data-action="right" aria-label="Move right">&rarr;</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
