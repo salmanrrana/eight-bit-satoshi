@@ -12,6 +12,8 @@
   const FRICTION = 760;
   const MAX_RUN = 148;
   const JUMP = -396;
+  const JUMP_PER_BTC = 1.2;
+  const MAX_BTC_JUMP_BOOST = 72;
   const STOMP = -280;
   const COYOTE = 0.085;
   const JUMP_BUFFER = 0.11;
@@ -373,7 +375,7 @@
     player.coyote = player.onGround ? COYOTE : Math.max(0, player.coyote - dt);
 
     if (player.jumpBuffer > 0 && player.coyote > 0) {
-      player.vy = JUMP;
+      player.vy = getJumpImpulse();
       player.onGround = false;
       player.coyote = 0;
       player.jumpBuffer = 0;
@@ -853,6 +855,10 @@
     hudZone.textContent = zoneName;
   }
 
+  function getJumpImpulse() {
+    return JUMP - Math.min(state.coins * JUMP_PER_BTC, MAX_BTC_JUMP_BOOST);
+  }
+
   function getZoneGradient(zone) {
     if (!zone.gradient) {
       const gradient = ctx.createLinearGradient(0, 0, 0, VIEW_H);
@@ -967,17 +973,36 @@
     if (key === "w" || key === "arrowup" || key === " ") setAction("jump", false);
   }
 
+  function blockControlDefault(event) {
+    event.preventDefault();
+  }
+
   function initTouchControls() {
     for (const button of document.querySelectorAll("[data-action]")) {
       const action = button.dataset.action;
       const press = (event) => {
         event.preventDefault();
+        if (typeof event.pointerId === "number" && typeof button.setPointerCapture === "function") {
+          try {
+            button.setPointerCapture(event.pointerId);
+          } catch (error) {
+            // The pointer may already be gone on older mobile browsers.
+          }
+        }
         if (state.phase === "title") startGame();
         button.classList.add("active");
         setAction(action, true);
       };
       const release = (event) => {
         event.preventDefault();
+        if (
+          typeof event.pointerId === "number" &&
+          typeof button.releasePointerCapture === "function" &&
+          typeof button.hasPointerCapture === "function" &&
+          button.hasPointerCapture(event.pointerId)
+        ) {
+          button.releasePointerCapture(event.pointerId);
+        }
         button.classList.remove("active");
         setAction(action, false);
       };
@@ -985,6 +1010,13 @@
       button.addEventListener("pointerup", release);
       button.addEventListener("pointercancel", release);
       button.addEventListener("pointerleave", release);
+      button.addEventListener("touchstart", press, { passive: false });
+      button.addEventListener("touchend", release, { passive: false });
+      button.addEventListener("touchcancel", release, { passive: false });
+      button.addEventListener("touchmove", blockControlDefault, { passive: false });
+      button.addEventListener("contextmenu", blockControlDefault);
+      button.addEventListener("selectstart", blockControlDefault);
+      button.addEventListener("dragstart", blockControlDefault);
     }
   }
 
