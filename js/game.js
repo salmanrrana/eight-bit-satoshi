@@ -1364,7 +1364,7 @@
     for (let nx = near - 96; nx < VIEW_W + 96; nx += 96) rect(nx + 6, 178, 90, 1);
     const tick = Math.floor(state.time * 2);
     for (let nx = near - 96; nx < VIEW_W + 96; nx += 96) {
-      const online = (tick + Math.floor(nx / 96)) % 4 !== 0;
+      const online = mod(tick + Math.floor(nx / 96), 4) !== 0;
       ctx.fillStyle = online ? palette.green : palette.green2;
       rect(nx, 174, 6, 6);
       ctx.fillStyle = "#0e1426";
