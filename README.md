@@ -28,6 +28,24 @@ Stop the background server:
 npm stop
 ```
 
+## Leaderboard Backend
+
+Public leaderboards need shared storage, so they are backed by a small
+dependency-free Node service (the game itself stays fully static). Run it
+alongside the game during development:
+
+```bash
+npm run server
+```
+
+That listens on `http://127.0.0.1:5050/`. Setup, endpoints, configuration, and
+deployment are documented in
+[`docs/leaderboard-backend.md`](docs/leaderboard-backend.md); the data shape it
+stores is the contract in
+[`docs/leaderboard-contract.md`](docs/leaderboard-contract.md). Leaderboard calls
+are optional — if the backend is offline, local play and personal bests are
+unaffected.
+
 ## Check
 
 ```bash

@@ -22,3 +22,10 @@ styles/dialog.css
 styles/loading.css
 styles/menu.css
 styles/title.css
+
+# Leaderboard backend runtime data (entries are generated at runtime, not source)
+server/data/
+
+# Brain Dump Ralph artifacts
+.ralph-prompt.md
+.ralph-services.json
