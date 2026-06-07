@@ -42,16 +42,21 @@ That listens on `http://127.0.0.1:5050/`. Setup, endpoints, configuration, and
 deployment are documented in
 [`docs/leaderboard-backend.md`](docs/leaderboard-backend.md); the data shape it
 stores is the contract in
-[`docs/leaderboard-contract.md`](docs/leaderboard-contract.md). Leaderboard calls
+[`docs/leaderboard-contract.md`](docs/leaderboard-contract.md). Privacy and name
+moderation rules are in
+[`docs/leaderboard-privacy.md`](docs/leaderboard-privacy.md). Leaderboard calls
 are optional — if the backend is offline, local play and personal bests are
 unaffected.
 
 ### Submitting a Score
 
 After finishing a level, the results screen shows an optional **SUBMIT TIME**
-form: enter a short display name (1–12 characters) and submit your run to the
-public leaderboard. A note on the form states that the name, time, and run stats
-become public. The name is validated both in the browser and again on the server.
+form: enter a short display name (1–12 characters; letters, numbers, spaces,
+dots, underscores, and dashes only) and submit your run to the public
+leaderboard. A note on the form states that the display name, level, time, run
+stats, and submit date become public. The flow does not ask for an account,
+email, wallet, location, or device identifier. The name is validated both in the
+browser and again on the server, including a lightweight abusive-name blocklist.
 
 Submitting is never required — **PLAY AGAIN** and **LEVELS** always work. The form
 reports a clear outcome for every case: success, an already-on-the-board duplicate,

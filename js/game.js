@@ -1042,7 +1042,7 @@
 
     const note = document.createElement("p");
     note.className = "results-submit-note";
-    note.textContent = "Submit posts your name, time and run stats to the public leaderboard.";
+    note.textContent = "Public: display name, level, time, run stats and submit date. No account or email.";
 
     const row = document.createElement("div");
     row.className = "results-submit-row";

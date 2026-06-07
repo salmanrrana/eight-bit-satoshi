@@ -133,6 +133,10 @@ function handleHealth(res) {
   });
 }
 
+function isPublicEntry(entry) {
+  return !!entry && typeof entry === "object" && rules.validateName(entry.playerName).ok;
+}
+
 // GET ranked rows for a single board. Every board-identifying field is required so
 // we never accidentally mix runs from different builds or rulesets (contract §6).
 function handleGetLeaderboard(url, res) {
@@ -171,6 +175,10 @@ function handleGetLeaderboard(url, res) {
     gameVersion: gameVersion,
     rulesVersion: rulesVersion
   };
+  // Apply the current display-name policy to reads as well as writes. That means
+  // expanding the moderation blocklist immediately hides older stored rows whose
+  // names are no longer acceptable, even before a maintainer deletes them.
+  const visibleEntries = entries.filter(isPublicEntry);
 
   // The combined board is virtual (contract §5): it is derived from each player's
   // best entry on both levels rather than stored, so it is never submitted and not
@@ -178,14 +186,17 @@ function handleGetLeaderboard(url, res) {
   // progress ("what you still need to qualify") in the same round-trip.
   if (levelId === rules.COMBINED_LEVEL_ID) {
     const opts = { category: category, gameVersion: gameVersion, rulesVersion: rulesVersion };
-    const combined = rules.combineEntries(entries, opts);
+    const combined = rules.combineEntries(visibleEntries, opts);
     const ranked = rules.rankEntries(combined).slice(0, limit);
     // Only compute the player's progress when a usably-short name is supplied —
     // capped at the same NAME_MAX as submissions so an oversized query string can't
     // make every combined read do needless work.
     const playerName = url.searchParams.get("playerName");
-    const you = playerName && playerName.length <= rules.NAME_MAX
-      ? rules.combinedProgress(entries, playerName, opts)
+    const nameCheck = playerName && playerName.length <= rules.NAME_MAX
+      ? rules.validateName(playerName)
+      : null;
+    const you = nameCheck && nameCheck.ok
+      ? rules.combinedProgress(visibleEntries, nameCheck.value, opts)
       : null;
     sendJson(res, 200, {
       ok: true,
@@ -198,7 +209,7 @@ function handleGetLeaderboard(url, res) {
   }
 
   const key = rules.boardKey(levelId, category, gameVersion, rulesVersion);
-  const matching = entries.filter(function (entry) {
+  const matching = visibleEntries.filter(function (entry) {
     return rules.boardKey(entry.levelId, entry.category, entry.gameVersion, entry.rulesVersion) === key;
   });
   const ranked = rules.rankEntries(matching).slice(0, limit);

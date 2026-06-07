@@ -188,13 +188,24 @@ Runs are only ever compared within the same tuple. This guarantees:
 
 ---
 
-## 7. Privacy & name rules (summary; full detail in ticket `7f02e282`)
+## 7. Privacy & name rules
 
-- The only personal data collected is `playerName`, which is freely chosen — no
-  emails, accounts, or device identifiers.
-- `playerName` constraints (enforced client- and server-side): length and
-  allowed-character limits, with offensive/abusive names filtered or removed.
-- The submission UI must state clearly that the name and run stats become public.
+- Public fields: `playerName`, level/category, final time, run stats, versions,
+  entry id, and server submit time. These are the fields shown by leaderboard
+  reads.
+- The submission flow does not ask for or store emails, accounts, passwords,
+  wallet addresses, IP addresses, device identifiers, or location data.
+- `playerName` is trimmed, must be 1-12 characters, and may contain only letters,
+  numbers, spaces, dots, underscores, and dashes.
+- `playerName` is checked against the shared abusive-name blocklist. Invalid or
+  blocked names are rejected on submission. Stored rows whose names no longer pass
+  the current policy are filtered from reads, and maintainers can delete rows with
+  private deployment maintenance.
+- The submission UI must state clearly that the display name, level, time, run
+  stats, and submit date become public.
+
+The deployment policy and moderation runbook live in
+[`leaderboard-privacy.md`](leaderboard-privacy.md).
 
 ---
 

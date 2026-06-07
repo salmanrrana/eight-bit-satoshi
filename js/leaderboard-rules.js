@@ -40,6 +40,27 @@
   const NAME_MIN = 1;
   const NAME_MAX = 12;
   const NAME_ALLOWED = /^[A-Za-z0-9 ._-]+$/;
+  // Small public-board moderation blocklist. This deliberately catches obvious
+  // abusive/profane display names without pretending to be a full trust & safety
+  // system; maintainers can expand it and old rows will be filtered on read by the
+  // server as soon as the rule changes.
+  const NAME_BLOCKED_TERMS = [
+    "fuck",
+    "shit",
+    "bitch",
+    "asshole",
+    "cunt",
+    "whore",
+    "slut",
+    "nazi",
+    "hitler",
+    "kkk",
+    "rape",
+    "rapist",
+    "kys",
+    "killyourself",
+    "killurself"
+  ];
 
   // Sanity ceiling for a submitted time. A real run is minutes long; anything past
   // a day is malformed or a clock/overflow bug, not a slow player. Deeper plausibility
@@ -71,6 +92,28 @@
     return [levelId, category, gameVersion, rulesVersion].join("::");
   }
 
+  function normalizeNameForModeration(name) {
+    return name
+      .toLowerCase()
+      .replace(/0/g, "o")
+      .replace(/1/g, "i")
+      .replace(/3/g, "e")
+      .replace(/4/g, "a")
+      .replace(/5/g, "s")
+      .replace(/7/g, "t")
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function validateNameModeration(name) {
+    const compact = normalizeNameForModeration(name);
+    for (let i = 0; i < NAME_BLOCKED_TERMS.length; i += 1) {
+      if (compact.indexOf(NAME_BLOCKED_TERMS[i]) !== -1) {
+        return { ok: false, error: "playerName is not allowed" };
+      }
+    }
+    return { ok: true };
+  }
+
   // Normalize and validate a display name. Returns { ok, value } or { ok:false, error }.
   // Trimming is intentional: leading/trailing spaces are stripped before the length
   // check so " AB " and "AB" are the same 2-character name.
@@ -80,6 +123,8 @@
     if (name.length < NAME_MIN) return { ok: false, error: "playerName is empty" };
     if (name.length > NAME_MAX) return { ok: false, error: "playerName exceeds " + NAME_MAX + " characters" };
     if (!NAME_ALLOWED.test(name)) return { ok: false, error: "playerName has disallowed characters" };
+    const moderationResult = validateNameModeration(name);
+    if (!moderationResult.ok) return moderationResult;
     return { ok: true, value: name };
   }
 
