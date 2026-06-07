@@ -55,6 +55,11 @@ run without interrupting gameplay. Personal bests are stamped with the ruleset
 version; bumping `TIMING_RULES.version` after a real rules change retires bests
 recorded under the old rules so comparisons stay fair.
 
+The leaderboard schema these timing rules feed into — categories, submitted
+fields, tie-breaking, and versioning — is specified in
+[`docs/leaderboard-contract.md`](docs/leaderboard-contract.md). Backend and
+frontend leaderboard work must implement that contract.
+
 You can inspect the active rules and the last completed run in the browser
 console:
 

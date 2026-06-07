@@ -39,6 +39,15 @@
     summary: "ANY%: timer pauses when paused, deaths cost a life but keep the clock, checkpoints save your spot — not your time."
   };
 
+  // Build identifier stamped onto every run/leaderboard submission. Distinct from
+  // TIMING_RULES.version: GAME_VERSION tracks the playable build (level geometry,
+  // physics, content) while rulesVersion tracks only the timing ruleset. The
+  // leaderboard groups entries by gameVersion so a run set on an older build is
+  // never silently ranked against a different game. Keep this in sync with the
+  // "version" field in package.json on any release that changes timed play. The
+  // full field-by-field contract lives in docs/leaderboard-contract.md.
+  const GAME_VERSION = "1.0.0";
+
   const canvas = document.getElementById("game-canvas");
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
   const titleScreen = document.getElementById("title-screen");
@@ -464,18 +473,29 @@
       return false;
     }
   }
-  // Build a structured, rules-stamped summary of a finished run. This is the
-  // single shape future leaderboard submission will send, so the same fields and
-  // ruleset that drive the HUD, results, and local bests also drive submissions.
+  // Build a structured, rules- and build-stamped summary of a finished run. This
+  // is the canonical "run payload" half of the leaderboard data contract
+  // (docs/leaderboard-contract.md): the same fields and ruleset that drive the
+  // HUD, results, and local bests also drive submissions. The submission flow
+  // (ticket d14a34a5) wraps this with the player-supplied { playerName } and a
+  // { clientTimestamp }; the backend assigns its own authoritative timestamp.
   function buildSubmission(isNewBest) {
+    const level = getCurrentLevel();
     return {
-      level: getCurrentLevel().title,
+      // Stable key the backend groups a leaderboard by. The display title can be
+      // reworded without splitting a board, so id — not title — is authoritative.
+      levelId: level.id,
+      level: level.title,
+      gameVersion: GAME_VERSION,
       rulesVersion: TIMING_RULES.version,
       category: TIMING_RULES.category,
       time: state.completionTime,
       deaths: state.deaths,
+      // Collectibles. pagesTotal travels with pages so a reader (or the backend)
+      // can validate "All Pages" without hard-coding each level's page count.
       coins: state.coins,
       pages: state.pages,
+      pagesTotal: level.layout.pages.length,
       lives: state.lives,
       isNewBest,
       splits: state.splits.map((entry) => ({
@@ -520,7 +540,8 @@
     getTimingRules,
     getLastRun,
     setLevel,
-    levelCount: LEVELS.length
+    levelCount: LEVELS.length,
+    gameVersion: GAME_VERSION
   });
 
   // Level unlock rule: Level 1 is always available, and each later level unlocks
