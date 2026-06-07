@@ -14,7 +14,7 @@ between client and server.
   by anything. Only the leaderboard talks to a server, over two HTTP endpoints.
 - **Zero dependencies.** Node built-ins only (`http`, `fs`, `crypto`), matching
   the rest of the project. Nothing to `npm install`.
-- **Swappable.** The two endpoints are the contract. If the JSON file outgrows its
+- **Swappable.** The API routes are the contract. If the JSON file outgrows its
   welcome, put a managed datastore (Supabase, Firestore, a hosted Postgres) behind
   the same routes without touching the front-end — see [Swapping the datastore](#swapping-the-datastore).
 
@@ -158,9 +158,10 @@ including locally saved personal bests — is unaffected.
 
 To move off the JSON file, reimplement the storage helpers in
 `server/leaderboard-server.js` (`loadEntries`, `persistEntries`, the read filter,
-and `findDuplicate`) against your datastore, keeping:
+`findDuplicate`, and delete-by-id persistence) against your datastore, keeping:
 
-- the two endpoint shapes above, and
+- the endpoint shapes above: health, leaderboard read, submit, and authenticated
+  delete,
 - `js/leaderboard-rules.js` as the validation + ranking authority.
 
 The browser never knows or cares which datastore is behind the endpoints.

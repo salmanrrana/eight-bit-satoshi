@@ -71,20 +71,52 @@
   // The run clock only advances while the player is moving through the level, and
   // the player's horizontal speed is hard-capped (MAX_RUN = 148 px/s in
   // js/game.js). The platforms never carry the player, so the fastest a run can
-  // *physically* be is the level's traverse distance divided by that cap — jumping
-  // and obstacles only ADD time. That gives ~34.5s for whitepaper-run (5102 px) and
-  // ~37.2s for running-bitcoin (5502 px). We set the floors at roughly HALF those
-  // hard minimums: low enough that no real run is ever rejected, high enough to
-  // reject the obviously-fake "3 second clear". This is a deliberately conservative,
-  // lightweight check — see docs/leaderboard-anti-cheat.md for what it cannot catch.
+  // *physically* be is the distance from spawn to first goal overlap divided by
+  // that cap — jumping, acceleration, obstacles, and timing cycles only ADD time.
+  // That gives ~34.18s for whitepaper-run and ~36.88s for running-bitcoin; these
+  // floors sit just below those hard minimums so no real run is rejected while
+  // impossible 20-second clears are. See docs/leaderboard-anti-cheat.md for what
+  // this deliberately-lightweight check cannot catch.
   const LEVEL_MIN_TIME = {
-    "whitepaper-run": 16,
-    "running-bitcoin": 18
+    "whitepaper-run": 34,
+    "running-bitcoin": 36.5
   };
+
+  // Per-level run metadata mirrored from js/game.js. Update this when timed level
+  // geometry, collectibles, or checkpoint definitions change.
+  const LEVEL_LIMITS = {
+    "whitepaper-run": {
+      minTime: LEVEL_MIN_TIME["whitepaper-run"],
+      maxCoins: 70,
+      pagesTotal: 9,
+      checkpoints: [
+        { index: 1, name: "CYPHERPUNKS" },
+        { index: 2, name: "GENESIS" },
+        { index: 3, name: "BLOCKCHAIN" },
+        { index: 4, name: "NETWORK" },
+        { index: 5, name: "HANDOFF" },
+        { index: 6, name: "WHITEPAPER" }
+      ]
+    },
+    "running-bitcoin": {
+      minTime: LEVEL_MIN_TIME["running-bitcoin"],
+      maxCoins: 81,
+      pagesTotal: 9,
+      checkpoints: [
+        { index: 1, name: "RUNNING BITCOIN" },
+        { index: 2, name: "BUG REPORTS" },
+        { index: 3, name: "HARDENING" },
+        { index: 4, name: "MINING RACE" },
+        { index: 5, name: "THE NETWORK" }
+      ]
+    }
+  };
+
+  const STARTING_LIVES = 3;
 
   // Float comparison slack (one centisecond) for monotonic split checks, so
   // sub-frame rounding never trips a "split exceeds final time" rejection.
-  const EPSILON = 0.011;
+  const SPLIT_EPSILON = 0.011;
 
   // Round to centisecond precision — the precision the contract ranks at (§3) and
   // the precision the on-screen m:ss.cc display shows.
@@ -98,6 +130,12 @@
 
   function isNonNegativeInt(n) {
     return Number.isInteger(n) && n >= 0;
+  }
+
+  function getLevelLimits(levelId) {
+    return typeof levelId === "string" && Object.prototype.hasOwnProperty.call(LEVEL_LIMITS, levelId)
+      ? LEVEL_LIMITS[levelId]
+      : null;
   }
 
   // Stable identifier for a board. Runs are only ever compared within the same
@@ -177,6 +215,7 @@
     if (typeof input !== "object" || input === null) {
       return { ok: false, errors: ["submission must be a JSON object"] };
     }
+    const limits = getLevelLimits(input.levelId);
 
     // levelId — authoritative grouping key. "combined" is derived, never submitted.
     if (typeof input.levelId !== "string" || !Object.prototype.hasOwnProperty.call(SUBMITTABLE_LEVELS, input.levelId)) {
@@ -202,11 +241,7 @@
 
     if (!isFiniteNumber(input.time) || input.time <= 0 || input.time > MAX_TIME_SECONDS) {
       errors.push("time must be a positive number of seconds within range");
-    } else if (
-      typeof input.levelId === "string" &&
-      Object.prototype.hasOwnProperty.call(LEVEL_MIN_TIME, input.levelId) &&
-      input.time + EPSILON < LEVEL_MIN_TIME[input.levelId]
-    ) {
+    } else if (limits && roundCentis(input.time) < limits.minTime) {
       // Impossibly fast for this level — below the physical floor (anti-cheat
       // f5c6f03e). Only checked once the time and levelId are otherwise well-formed.
       errors.push("time is implausibly fast for " + input.levelId);
@@ -218,17 +253,34 @@
     if (!Number.isInteger(input.pagesTotal) || input.pagesTotal < 1) {
       errors.push("pagesTotal must be a positive integer");
     }
+    if (limits && isNonNegativeInt(input.coins) && input.coins > limits.maxCoins) {
+      errors.push("coins exceed the maximum for " + input.levelId);
+    }
+    if (limits && Number.isInteger(input.pagesTotal) && input.pagesTotal !== limits.pagesTotal) {
+      errors.push("pagesTotal must be " + limits.pagesTotal + " for " + input.levelId);
+    }
     // pages can never exceed the pages available in the level.
     if (isNonNegativeInt(input.pages) && Number.isInteger(input.pagesTotal) && input.pages > input.pagesTotal) {
       errors.push("pages cannot exceed pagesTotal");
     }
+    if (limits && isNonNegativeInt(input.pages) && input.pages > limits.pagesTotal) {
+      errors.push("pages exceed the maximum for " + input.levelId);
+    }
     if (!Number.isInteger(input.lives) || input.lives < 1) {
       // A run that reached the goal must have at least one life left; 0 lives is a failure.
       errors.push("lives must be an integer >= 1");
+    } else if (input.lives > STARTING_LIVES) {
+      errors.push("lives cannot exceed " + STARTING_LIVES);
+    }
+    if (isNonNegativeInt(input.deaths) && Number.isInteger(input.lives) && input.lives >= 1) {
+      if (input.deaths + input.lives !== STARTING_LIVES) {
+        errors.push("deaths and lives are inconsistent with a completed run");
+      }
     }
 
     // splits — array, each well-formed, cumulative totals non-decreasing and never
-    // past the final time (with one centisecond of float slack).
+    // past the final time (with one centisecond of float slack). For known levels,
+    // splits must be the exact checkpoint prefix the game records.
     if (!Array.isArray(input.splits)) {
       errors.push("splits must be an array");
     } else {
@@ -239,17 +291,30 @@
           errors.push(splitError);
           continue;
         }
-        if (input.splits[i].total + EPSILON < prevTotal) {
+        if (limits) {
+          const checkpoint = limits.checkpoints[i];
+          if (!checkpoint) {
+            errors.push("splits[" + i + "].index is not a valid checkpoint for " + input.levelId);
+          } else {
+            if (input.splits[i].index !== checkpoint.index) {
+              errors.push("splits[" + i + "].index must be " + checkpoint.index + " for " + input.levelId);
+            }
+            if (input.splits[i].name !== checkpoint.name) {
+              errors.push("splits[" + i + "].name must be \"" + checkpoint.name + "\" for " + input.levelId);
+            }
+          }
+        }
+        if (input.splits[i].total + SPLIT_EPSILON < prevTotal) {
           errors.push("splits[" + i + "].total is smaller than the previous split total");
         }
-        if (isFiniteNumber(input.time) && input.splits[i].total > input.time + EPSILON) {
+        if (isFiniteNumber(input.time) && input.splits[i].total > input.time + SPLIT_EPSILON) {
           errors.push("splits[" + i + "].total exceeds the final time");
         }
         // Internal consistency (anti-cheat f5c6f03e): the segment time must equal
         // the gap between this cumulative total and the previous one. The game
         // records split = total - prevTotal exactly (recordSplit in js/game.js), so
         // a mismatch beyond float slack means the splits were hand-edited.
-        if (Math.abs(input.splits[i].split - (input.splits[i].total - prevTotal)) > EPSILON) {
+        if (Math.abs(input.splits[i].split - (input.splits[i].total - prevTotal)) > SPLIT_EPSILON) {
           errors.push("splits[" + i + "].split is inconsistent with the cumulative totals");
         }
         prevTotal = input.splits[i].total;
@@ -472,6 +537,7 @@
     NAME_ALLOWED: NAME_ALLOWED,
     MAX_TIME_SECONDS: MAX_TIME_SECONDS,
     LEVEL_MIN_TIME: LEVEL_MIN_TIME,
+    LEVEL_LIMITS: LEVEL_LIMITS,
     roundCentis: roundCentis,
     boardKey: boardKey,
     validateName: validateName,

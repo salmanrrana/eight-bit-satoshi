@@ -24,18 +24,21 @@ instant feedback and is never trusted (contract §2.3). A submission is rejected
   `MAX_TIME_SECONDS` (24h). Zero, negative, `NaN`, and absurd values are rejected.
 - **Impossibly fast times.** Each level has a physical floor (`LEVEL_MIN_TIME`).
   The player's horizontal speed is hard-capped (`MAX_RUN = 148 px/s`) and nothing
-  carries the player forward, so a run can never be faster than the level's
-  traverse distance ÷ that cap (~34.5s for `whitepaper-run`, ~37.2s for
-  `running-bitcoin`). The floors are set at roughly **half** those hard minimums —
-  low enough never to reject a real run, high enough to reject a "3-second clear".
+  carries the player forward, so a run can never be faster than the distance from
+  spawn to the first possible goal overlap divided by that cap (~34.18s for
+  `whitepaper-run`, ~36.88s for `running-bitcoin`). The floors sit just below
+  those hard minimums — low enough never to reject a real run, high enough to
+  reject a 20-second clear.
 - **Out-of-range stats.** `deaths`, `coins`, `pages` must be non-negative integers;
-  `pages` cannot exceed `pagesTotal`; `lives` must be ≥ 1 (a run that reached the
-  goal kept at least one life).
+  `pagesTotal` must match the submitted level; `pages`, `coins`, and `lives` must
+  stay inside that level's possible bounds; and `deaths + lives` must match the
+  three lives a completed run starts with.
 - **Inconsistent splits.** Splits must be well-formed and ordered, cumulative
-  totals must be non-decreasing, no split total may exceed the final time, and each
-  segment time must equal the gap between consecutive cumulative totals (the game
-  records `split = total − prevTotal` exactly, so a mismatch means hand-edited
-  splits).
+  totals must be non-decreasing, no split total may exceed the final time, and the
+  checkpoint index/name sequence must match the submitted level's checkpoint
+  prefix. Each segment time must equal the gap between consecutive cumulative
+  totals (the game records `split = total − prevTotal` exactly, so a mismatch
+  means hand-edited splits).
 - **Wrong build / ruleset / level / category.** `levelId` must be a real
   submittable level, `category` an active category, `gameVersion` a semver string,
   and `rulesVersion` a positive integer. Runs are only ever ranked within the same
@@ -113,8 +116,9 @@ Responses:
 
 Notes:
 
-- The token is compared in constant time, so a wrong token cannot be discovered by
-  timing. Keep it secret and, in production, only expose `DELETE` over HTTPS.
+- The token is compared as a fixed-length digest, so a wrong token cannot be
+  discovered by timing or token-length probes. Keep it secret and, in production,
+  only expose `DELETE` over HTTPS.
 - Combined-board rows are **virtual** (derived on read); they cannot be deleted
   directly. Remove a contributing level entry instead and the combined row
   recomputes automatically.

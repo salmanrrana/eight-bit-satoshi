@@ -19,7 +19,7 @@
 //   DELETE /api/leaderboard?id=<entryId>              remove one row (admin only)
 //
 // See docs/leaderboard-backend.md for setup and deployment, including how to put a
-// managed datastore behind the same two endpoints if you outgrow the JSON file.
+// managed datastore behind the same API if you outgrow the JSON file.
 
 "use strict";
 
@@ -365,15 +365,13 @@ async function handlePostLeaderboard(req, res) {
   sendJson(res, 201, { ok: true, duplicate: false, entry: publicEntry(entry) });
 }
 
-// Constant-time comparison of a presented admin token against the configured one,
-// so a wrong token cannot be discovered by timing the response. Returns false fast
-// when either side is missing or the lengths differ (timingSafeEqual requires equal
-// lengths). Used only by the maintenance delete path.
+// Constant-time comparison of fixed-length token digests, so a wrong token cannot
+// be discovered by timing the response or by probing the configured token length.
+// Used only by the maintenance delete path.
 function tokenMatches(presented) {
   if (!ADMIN_TOKEN || typeof presented !== "string" || presented.length === 0) return false;
-  const a = Buffer.from(presented);
-  const b = Buffer.from(ADMIN_TOKEN);
-  if (a.length !== b.length) return false;
+  const a = crypto.createHash("sha256").update(presented).digest();
+  const b = crypto.createHash("sha256").update(ADMIN_TOKEN).digest();
   return crypto.timingSafeEqual(a, b);
 }
 
