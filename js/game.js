@@ -49,6 +49,8 @@
   const startButton = document.getElementById("start-button");
   const continueButton = document.getElementById("continue-button");
   const restartButton = document.getElementById("restart-button");
+  const menuButton = document.getElementById("menu-button");
+  const levelSelect = document.getElementById("level-select");
   const hudCoins = document.getElementById("hud-coins");
   const hudLives = document.getElementById("hud-lives");
   const hudZone = document.getElementById("hud-zone");
@@ -460,6 +462,93 @@
     levelCount: LEVELS.length
   });
 
+  // Level unlock rule: Level 1 is always available, and each later level unlocks
+  // once the previous level has been completed. A completion records a personal
+  // best, so a saved best doubles as the persisted "cleared" signal — the unlock
+  // state survives reloads with no extra storage.
+  function isLevelUnlocked(index) {
+    if (index <= 0) return true;
+    if (index >= LEVELS.length) return false;
+    return getLevelBest(LEVELS[index - 1].id) !== null;
+  }
+
+  // Title-screen level select. Cards are built from LEVELS so the picker scales
+  // to any number of levels without new markup. Each card shows the level name,
+  // best time, and completion/lock state; the selected card is the one START /
+  // PLAY AGAIN / RESTART launch (state.levelIndex). Rebuilt whenever the title is
+  // shown so a freshly cleared level reflects its new best and unlock immediately.
+  function renderLevelSelect() {
+    if (!levelSelect) return;
+    const cards = LEVELS.map((level, index) => {
+      const unlocked = isLevelUnlocked(index);
+      const best = unlocked ? getLevelBest(level.id) : null;
+      const selected = index === state.levelIndex;
+
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "level-card";
+      card.classList.toggle("selected", selected);
+      card.classList.toggle("locked", !unlocked);
+      card.classList.toggle("cleared", best !== null);
+      card.dataset.index = String(index);
+      card.setAttribute("role", "radio");
+      card.setAttribute("aria-checked", selected ? "true" : "false");
+      card.disabled = !unlocked;
+
+      let status;
+      if (!unlocked) status = `LOCKED · CLEAR ${LEVELS[index - 1].title}`;
+      else if (best) status = `BEST ${formatTime(best.time)}`;
+      else status = "NOT CLEARED";
+
+      card.append(
+        makeSpan("level-card-num", `LEVEL ${index + 1}`),
+        makeSpan("level-card-title", level.title),
+        makeSpan("level-card-status", status)
+      );
+      card.setAttribute(
+        "aria-label",
+        `Level ${index + 1}, ${level.title}. ${unlocked ? (best ? `Best time ${formatTime(best.time)}` : "Not cleared yet") : "Locked"}.`
+      );
+      return card;
+    });
+    levelSelect.replaceChildren(...cards);
+  }
+
+  // Select a level by 0-based index from the title screen. Refuses locked levels
+  // so START always has a playable target, loads the chosen level (setLevel, which
+  // also previews it behind the title), then refreshes the cards so the highlight
+  // and best times stay in sync. Returns true when the selection changed.
+  function selectLevel(index) {
+    if (!isLevelUnlocked(index)) return false;
+    if (!setLevel(index + 1)) return false;
+    renderLevelSelect();
+    return true;
+  }
+
+  // Move the title-screen selection by `dir` (-1 left / +1 right) to the next
+  // unlocked level, skipping locked entries so keyboard and touch navigation
+  // never land on an unstartable level.
+  function moveSelection(dir) {
+    for (let i = state.levelIndex + dir; i >= 0 && i < LEVELS.length; i += dir) {
+      if (isLevelUnlocked(i)) {
+        selectLevel(i);
+        return;
+      }
+    }
+  }
+
+  // Return to the title screen / level select from a finished or failed run.
+  // Refreshes the picker first so a level just cleared shows its new best and
+  // unlocks the next level without needing a page reload.
+  function showTitle() {
+    state.phase = "title";
+    state.paused = false;
+    menuButton.classList.add("hidden");
+    messageScreen.classList.add("hidden");
+    renderLevelSelect();
+    titleScreen.classList.remove("hidden");
+  }
+
   // Map of checkpoint index -> best split duration for the active level, captured
   // once per full run so the in-run toast can flag faster sections without
   // re-reading storage at every checkpoint.
@@ -635,20 +724,21 @@
     resetRun(true);
   }
 
-  function showMessage(title, copy, restartLabel = "RESTART", canContinue = false) {
+  function showMessage(title, copy, restartLabel = "RESTART", canContinue = false, canMenu = false) {
     messageTitle.textContent = title;
     messageCopy.textContent = copy;
     messageCopy.classList.remove("hidden");
     messageResults.classList.add("hidden");
     restartButton.textContent = restartLabel;
     continueButton.classList.toggle("hidden", !canContinue);
+    menuButton.classList.toggle("hidden", !canMenu);
     messageScreen.classList.remove("hidden");
   }
 
   function pauseGame() {
     if (state.phase !== "playing") return;
     state.paused = true;
-    showMessage("PAUSED", "Game paused.", "RESTART", true);
+    showMessage("PAUSED", "Game paused.", "RESTART", true, true);
   }
 
   function resumeGame() {
@@ -689,6 +779,7 @@
 
     restartButton.textContent = "PLAY AGAIN";
     continueButton.classList.add("hidden");
+    menuButton.classList.remove("hidden");
     messageScreen.classList.remove("hidden");
   }
 
@@ -782,7 +873,7 @@
 
   function gameOver() {
     state.phase = "gameover";
-    showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN");
+    showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN", false, true);
   }
 
   function update(dt) {
@@ -1505,7 +1596,12 @@
     }
 
     if (state.phase === "title") {
-      if (key !== "p" && key !== "r") startGame();
+      // Left/right move the level-select highlight; any other key (except the
+      // pause/restart keys) starts the currently selected level, preserving the
+      // fast "press to play" feel while making the picker keyboard-navigable.
+      if (key === "arrowleft" || key === "a") moveSelection(-1);
+      else if (key === "arrowright" || key === "d") moveSelection(1);
+      else if (key !== "p" && key !== "r") startGame();
       return;
     }
 
@@ -1550,7 +1646,15 @@
             // The pointer may already be gone on older mobile browsers.
           }
         }
-        if (state.phase === "title") startGame();
+        if (state.phase === "title") {
+          // On the title screen the d-pad navigates the level select and the
+          // jump button starts the selected level — mirroring the keyboard map
+          // and avoiding carrying a stray jump input into the run.
+          if (action === "left") moveSelection(-1);
+          else if (action === "right") moveSelection(1);
+          else startGame();
+          return;
+        }
         button.classList.add("active");
         setAction(action, true);
       };
@@ -1584,6 +1688,14 @@
   startButton.addEventListener("click", startGame);
   continueButton.addEventListener("click", resumeGame);
   restartButton.addEventListener("click", startGame);
+  menuButton.addEventListener("click", showTitle);
+  // Mouse/touch level picking: a tap on an unlocked card selects that level.
+  // Delegated so the listener survives renderLevelSelect rebuilding the cards.
+  levelSelect.addEventListener("click", (event) => {
+    const card = event.target.closest(".level-card");
+    if (!card || card.disabled) return;
+    selectLevel(Number.parseInt(card.dataset.index, 10));
+  });
   document.addEventListener("keydown", handleKeyDown);
   document.addEventListener("keyup", handleKeyUp);
   document.addEventListener("visibilitychange", () => {
@@ -1600,6 +1712,7 @@
   // loading Level 1. Either branch runs initLevel exactly once.
   const requestedLevel = Number.parseInt(new URLSearchParams(location.search).get("level"), 10);
   if (!setLevel(requestedLevel)) initLevel();
+  renderLevelSelect();
   initTouchControls();
   syncHud(true);
   requestAnimationFrame(loop);
