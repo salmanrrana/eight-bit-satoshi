@@ -87,8 +87,9 @@
   // and `stompToast` (the line shown on a clean stomp). Level 1's banker/printer/
   // miner keep their exact original values; Level 2's fud/chargeback/exploit map
   // onto the same engine behaviors (patrol + stompable) with new identities.
-  // Distinct Level-2 enemy *art* is a separate ticket (60f350ff), so the new
-  // types reuse the closest existing shape here purely for readability.
+  // The `shape` field is the fallback art; Level-2 types additionally have
+  // bespoke sprites (drawFud/drawChargeback/drawExploit, ticket 60f350ff) so the
+  // legacy-system threats read distinctly from Level 1's enemies.
   const ENEMY_TYPES = {
     banker: { speed: 28, score: 200, shape: "patroller", spark: palette.red, stompToast: "Threat cleared." },
     printer: { speed: 28, score: 200, shape: "machine", spark: palette.red, stompToast: "Printer jammed." },
@@ -122,6 +123,10 @@
       id: "whitepaper-run",
       title: "THE WHITEPAPER RUN",
       description: "Build Bitcoin from the broken world to the whitepaper.",
+      // Visual theme — selects the backdrop, ground accents, collectible, and
+      // checkpoint/goal art families (see getTheme + the draw* routines). "city"
+      // is Level 1's dystopian-skyline → green-hills look.
+      theme: "city",
       worldW: 5200,
       goal: { x: 5102, y: 128, w: 22, h: 48 },
       zones: [
@@ -196,6 +201,11 @@
       id: "running-bitcoin",
       title: "RUNNING BITCOIN",
       description: "Run a node, harden the code, and grow the network with Hal and the early builders.",
+      // "network" theme (ticket 60f350ff): a "network at night" look — server
+      // towers and a mempool node-map backdrop that lights up as you advance,
+      // terminal-green ground accents, SATS/PATCH collectibles, node-beacon
+      // checkpoints, and a server goal. Distinct from Level 1's "city" theme.
+      theme: "network",
       worldW: 5600,
       goal: { x: 5502, y: 128, w: 22, h: 48 },
       // Level-specific display strings so the shared HUD/results/pickup copy reads
@@ -354,6 +364,13 @@
     const labels = getCurrentLevel().labels;
     // Nullish (not falsy) so a level can intentionally set an empty-string label.
     return labels && labels[key] != null ? labels[key] : fallback;
+  }
+
+  // Active level's visual theme, driving which backdrop/ground/collectible/
+  // checkpoint/goal art family the draw* routines use. Defaults to "city" so a
+  // level that omits `theme` renders exactly like Level 1.
+  function getTheme() {
+    return getCurrentLevel().theme || "city";
   }
 
   // Personal bests persist across reloads in localStorage under a versioned key.
@@ -1275,6 +1292,13 @@
 
     drawSunMoon(cam, zone);
 
+    if (getTheme() === "network") {
+      drawNetworkBackdrop(cam);
+      return;
+    }
+
+    // City theme (Level 1): dystopian skyline for the early zones, brightening
+    // into green hills from zone 3 on — the broken-world → hope progression.
     const far = -Math.floor(cam * 0.22) % 180;
     ctx.fillStyle = state.currentZone < 3 ? "#24282b" : "#5aa65a";
     for (let x = far - 180; x < VIEW_W + 180; x += 60) {
@@ -1311,8 +1335,68 @@
     }
   }
 
+  // Level 2 "network at night" parallax backdrop (ticket 60f350ff). Two layers
+  // of node infrastructure read as early Bitcoin development and network growth:
+  // distant server towers whose terminal windows light up more in later zones,
+  // and a nearer mempool node-map whose dots blink "online". Everything is keyed
+  // off world x and the run clock's integer tick (mod()/Math.floor), so it is
+  // pixel-stable, deterministic on every timed attempt, and culled per column —
+  // colors stay dark/muted so the foreground keeps full readability.
+  function drawNetworkBackdrop(cam) {
+    // Far layer: server towers. More windows are lit the deeper you are into the
+    // run (currentZone 0..5), so the skyline visibly "comes online" as you go.
+    const litThreshold = 2 + state.currentZone;
+    const far = mod(-Math.floor(cam * 0.22), 150);
+    for (let sx = far - 150; sx < VIEW_W + 150; sx += 150) {
+      ctx.fillStyle = "#161b30";
+      rect(sx, 92, 30, 112);
+      rect(sx + 36, 116, 24, 88);
+      ctx.fillStyle = "#2a3350";
+      rect(sx + 13, 84, 3, 10);
+      drawTowerWindows(sx + 4, 100, 4, litThreshold, 0);
+      drawTowerWindows(sx + 40, 124, 3, litThreshold, 7);
+    }
+
+    // Near layer: a mempool node-map — dots linked by a faint wire, each blinking
+    // online on a slow deterministic tick (network gossip), parallaxing faster.
+    const near = mod(-Math.floor(cam * 0.5), 96);
+    ctx.fillStyle = "#26406a";
+    for (let nx = near - 96; nx < VIEW_W + 96; nx += 96) rect(nx + 6, 178, 90, 1);
+    const tick = Math.floor(state.time * 2);
+    for (let nx = near - 96; nx < VIEW_W + 96; nx += 96) {
+      const online = (tick + Math.floor(nx / 96)) % 4 !== 0;
+      ctx.fillStyle = online ? palette.green : palette.green2;
+      rect(nx, 174, 6, 6);
+      ctx.fillStyle = "#0e1426";
+      rect(nx + 2, 176, 2, 2);
+    }
+  }
+
+  // One column of server-tower windows. A window is lit when its index falls
+  // under `litThreshold` (mod 7), so denser lighting reads as more nodes online.
+  // `seed` offsets the pattern between a tower's two stacks so they differ.
+  function drawTowerWindows(x, y, cols, litThreshold, seed) {
+    for (let r = 0; r < 6; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        ctx.fillStyle = (r * 3 + c + seed) % 7 < litThreshold ? "#3c6e5a" : "#10162a";
+        rect(x + c * 6, y + r * 8, 3, 4);
+      }
+    }
+  }
+
   function drawSunMoon(cam, zone) {
     const x = 196 - Math.floor(cam * 0.03) % 80;
+    if (getTheme() === "network") {
+      // A pale moon over the network-at-night sky, with two craters for texture.
+      ctx.fillStyle = "#2a3350";
+      rect(x - 1, 29, 22, 22);
+      ctx.fillStyle = "#cdd6f0";
+      rect(x, 30, 20, 20);
+      ctx.fillStyle = "#aab4d6";
+      rect(x + 12, 33, 5, 5);
+      rect(x + 5, 41, 4, 4);
+      return;
+    }
     const color = state.currentZone < 3 ? "#9f594a" : zone.accent;
     ctx.fillStyle = color;
     rect(x, 30, 20, 20);
@@ -1328,9 +1412,13 @@
       if (solid.kind === "ground") {
         ctx.fillStyle = zone.ground;
         rect(x, solid.y, solid.w, solid.h);
-        ctx.fillStyle = state.currentZone < 3 ? "#70745f" : "#54c35d";
-        rect(x, solid.y, solid.w, 4);
-        ctx.fillStyle = state.currentZone < 3 ? "#262929" : "#225f35";
+        // Top edge + vertical seams. The network theme uses a terminal-green
+        // "circuit floor" trim throughout; the city theme keeps its grey →
+        // green-grass transition keyed off the zone progression.
+        const network = getTheme() === "network";
+        ctx.fillStyle = network ? "#3ad17a" : state.currentZone < 3 ? "#70745f" : "#54c35d";
+        rect(x, solid.y, solid.w, network ? 2 : 4);
+        ctx.fillStyle = network ? "#143a28" : state.currentZone < 3 ? "#262929" : "#225f35";
         for (let tx = x - mod(x, TILE); tx < x + solid.w; tx += TILE) {
           rect(tx, solid.y + 16, 1, solid.h - 16);
         }
@@ -1397,11 +1485,23 @@
   }
 
   function drawCoins(cam) {
+    const network = getTheme() === "network";
     const pulse = Math.floor(state.time * 8) % 2;
     for (const coin of coins) {
       if (coin.taken) continue;
       const x = Math.round(coin.x - cam);
       if (x < -8 || x > VIEW_W + 8) continue;
+      if (network) {
+        // SATS: a tiny satoshi token — orange core inside a terminal-green ring,
+        // with a bright spark pixel. Reads as a digital coin, not L1's gold coin.
+        ctx.fillStyle = palette.green;
+        rect(x + 1, coin.y, 6, 8);
+        ctx.fillStyle = palette.orange2;
+        rect(x + 2 + pulse, coin.y + 1, 4 - pulse * 2, 6);
+        ctx.fillStyle = palette.yellow;
+        rect(x + 3, coin.y + 2, 2, 2);
+        continue;
+      }
       ctx.fillStyle = palette.orange2;
       rect(x + 1 + pulse, coin.y, 6 - pulse * 2, 8);
       ctx.fillStyle = palette.orange;
@@ -1410,11 +1510,29 @@
   }
 
   function drawPages(cam) {
+    const network = getTheme() === "network";
     for (const page of pages) {
       if (page.taken) continue;
       const x = Math.round(page.x - cam);
       if (x < -12 || x > VIEW_W + 12) continue;
       const bob = Math.round(Math.sin(state.time * 5 + page.x) * 2);
+      if (network) {
+        // PATCH: a signed code-diff note — a dark terminal card with green "+"
+        // added lines and a gold signature seal. The L2 milestone collectible
+        // (PATCHES MERGED), distinct from L1's pale whitepaper page.
+        ctx.fillStyle = palette.ink2;
+        rect(x, page.y + bob, page.w, page.h);
+        ctx.fillStyle = palette.gray2;
+        rect(x, page.y + bob, page.w, 2);
+        ctx.fillStyle = palette.green;
+        rect(x + 2, page.y + 4 + bob, 1, 3);
+        rect(x + 1, page.y + 5 + bob, 3, 1);
+        rect(x + 6, page.y + 5 + bob, 4, 1);
+        rect(x + 6, page.y + 9 + bob, 4, 1);
+        ctx.fillStyle = palette.yellow;
+        rect(x + page.w - 4, page.y + page.h - 4 + bob, 3, 3);
+        continue;
+      }
       ctx.fillStyle = palette.paper;
       rect(x, page.y + bob, page.w, page.h);
       ctx.fillStyle = palette.paper2;
@@ -1498,9 +1616,24 @@
   }
 
   function drawCheckpoints(cam) {
+    const network = getTheme() === "network";
     for (const checkpoint of checkpoints) {
       const x = Math.round(checkpoint.x - cam);
       if (x < -20 || x > VIEW_W + 20) continue;
+      if (network) {
+        // Node beacon: a mast topped with a signal lamp that goes solid green
+        // once synced (taken). Reads as bringing a node online vs. L1's "B" flag.
+        ctx.fillStyle = checkpoint.taken ? palette.green2 : palette.gray2;
+        rect(x, checkpoint.y - 26, 3, 30);
+        // Beacon lamp: blinks while unsynced, locks bright green once taken.
+        const on = checkpoint.taken || Math.floor(state.time * 3) % 2 === 0;
+        ctx.fillStyle = checkpoint.taken ? palette.green : on ? palette.yellow : palette.gray;
+        rect(x - 3, checkpoint.y - 30, 9, 7);
+        ctx.fillStyle = palette.ink;
+        rect(x - 1, checkpoint.y - 28, 2, 2);
+        rect(x + 2, checkpoint.y - 28, 2, 2);
+        continue;
+      }
       ctx.fillStyle = checkpoint.taken ? palette.green : palette.gray;
       rect(x, checkpoint.y - 26, 3, 30);
       rect(x + 3, checkpoint.y - 26, 17, 10);
@@ -1512,6 +1645,23 @@
   function drawGoal(cam) {
     const x = Math.round(goal.x - cam);
     if (x < -40 || x > VIEW_W + 40) return;
+    if (getTheme() === "network") {
+      // THE NETWORK finish: a small server rack with a grid of green node lights
+      // and a blinking uplink lamp — the live network you hand the work off to.
+      ctx.fillStyle = palette.ink2;
+      rect(x, goal.y + 2, goal.w + 14, goal.h + 4);
+      ctx.fillStyle = palette.gray2;
+      rect(x + 2, goal.y + 4, goal.w + 10, 3);
+      // Node-light grid (3x4), all lit — the network is fully online here.
+      ctx.fillStyle = palette.green;
+      for (let r = 0; r < 3; r += 1) {
+        for (let c = 0; c < 4; c += 1) rect(x + 4 + c * 6, goal.y + 12 + r * 8, 3, 3);
+      }
+      // Uplink lamp.
+      ctx.fillStyle = Math.floor(state.time * 4) % 2 ? palette.yellow : palette.orange;
+      rect(x + goal.w / 2, goal.y - 6, 4, 6);
+      return;
+    }
     ctx.fillStyle = palette.ink2;
     rect(x, goal.y + 8, goal.w, goal.h - 8);
     ctx.fillStyle = palette.paper;
@@ -1536,9 +1686,13 @@
         continue;
       }
 
-      // Reuse one of three existing shapes per the enemy archetype (machine /
-      // critter / patroller). Level-2 types map onto these for readability;
-      // bespoke Level-2 art is ticket 60f350ff.
+      // Level-2 threats have bespoke sprites (ticket 60f350ff) so the legacy
+      // system reads distinctly at a glance. Level 1's banker/printer/miner fall
+      // through to the three shared archetype shapes (machine/critter/patroller).
+      if (enemy.type === "fud") { drawFud(x, enemy.y, enemy.w, enemy.h); continue; }
+      if (enemy.type === "chargeback") { drawChargeback(x, enemy.y, enemy.w, enemy.h); continue; }
+      if (enemy.type === "exploit") { drawExploit(x, enemy.y, enemy.w, enemy.h); continue; }
+
       const shape = enemyConfig(enemy.type).shape;
       if (shape === "machine") {
         ctx.fillStyle = palette.gray2;
@@ -1567,6 +1721,64 @@
         rect(x + 11, enemy.y + 11, 3, 3);
       }
     }
+  }
+
+  // FUD — a red tabloid headline sheet: pale paper, a red banner, a blaring "!"
+  // and a couple of body-text lines. Reads as alarmist press ("Bitcoin is dead")
+  // rather than the L1 banker's red goon, while keeping the same patrol footprint.
+  function drawFud(x, y, w, h) {
+    ctx.fillStyle = palette.paper2;
+    rect(x, y + 2, w, h - 3);
+    ctx.fillStyle = palette.paper;
+    rect(x + 1, y + 3, w - 2, h - 5);
+    ctx.fillStyle = palette.red;
+    rect(x + 1, y + 3, w - 2, 4);
+    ctx.fillStyle = palette.red2;
+    rect(x + 3, y + 9, 2, 5);
+    rect(x + 3, y + 15, 2, 1);
+    ctx.fillStyle = palette.ink2;
+    rect(x + 8, y + 10, 6, 1);
+    rect(x + 8, y + 13, 5, 1);
+  }
+
+  // CHARGEBACK — a violet reversal terminal: a card slot over a counter-clockwise
+  // "reverse" arrow. Represents the reversible-payments world Bitcoin replaced;
+  // distinct from the L1 printer's grey machine. Spark color is violet to match.
+  function drawChargeback(x, y, w, h) {
+    ctx.fillStyle = palette.violet;
+    rect(x, y + 3, w, h - 3);
+    ctx.fillStyle = "#5a3fb0";
+    rect(x, y + 3, w, 2);
+    ctx.fillStyle = palette.ink;
+    rect(x + 2, y + 7, w - 4, 2);
+    // Reversal arrow drawn from rects: an arc on the left, arrowhead top-right.
+    ctx.fillStyle = palette.white;
+    rect(x + 4, y + 11, 8, 1);
+    rect(x + 4, y + 11, 1, 4);
+    rect(x + 4, y + 14, 4, 1);
+    rect(x + 11, y + 9, 1, 3);
+    rect(x + 10, y + 9, 3, 1);
+  }
+
+  // EXPLOIT — a live bug: green segmented body, red glitch eyes, antennae and
+  // legs. The squashable threat you "patch" by landing on it; distinct from the
+  // L1 miner's friendly critter (which has pale eyes and no antennae/legs).
+  function drawExploit(x, y, w, h) {
+    ctx.fillStyle = palette.green2;
+    rect(x + 3, y, 1, 3);
+    rect(x + 12, y, 1, 3);
+    ctx.fillStyle = palette.green;
+    rect(x + 2, y + 3, w - 4, h - 6);
+    ctx.fillStyle = palette.green2;
+    rect(x + 2, y + 3, w - 4, 2);
+    ctx.fillStyle = "#1c7a44";
+    rect(x + 2, y + 9, w - 4, 1);
+    ctx.fillStyle = palette.red;
+    rect(x + 5, y + 6, 2, 2);
+    rect(x + 9, y + 6, 2, 2);
+    ctx.fillStyle = palette.green2;
+    rect(x + 1, y + h - 3, 2, 3);
+    rect(x + w - 3, y + h - 3, 2, 3);
   }
 
   function drawParticles(cam) {
