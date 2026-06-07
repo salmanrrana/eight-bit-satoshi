@@ -279,6 +279,23 @@
           { x: 2600, y: 172, index: 3, name: "HARDENING" },
           { x: 3560, y: 172, index: 4, name: "MINING RACE" },
           { x: 4600, y: 172, index: 5, name: "THE NETWORK" }
+        ],
+        // Ally cameos (ticket 944f5c8b), one per the two beats the design reserved
+        // (plans/level-2-design.md "Ally cameo hooks"). Decorative only: a small
+        // 8-bit sprite plus a single ambient line fired once when the player first
+        // crosses `triggerX`. They never pause the timer or lock input, so they
+        // stay invisible to the ANY% leaderboard and are skippable by simply
+        // running past. Copy stays factual and avoids overclaiming history.
+        //   kind     which draw routine (see drawAllies)
+        //   x, y     sprite top-left in world space (feet rest on the ground band)
+        //   triggerX world x that fires the ambient line (slightly ahead of the
+        //            sprite so the line reads as you arrive; offset from zone and
+        //            checkpoint boundaries so it never clobbers those toasts)
+        allies: [
+          // Zone 1 FIRST SEND — Hal Finney receiving the first coins ever sent.
+          { kind: "hal", x: 340, y: 182, triggerX: 290, name: "HAL FINNEY", line: "Hal Finney: got the coins — thanks!" },
+          // Zone 6 THE NETWORK — early builders bringing more nodes online.
+          { kind: "nodes", x: 4820, y: 184, triggerX: 4780, name: "EARLY BUILDERS", line: "Early builders: more nodes online." }
         ]
       }
     }
@@ -619,6 +636,12 @@
   const enemies = [];
   const hazards = [];
   const checkpoints = [];
+  // Ally/cameo markers (e.g. Hal Finney, the early-builder node cluster). Purely
+  // decorative: they are never solids, hazards, or collectibles, so they cannot
+  // affect collision, timing, or the leaderboard. Each carries a one-shot ambient
+  // line shown via the existing non-blocking toast when the player first passes
+  // its trigger. Optional per level — Level 1 has none.
+  const allies = [];
   const particles = new Array(48).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, color: palette.orange }));
   // Finish marker box. Position and size are loaded from the active level's
   // definition in initLevel so the goal can sit anywhere per level.
@@ -654,6 +677,7 @@
     enemies.length = 0;
     hazards.length = 0;
     checkpoints.length = 0;
+    allies.length = 0;
 
     for (const [x, w] of layout.ground) addGround(x, w);
     for (const [x, y, w, h, kind, cycle] of layout.platforms) addPlatform(x, y, w, h, kind, cycle);
@@ -665,6 +689,11 @@
     for (const cp of layout.checkpoints) {
       checkpoints.push({ ...cp, taken: false });
     }
+    // Allies are optional (absent on Level 1). Cloned with a per-run `greeted`
+    // flag so each ambient line fires at most once per full run. Rebuilt here
+    // (only on a full reset, not on checkpoint respawn) so a respawn does not
+    // replay lines the player already saw — keeping them unobtrusive on retry.
+    for (const ally of layout.allies || []) addAlly(ally);
   }
 
   function addGround(x, w) {
@@ -700,6 +729,22 @@
 
   function addHazard(x, y, w, h) {
     hazards.push({ x, y, w, h });
+  }
+
+  // Build a decorative ally cameo. `triggerX` defaults to the sprite's x so a
+  // definition can omit it; `greeted` tracks the once-per-run ambient line.
+  function addAlly(spec) {
+    allies.push({
+      kind: spec.kind,
+      x: spec.x,
+      y: spec.y,
+      w: spec.w || 18,
+      h: spec.h || 22,
+      name: spec.name || "",
+      line: spec.line || "",
+      triggerX: typeof spec.triggerX === "number" ? spec.triggerX : spec.x,
+      greeted: false
+    });
   }
 
   function resetRun(full = true) {
@@ -914,6 +959,7 @@
     updateEnemies(dt);
     updateCollectibles();
     updateCheckpoints();
+    updateAllies();
     updateParticles(dt);
 
     if (overlap(player, goal)) completeGame();
@@ -1131,6 +1177,22 @@
     state.toastTime = 1.6;
   }
 
+  // Fire an ally's ambient line the first time the player crosses its trigger.
+  // This only writes to the existing non-blocking toast (no input lock, no timer
+  // pause), and runs after updateCheckpoints so a checkpoint split — the more
+  // important readout — wins if the two ever coincided. Triggers are placed away
+  // from zone/checkpoint boundaries in the level data so that does not happen.
+  function updateAllies() {
+    for (const ally of allies) {
+      if (ally.greeted || !ally.line) continue;
+      if (player.x > ally.triggerX) {
+        ally.greeted = true;
+        state.toast = ally.line;
+        state.toastTime = 2.4;
+      }
+    }
+  }
+
   function hurtPlayer(fell) {
     if (player.invincible > 0 && !fell) return;
 
@@ -1191,6 +1253,7 @@
     drawHazards(cam);
     drawCoins(cam);
     drawPages(cam);
+    drawAllies(cam);
     drawCheckpoints(cam);
     drawGoal(cam);
     drawEnemies(cam);
@@ -1355,6 +1418,78 @@
       rect(x + 2, page.y + 8 + bob, 6, 1);
       ctx.fillStyle = palette.orange;
       rect(x + 8, page.y + bob, 3, 3);
+    }
+  }
+
+  // Ally cameos. Off-screen markers are culled like every other prop. Each kind
+  // routes to a small rect-only sprite drawn in the shared 8-bit palette so the
+  // cameos read as part of the world, not an overlay.
+  function drawAllies(cam) {
+    for (const ally of allies) {
+      const x = Math.round(ally.x - cam);
+      if (x + ally.w < -8 || x > VIEW_W + 8) continue;
+      if (ally.kind === "nodes") drawNodeCluster(x, ally.y);
+      else drawHal(x, ally.y);
+    }
+  }
+
+  // Hal Finney: a small node operator standing beside his terminal. Distinct from
+  // the player (dark suit, orange visor) via a teal jacket and pale face. A slow
+  // green blink on the terminal screen reads as "running bitcoin" (the first node)
+  // without any text. `y` is the sprite top; feet rest on the ground band.
+  function drawHal(x, y) {
+    const screenOn = Math.floor(state.time * 1.5) % 2 === 0;
+    // Terminal at his side.
+    ctx.fillStyle = palette.gray2;
+    rect(x - 8, y + 9, 9, 13);
+    ctx.fillStyle = screenOn ? palette.green : palette.green2;
+    rect(x - 6, y + 11, 5, 5);
+    ctx.fillStyle = palette.gray;
+    rect(x - 8, y + 21, 9, 1);
+    // Legs.
+    ctx.fillStyle = palette.ink2;
+    rect(x + 3, y + 16, 4, 6);
+    rect(x + 9, y + 16, 4, 6);
+    // Torso — teal jacket.
+    ctx.fillStyle = palette.blue;
+    rect(x + 2, y + 8, 12, 9);
+    ctx.fillStyle = palette.blue2;
+    rect(x + 2, y + 8, 12, 2);
+    // Head + hair.
+    ctx.fillStyle = palette.paper;
+    rect(x + 4, y + 1, 8, 7);
+    ctx.fillStyle = palette.brown2;
+    rect(x + 4, y, 8, 3);
+    // Eyes + small smile.
+    ctx.fillStyle = palette.ink;
+    rect(x + 6, y + 4, 1, 2);
+    rect(x + 9, y + 4, 1, 2);
+    rect(x + 6, y + 7, 4, 1);
+  }
+
+  // Early-builder node cluster: a small server with a grid of node lights that
+  // fill in over time (more nodes coming online) and a blinking uplink antenna —
+  // the network growing past any single founder. `y` is the sprite top.
+  function drawNodeCluster(x, y) {
+    // Antenna mast + blinking tip.
+    ctx.fillStyle = palette.gray;
+    rect(x + 9, y, 2, 9);
+    ctx.fillStyle = Math.floor(state.time * 4) % 2 ? palette.yellow : palette.orange;
+    rect(x + 8, y - 2, 4, 4);
+    // Server body.
+    ctx.fillStyle = palette.gray2;
+    rect(x, y + 8, 20, 12);
+    ctx.fillStyle = palette.gray;
+    rect(x, y + 8, 20, 2);
+    // Node lights filling in across a cycle, so the cluster keeps "lighting up".
+    const lit = Math.floor(state.time * 3) % 9;
+    let i = 0;
+    for (let ry = 0; ry < 2; ry += 1) {
+      for (let cx = 0; cx < 4; cx += 1) {
+        ctx.fillStyle = i < lit ? palette.green : palette.green2;
+        rect(x + 3 + cx * 4, y + 12 + ry * 4, 2, 2);
+        i += 1;
+      }
     }
   }
 
