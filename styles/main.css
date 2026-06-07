@@ -432,6 +432,100 @@ button {
   color: var(--bitcoin);
 }
 
+/* Optional leaderboard submission, shown beneath the read-only run stats. A top
+   rule separates it so it reads as an action, not another stat row. */
+.results-submit {
+  width: 100%;
+  display: grid;
+  gap: clamp(6px, 1.6vw, 10px);
+  margin-top: clamp(2px, 1vw, 6px);
+  padding-top: clamp(8px, 2vw, 14px);
+  border-top: 2px solid var(--panel-2);
+}
+
+.results-submit-note {
+  margin: 0;
+  opacity: 0.8;
+  font-size: clamp(8px, 1.8vw, 11px);
+  line-height: 1.45;
+}
+
+.results-submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* The single editable field in the app. It overrides the global no-select/no-touch
+   rules so the on-screen keyboard opens and the caret works on touch devices. */
+.results-submit-name {
+  flex: 1 1 160px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 2px solid var(--outline);
+  background: var(--panel);
+  color: var(--paper);
+  font: inherit;
+  font-size: clamp(11px, 2.4vw, 15px);
+  letter-spacing: 1px;
+  text-align: center;
+  box-shadow: 0 4px 0 var(--ink);
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
+.results-submit-name::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+  letter-spacing: 1px;
+}
+
+.results-submit-name:focus {
+  outline: none;
+  border-color: var(--bitcoin);
+  box-shadow: 0 4px 0 var(--ink), inset 0 0 0 2px var(--bitcoin);
+}
+
+.results-submit-button {
+  flex: 0 0 auto;
+}
+
+.results-submit-name:disabled,
+.results-submit-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+  filter: none;
+}
+
+/* Submission feedback line. Reserves a row of height so the form does not jump
+   when a message appears. Colour encodes the outcome state. */
+.results-submit-status {
+  margin: 0;
+  min-height: 1.3em;
+  font-size: clamp(9px, 2vw, 12px);
+  line-height: 1.4;
+}
+
+.results-submit-status.is-pending,
+.results-submit-status.is-offline {
+  color: var(--muted);
+}
+
+.results-submit-status.is-ok {
+  color: var(--green);
+}
+
+.results-submit-status.is-invalid {
+  color: var(--bitcoin);
+}
+
+.results-submit-status.is-error {
+  color: var(--red);
+}
+
 .primary-button,
 .touch-button {
   border: 2px solid var(--outline);

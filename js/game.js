@@ -892,7 +892,8 @@
       buildFinalTime(state.completionTime, isNewBest),
       buildComparison(state.completionTime, previousBest, isNewBest),
       buildSplitList(state.splits),
-      buildStats()
+      buildStats(),
+      buildSubmitSection(state.lastRun)
     );
     messageResults.classList.remove("hidden");
 
@@ -988,6 +989,133 @@
     span.className = className;
     span.textContent = value;
     return span;
+  }
+
+  // Build the optional leaderboard-submission form shown beneath the run stats.
+  // `run` is the payload captured at completion (state.lastRun); the player only
+  // adds a display name, and the network call owns validation/duplicate handling
+  // (js/leaderboard-client.js + the shared rules in js/leaderboard-rules.js).
+  //
+  // Hard rule: this is purely additive. It only appears after a real completion
+  // (showResults), never blocks PLAY AGAIN / LEVELS, and never throws into the
+  // game — a missing rules/client module or an unreachable backend just degrades
+  // to "no form" or an "offline" message, leaving local play untouched.
+  function buildSubmitSection(run) {
+    const leaderboard = window.eightBitSatoshiLeaderboard;
+    const ruleset = window.LeaderboardRules;
+    const form = document.createElement("form");
+    form.className = "results-submit";
+    form.noValidate = true;
+
+    // No client module loaded (or no captured run) → offer nothing rather than a
+    // form that cannot work. Local play is unaffected.
+    if (!leaderboard || !run) return form;
+
+    const note = document.createElement("p");
+    note.className = "results-submit-note";
+    note.textContent = "Submit posts your name, time and run stats to the public leaderboard.";
+
+    const row = document.createElement("div");
+    row.className = "results-submit-row";
+
+    const input = document.createElement("input");
+    input.className = "results-submit-name";
+    input.type = "text";
+    input.maxLength = ruleset ? ruleset.NAME_MAX : 12;
+    input.placeholder = "YOUR NAME";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "Display name for the leaderboard");
+
+    const button = document.createElement("button");
+    button.type = "submit";
+    button.className = "primary-button results-submit-button";
+    button.textContent = "SUBMIT TIME";
+
+    row.append(input, button);
+
+    const status = document.createElement("p");
+    status.className = "results-submit-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+
+    form.append(note, row, status);
+
+    function setStatus(kind, text) {
+      status.className = "results-submit-status" + (kind ? " is-" + kind : "");
+      status.textContent = text;
+    }
+
+    // After a stored or duplicate run, lock the form so the same completion screen
+    // cannot resubmit (prevents accidental double-submits; full anti-cheat is
+    // ticket f5c6f03e). PLAY AGAIN starts a fresh run with a fresh form.
+    let submitted = false;
+    function lockForm() {
+      submitted = true;
+      input.disabled = true;
+      button.disabled = true;
+    }
+
+    async function handleSubmit(event) {
+      event.preventDefault();
+      if (submitted || button.disabled) return;
+
+      // Instant client-side name feedback before any network call. The backend
+      // re-validates authoritatively (contract §2.3); this just saves a round trip
+      // on the most common mistake (empty/too-long/bad-character names).
+      const nameCheck = ruleset
+        ? ruleset.validateName(input.value)
+        : { ok: input.value.trim().length > 0, value: input.value.trim() };
+      if (!nameCheck.ok) {
+        setStatus("invalid", nameCheck.error || "Enter a valid name.");
+        input.focus();
+        return;
+      }
+
+      const submission = Object.assign({}, run, {
+        playerName: nameCheck.value,
+        clientTimestamp: new Date().toISOString()
+      });
+
+      const idleLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "SUBMITTING…";
+      setStatus("pending", "Submitting your run…");
+
+      let result;
+      try {
+        // submitScore is documented never to reject, but stay defensive so a thrown
+        // error can never crash the results screen or block replay.
+        result = await leaderboard.submitScore(submission);
+      } catch (err) {
+        result = { status: "error", message: String(err && err.message ? err.message : err) };
+      }
+
+      if (result.status === "ok") {
+        setStatus("ok", "You're on the leaderboard!");
+        lockForm();
+      } else if (result.status === "duplicate") {
+        setStatus("ok", "This run is already on the leaderboard.");
+        lockForm();
+      } else if (result.status === "invalid") {
+        const detail = result.errors && result.errors.length ? result.errors[0] : "Submission was rejected.";
+        setStatus("invalid", detail);
+        button.disabled = false;
+        button.textContent = idleLabel;
+        input.focus();
+      } else if (result.status === "offline") {
+        setStatus("offline", "Leaderboard offline — run not submitted. Keep playing and try again later.");
+        button.disabled = false;
+        button.textContent = idleLabel;
+      } else {
+        setStatus("error", "Couldn't submit — " + (result.message || "try again."));
+        button.disabled = false;
+        button.textContent = idleLabel;
+      }
+    }
+
+    form.addEventListener("submit", handleSubmit);
+    return form;
   }
 
   function gameOver() {
@@ -1993,7 +2121,17 @@
     }
   }
 
+  // A keyboard event is "text entry" when it targets an editable field — the only
+  // one in the app is the leaderboard name input on the results screen. While it is
+  // focused we must not hijack keys (e.g. "r" would restart the run) or preventDefault
+  // typed characters, so both handlers bail out early for it.
+  function isTextEntryTarget(event) {
+    const el = event.target;
+    return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  }
+
   function handleKeyDown(event) {
+    if (isTextEntryTarget(event)) return;
     const key = event.key.toLowerCase();
     if (["arrowleft", "arrowright", "arrowup", " ", "a", "d", "w", "enter", "p", "r"].includes(key)) {
       event.preventDefault();
@@ -2028,6 +2166,7 @@
   }
 
   function handleKeyUp(event) {
+    if (isTextEntryTarget(event)) return;
     const key = event.key.toLowerCase();
     if (key === "a" || key === "arrowleft") setAction("left", false);
     if (key === "d" || key === "arrowright") setAction("right", false);

@@ -46,6 +46,19 @@ stores is the contract in
 are optional — if the backend is offline, local play and personal bests are
 unaffected.
 
+### Submitting a Score
+
+After finishing a level, the results screen shows an optional **SUBMIT TIME**
+form: enter a short display name (1–12 characters) and submit your run to the
+public leaderboard. A note on the form states that the name, time, and run stats
+become public. The name is validated both in the browser and again on the server.
+
+Submitting is never required — **PLAY AGAIN** and **LEVELS** always work. The form
+reports a clear outcome for every case: success, an already-on-the-board duplicate,
+a validation problem (e.g. an empty or too-long name), the backend being offline,
+or an unexpected error. Offline and error states leave the form editable so you can
+retry; a successful or duplicate submit locks it so the same run is not posted twice.
+
 ## Check
 
 ```bash
