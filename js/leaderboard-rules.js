@@ -45,21 +45,21 @@
   // system; maintainers can expand it and old rows will be filtered on read by the
   // server as soon as the rule changes.
   const NAME_BLOCKED_TERMS = [
-    "fuck",
-    "shit",
-    "bitch",
-    "asshole",
-    "cunt",
-    "whore",
-    "slut",
-    "nazi",
-    "hitler",
-    "kkk",
-    "rape",
-    "rapist",
-    "kys",
-    "killyourself",
-    "killurself"
+    { value: "fuck", match: "compact" },
+    { value: "shit", match: "compact" },
+    { value: "bitch", match: "compact" },
+    { value: "asshole", match: "compact" },
+    { value: "whore", match: "compact" },
+    { value: "slut", match: "compact" },
+    { value: "killyourself", match: "compact" },
+    { value: "killurself", match: "compact" },
+    { value: "cunt", match: "token" },
+    { value: "nazi", match: "token" },
+    { value: "hitler", match: "token" },
+    { value: "kkk", match: "token" },
+    { value: "rape", match: "token" },
+    { value: "rapist", match: "token" },
+    { value: "kys", match: "token" }
   ];
 
   // Sanity ceiling for a submitted time. A real run is minutes long; anything past
@@ -92,7 +92,7 @@
     return [levelId, category, gameVersion, rulesVersion].join("::");
   }
 
-  function normalizeNameForModeration(name) {
+  function normalizeModerationChars(name) {
     return name
       .toLowerCase()
       .replace(/0/g, "o")
@@ -100,14 +100,26 @@
       .replace(/3/g, "e")
       .replace(/4/g, "a")
       .replace(/5/g, "s")
-      .replace(/7/g, "t")
-      .replace(/[^a-z0-9]+/g, "");
+      .replace(/7/g, "t");
+  }
+
+  function normalizeNameForModeration(name) {
+    return normalizeModerationChars(name).replace(/[^a-z0-9]+/g, "");
+  }
+
+  function tokenizeNameForModeration(name) {
+    return normalizeModerationChars(name).split(/[^a-z0-9]+/).filter(Boolean);
   }
 
   function validateNameModeration(name) {
     const compact = normalizeNameForModeration(name);
+    const tokens = tokenizeNameForModeration(name);
     for (let i = 0; i < NAME_BLOCKED_TERMS.length; i += 1) {
-      if (compact.indexOf(NAME_BLOCKED_TERMS[i]) !== -1) {
+      const term = NAME_BLOCKED_TERMS[i];
+      const blocked = term.match === "token"
+        ? tokens.indexOf(term.value) !== -1
+        : compact.indexOf(term.value) !== -1;
+      if (blocked) {
         return { ok: false, error: "playerName is not allowed" };
       }
     }

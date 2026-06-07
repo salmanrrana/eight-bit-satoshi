@@ -137,6 +137,69 @@ function isPublicEntry(entry) {
   return !!entry && typeof entry === "object" && rules.validateName(entry.playerName).ok;
 }
 
+function publicSplit(split) {
+  return {
+    index: split.index,
+    name: split.name,
+    total: split.total,
+    split: split.split
+  };
+}
+
+function publicLevelBreakdown(level) {
+  return {
+    levelId: level.levelId,
+    level: level.level,
+    time: level.time,
+    serverTimestamp: level.serverTimestamp,
+    id: level.id
+  };
+}
+
+function publicEntry(entry) {
+  return {
+    id: entry.id,
+    levelId: entry.levelId,
+    level: entry.level,
+    gameVersion: entry.gameVersion,
+    rulesVersion: entry.rulesVersion,
+    category: entry.category,
+    playerName: entry.playerName,
+    time: entry.time,
+    deaths: entry.deaths,
+    coins: entry.coins,
+    pages: entry.pages,
+    pagesTotal: entry.pagesTotal,
+    lives: entry.lives,
+    isNewBest: entry.isNewBest === true,
+    splits: Array.isArray(entry.splits) ? entry.splits.map(publicSplit) : [],
+    serverTimestamp: entry.serverTimestamp,
+    rank: entry.rank
+  };
+}
+
+function publicCombinedEntry(entry) {
+  const levels = {};
+  if (entry.levels && typeof entry.levels === "object") {
+    Object.keys(entry.levels).forEach(function (levelId) {
+      const level = entry.levels[levelId];
+      if (level && typeof level === "object") levels[levelId] = publicLevelBreakdown(level);
+    });
+  }
+  return {
+    id: entry.id,
+    levelId: entry.levelId,
+    category: entry.category,
+    gameVersion: entry.gameVersion,
+    rulesVersion: entry.rulesVersion,
+    playerName: entry.playerName,
+    time: entry.time,
+    serverTimestamp: entry.serverTimestamp,
+    levels: levels,
+    rank: entry.rank
+  };
+}
+
 // GET ranked rows for a single board. Every board-identifying field is required so
 // we never accidentally mix runs from different builds or rulesets (contract §6).
 function handleGetLeaderboard(url, res) {
@@ -192,9 +255,7 @@ function handleGetLeaderboard(url, res) {
     // capped at the same NAME_MAX as submissions so an oversized query string can't
     // make every combined read do needless work.
     const playerName = url.searchParams.get("playerName");
-    const nameCheck = playerName && playerName.length <= rules.NAME_MAX
-      ? rules.validateName(playerName)
-      : null;
+    const nameCheck = playerName ? rules.validateName(playerName) : null;
     const you = nameCheck && nameCheck.ok
       ? rules.combinedProgress(visibleEntries, nameCheck.value, opts)
       : null;
@@ -202,7 +263,7 @@ function handleGetLeaderboard(url, res) {
       ok: true,
       board: board,
       total: combined.length,
-      entries: ranked,
+      entries: ranked.map(publicCombinedEntry),
       you: you
     });
     return;
@@ -218,7 +279,7 @@ function handleGetLeaderboard(url, res) {
     ok: true,
     board: board,
     total: matching.length,
-    entries: ranked
+    entries: ranked.map(publicEntry)
   });
 }
 
@@ -274,7 +335,7 @@ async function handlePostLeaderboard(req, res) {
 
   const duplicate = findDuplicate(entry);
   if (duplicate) {
-    sendJson(res, 200, { ok: true, duplicate: true, entry: duplicate });
+    sendJson(res, 200, { ok: true, duplicate: true, entry: publicEntry(duplicate) });
     return;
   }
 
@@ -290,7 +351,7 @@ async function handlePostLeaderboard(req, res) {
     return;
   }
 
-  sendJson(res, 201, { ok: true, duplicate: false, entry: entry });
+  sendJson(res, 201, { ok: true, duplicate: false, entry: publicEntry(entry) });
 }
 
 // ---------------------------------------------------------------------------

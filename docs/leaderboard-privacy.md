@@ -33,6 +33,8 @@ The Node API also does not write request metadata to the leaderboard JSON store.
 Production hosts, proxies, CDNs, or platform logs can still record IP addresses
 or user agents outside this app. Configure those logs with the shortest retention
 that fits your operational needs.
+Leaderboard API responses are serialized from an explicit public-field allowlist,
+so storage-only metadata is not returned by normal reads or duplicate responses.
 
 ## Display-name rules
 
