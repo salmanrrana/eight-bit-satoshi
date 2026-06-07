@@ -58,8 +58,10 @@ function loadEntries() {
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed;
-    console.error("[leaderboard] data file is not an array; starting empty");
-    return [];
+    // A present-but-malformed store must fail loud, not be silently treated as
+    // empty: starting empty would let the next accepted POST overwrite (and
+    // destroy) the existing file. Only a genuinely-absent file starts empty.
+    throw new Error("data file " + DATA_FILE + " does not contain a JSON array");
   } catch (err) {
     if (err.code === "ENOENT") return []; // first run, no file yet — expected
     // A corrupt/unreadable store should fail loud, not silently discard history.
