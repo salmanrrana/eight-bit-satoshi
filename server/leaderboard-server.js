@@ -180,8 +180,13 @@ function handleGetLeaderboard(url, res) {
     const opts = { category: category, gameVersion: gameVersion, rulesVersion: rulesVersion };
     const combined = rules.combineEntries(entries, opts);
     const ranked = rules.rankEntries(combined).slice(0, limit);
+    // Only compute the player's progress when a usably-short name is supplied —
+    // capped at the same NAME_MAX as submissions so an oversized query string can't
+    // make every combined read do needless work.
     const playerName = url.searchParams.get("playerName");
-    const you = playerName ? rules.combinedProgress(entries, playerName, opts) : null;
+    const you = playerName && playerName.length <= rules.NAME_MAX
+      ? rules.combinedProgress(entries, playerName, opts)
+      : null;
     sendJson(res, 200, {
       ok: true,
       board: board,

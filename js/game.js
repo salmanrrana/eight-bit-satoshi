@@ -1365,14 +1365,20 @@
   // player which level(s) they still need, confirms when they qualify, or — when we
   // don't know who they are this session — explains the combined board generically.
   function buildCombinedHint(you) {
-    if (!you) {
-      return leaderboardHint("The combined board ranks your total time across both levels — post a time on each to appear here.");
-    }
+    // Generic fallback shown whenever we can't say anything player-specific: no
+    // `you` at all, or a `you` that arrived without actionable detail (a correct
+    // combinedProgress never produces the latter, but `you` comes over HTTP and we
+    // must not silently swallow a malformed one).
+    const generic = "The combined board ranks your total time across both levels — post a time on each to appear here.";
+    if (!you) return leaderboardHint(generic);
     if (you.qualified) {
-      return leaderboardHint("You qualify! Your combined total is " + formatTime(you.time) + " across both levels.");
+      // time is always set when qualified by a correct server; guard the display
+      // so a corrupt payload degrades to a neutral mark instead of "NaN:NaN.NaN".
+      const total = typeof you.time === "number" ? formatTime(you.time) : "—";
+      return leaderboardHint("You qualify! Your combined total is " + total + " across both levels.");
     }
     const missing = Array.isArray(you.missing) ? you.missing : [];
-    if (missing.length === 0) return null;
+    if (missing.length === 0) return leaderboardHint(generic);
     const names = missing.map(function (levelId) {
       const level = LEVELS.find(function (l) { return l.id === levelId; });
       return levelShortLabel(levelId) + (level ? " (" + level.title + ")" : "");
@@ -1383,7 +1389,7 @@
   // Build a combined-board row's level breakdown ("L1 1:02.40 · L2 1:55.10"), in
   // the canonical level order, from the entry's `levels` map.
   function combinedBreakdown(levels) {
-    if (!levels) return [];
+    if (!levels || !leaderboardRules) return [];
     return Object.keys(leaderboardRules.SUBMITTABLE_LEVELS)
       .filter(function (levelId) { return levels[levelId]; })
       .map(function (levelId) { return levelShortLabel(levelId) + " " + formatTime(levels[levelId].time); });
