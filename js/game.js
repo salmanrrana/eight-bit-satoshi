@@ -44,8 +44,7 @@
   // physics, content) while rulesVersion tracks only the timing ruleset. The
   // leaderboard groups entries by gameVersion so a run set on an older build is
   // never silently ranked against a different game. Keep this in sync with the
-  // "version" field in package.json on any release that changes timed play. The
-  // full field-by-field contract lives in docs/leaderboard-contract.md.
+  // "version" field in package.json on any release that changes timed play.
   const GAME_VERSION = "1.0.0";
 
   const canvas = document.getElementById("game-canvas");
@@ -369,7 +368,7 @@
     splits: [],
     bestSplits: {},
     lastRun: null,
-    // The entry the player most recently submitted (the server row, with its id),
+    // The entry the player most recently submitted (the stored row, with its id),
     // so the leaderboard view can highlight "their" run. Null until a submit succeeds.
     lastSubmittedEntry: null,
     // Which level board the leaderboard view is currently showing, and where to
@@ -493,15 +492,14 @@
     }
   }
   // Build a structured, rules- and build-stamped summary of a finished run. This
-  // is the canonical "run payload" half of the leaderboard data contract
-  // (docs/leaderboard-contract.md): the same fields and ruleset that drive the
-  // HUD, results, and local bests also drive submissions. The submission flow
-  // (ticket d14a34a5) wraps this with the player-supplied { playerName } and a
-  // { clientTimestamp }; the backend assigns its own authoritative timestamp.
+  // is the canonical "run payload" half of the leaderboard entry: the same fields
+  // and ruleset that drive the HUD, results, and local bests also drive the saved
+  // score. The submission flow wraps this with the player-supplied { playerName }
+  // and a { clientTimestamp } before it is stored locally.
   function buildSubmission(isNewBest) {
     const level = getCurrentLevel();
     return {
-      // Stable key the backend groups a leaderboard by. The display title can be
+      // Stable key the leaderboard groups a board by. The display title can be
       // reworded without splitting a board, so id — not title — is authoritative.
       levelId: level.id,
       level: level.title,
@@ -510,8 +508,8 @@
       category: TIMING_RULES.category,
       time: state.completionTime,
       deaths: state.deaths,
-      // Collectibles. pagesTotal travels with pages so a reader (or the backend)
-      // can validate "All Pages" without hard-coding each level's page count.
+      // Collectibles. pagesTotal travels with pages so a reader can validate
+      // "All Pages" without hard-coding each level's page count.
       coins: state.coins,
       pages: state.pages,
       pagesTotal: level.layout.pages.length,
@@ -1022,12 +1020,12 @@
 
   // Build the optional leaderboard-submission form shown beneath the run stats.
   // `run` is the payload captured at completion (state.lastRun); the player only
-  // adds a display name, and the network call owns validation/duplicate handling
+  // adds a display name, and the local store owns validation/duplicate handling
   // (js/leaderboard-client.js + the shared rules in js/leaderboard-rules.js).
   //
   // Hard rule: this is purely additive. It only appears after a real completion
   // (showResults), never blocks PLAY AGAIN / LEVELS, and never throws into the
-  // game — a missing rules/client module or an unreachable backend just degrades
+  // game — a missing rules/client module or unavailable storage just degrades
   // to "no form" or an "offline" message, leaving local play untouched.
   function buildSubmitSection(run) {
     const leaderboard = window.eightBitSatoshiLeaderboard;
@@ -1042,7 +1040,7 @@
 
     const note = document.createElement("p");
     note.className = "results-submit-note";
-    note.textContent = "Public: display name, level, time, run stats and submit date. No account or email.";
+    note.textContent = "Saved on this device only: display name, level, time and run stats. No account, no server.";
 
     const row = document.createElement("div");
     row.className = "results-submit-row";
@@ -1076,8 +1074,8 @@
     }
 
     // After a stored or duplicate run, lock the form so the same completion screen
-    // cannot resubmit (prevents accidental double-submits; full anti-cheat is
-    // ticket f5c6f03e). PLAY AGAIN starts a fresh run with a fresh form.
+    // cannot resubmit (prevents accidental double-submits). PLAY AGAIN starts a
+    // fresh run with a fresh form.
     let submitted = false;
     function lockForm() {
       submitted = true;
@@ -1089,9 +1087,9 @@
       event.preventDefault();
       if (submitted || button.disabled) return;
 
-      // Instant client-side name feedback before any network call. The backend
-      // re-validates authoritatively (contract §2.3); this just saves a round trip
-      // on the most common mistake (empty/too-long/bad-character names).
+      // Instant name feedback before the store call. submitScore re-validates via
+      // the same rules; this just surfaces the most common mistake (empty/too-long/
+      // bad-character names) right away.
       const nameCheck = ruleset
         ? ruleset.validateName(input.value)
         : { ok: input.value.trim().length > 0, value: input.value.trim() };
@@ -1121,8 +1119,8 @@
       }
 
       if (result.status === "ok") {
-        // Remember the stored row (it carries the server id) so the leaderboard
-        // view can highlight this player's run when they open it.
+        // Remember the stored row (it carries its id) so the leaderboard view can
+        // highlight this player's run when they open it.
         state.lastSubmittedEntry = result.entry || null;
         setStatus("ok", "You're on the leaderboard!");
         lockForm();
@@ -1156,13 +1154,13 @@
     showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN", false, true);
   }
 
-  // ----- Leaderboard view (ticket 3048aa3c) -------------------------------------
+  // ----- Leaderboard view -------------------------------------------------------
   // An in-game overlay listing top times per level. Reachable from the title and
   // results screens. Like the rest of the leaderboard feature it is purely additive:
   // it owns no gameplay state, never throws into the loop, and degrades to clean
-  // offline/error states when the backend is unreachable.
+  // offline/error states when local storage is unavailable.
 
-  // The playable levels the contract accepts a submission for. Falls back to all
+  // The playable levels the rules accept a submission for. Falls back to all
   // levels if the rules module is missing so the picker is never empty.
   const boardLevels = LEVELS.filter(function (level) {
     if (!leaderboardRules) return true;
@@ -1172,7 +1170,7 @@
   const COMBINED_BOARD_ID = (leaderboardRules && leaderboardRules.COMBINED_LEVEL_ID) || "combined";
 
   // The tabs the view offers: one per submittable level, plus the virtual combined
-  // total (contract §5) when at least two levels can contribute to it. A board
+  // total when at least two levels can contribute to it. A board
   // descriptor is { id, kind: "level" | "combined", level, label, title }; `level`
   // is null for the combined board.
   const boards = boardLevels.map(function (level) {
@@ -1325,7 +1323,7 @@
     for (const entry of entries) {
       const isYou = !!youId && entry.id === youId;
       const date = formatRunDate(entry.serverTimestamp);
-      // Context stats only — ANY% ranks on time alone (contract §3).
+      // Context stats only — ANY% ranks on time alone.
       const metaParts = [
         entry.deaths + (entry.deaths === 1 ? " death" : " deaths"),
         entry.coins + " " + coinLabel,
@@ -1361,19 +1359,18 @@
     return hint;
   }
 
-  // Personalised combined-progress line from the server's `you` summary. Tells a
-  // player which level(s) they still need, confirms when they qualify, or — when we
-  // don't know who they are this session — explains the combined board generically.
+  // Personalised combined-progress line from the `you` summary. Tells a player
+  // which level(s) they still need, confirms when they qualify, or — when we don't
+  // know who they are this session — explains the combined board generically.
   function buildCombinedHint(you) {
     // Generic fallback shown whenever we can't say anything player-specific: no
-    // `you` at all, or a `you` that arrived without actionable detail (a correct
-    // combinedProgress never produces the latter, but `you` comes over HTTP and we
-    // must not silently swallow a malformed one).
+    // `you` at all, or a `you` without actionable detail (a correct combinedProgress
+    // never produces the latter, but guard against a malformed one anyway).
     const generic = "The combined board ranks your total time across both levels — post a time on each to appear here.";
     if (!you) return leaderboardHint(generic);
     if (you.qualified) {
-      // time is always set when qualified by a correct server; guard the display
-      // so a corrupt payload degrades to a neutral mark instead of "NaN:NaN.NaN".
+      // time is always set when qualified; guard the display so a corrupt value
+      // degrades to a neutral mark instead of "NaN:NaN.NaN".
       const total = typeof you.time === "number" ? formatTime(you.time) : "—";
       return leaderboardHint("You qualify! Your combined total is " + total + " across both levels.");
     }
@@ -1395,7 +1392,7 @@
       .map(function (levelId) { return levelShortLabel(levelId) + " " + formatTime(levels[levelId].time); });
   }
 
-  // The combined board (contract §5): total time across both levels, with each
+  // The combined board: total time across both levels, with each
   // contributing level time shown in the row meta. Highlights the current player by
   // name (combined rows carry a derived id, so we match on name, not lastSubmittedEntry.id).
   function buildCombinedTable(entries, you) {
@@ -1471,7 +1468,7 @@
       rulesVersion: TIMING_RULES.version,
       limit: 50
     };
-    // For the combined board, tell the server who "you" are (if we know from a
+    // For the combined board, tell the store who "you" are (if we know from a
     // submission this session) so it can report what's left to qualify.
     if (board.kind === "combined" && state.lastSubmittedEntry) {
       params.playerName = state.lastSubmittedEntry.playerName;
@@ -1490,7 +1487,7 @@
     if (result.status === "offline") {
       setLeaderboardBody(leaderboardMessage(
         "offline",
-        "Leaderboard offline. Start the backend (npm run server) to see rankings.",
+        "Local scores unavailable — your browser is blocking storage.",
         true
       ));
       return;

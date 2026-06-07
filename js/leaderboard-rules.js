@@ -1,10 +1,11 @@
-// Shared leaderboard validation + ranking rules.
+// Shared leaderboard rules: name validation, submission normalization, ranking,
+// and the virtual combined board.
 //
-// This is the single executable source of truth that BOTH the backend
-// (server/leaderboard-server.js) and the browser client (js/leaderboard-client.js)
-// load, so the two never drift apart. It implements the data contract documented
-// in docs/leaderboard-contract.md — read that file for the field-by-field spec and
-// the reasoning behind it. If the contract changes, change it here once.
+// Scope note: the leaderboard is a LOCAL high-score table backed by the browser's
+// localStorage (js/leaderboard-client.js). There is no server, so there is no
+// anti-cheat or content-moderation layer here — the scores live only on the
+// player's own device. This module is just the shared shape-and-ranking logic the
+// client and the in-game leaderboard view both rely on.
 //
 // The module is dependency-free and environment-agnostic: in Node it is a
 // CommonJS module (`require`), in the browser it attaches `window.LeaderboardRules`.
@@ -17,109 +18,29 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  // Active categories (contract §1). v1 ships exactly one active category because
-  // the game exposes a single timing ruleset. Reserved variants (All Pages, No
-  // Deaths) are intentionally NOT accepted as submitted categories.
+  // Active categories. v1 ships exactly one because the game exposes a single
+  // timing ruleset.
   const CATEGORIES = ["ANY%"];
 
   // Stable level keys that may be submitted, mapped to their canonical display
-  // title (contract §2.1). "combined" is a *virtual* board derived from level
-  // entries (contract §5) and must never be submitted directly.
+  // title. "combined" is a *virtual* board derived from level entries (see
+  // combineEntries) and is never submitted directly.
   const SUBMITTABLE_LEVELS = {
     "whitepaper-run": "THE WHITEPAPER RUN",
     "running-bitcoin": "RUNNING BITCOIN"
   };
 
-  // The virtual combined board's levelId (contract §1/§5). It is never submitted;
-  // it is derived on read from a player's best entry on every submittable level.
+  // The virtual combined board's levelId. It is never submitted; it is derived on
+  // read from a player's best entry on every submittable level.
   const COMBINED_LEVEL_ID = "combined";
 
-  // Display-name constraints. These are the baseline limits enforced on both
-  // sides; ticket 7f02e282 (privacy & moderation) layers a profanity/abuse filter
-  // and the public-data notice on top of this — it does not loosen these bounds.
+  // Display-name constraints.
   const NAME_MIN = 1;
   const NAME_MAX = 12;
   const NAME_ALLOWED = /^[A-Za-z0-9 ._-]+$/;
-  // Small public-board moderation blocklist. This deliberately catches obvious
-  // abusive/profane display names without pretending to be a full trust & safety
-  // system; maintainers can expand it and old rows will be filtered on read by the
-  // server as soon as the rule changes.
-  const NAME_BLOCKED_TERMS = [
-    { value: "fuck", match: "compact" },
-    { value: "shit", match: "compact" },
-    { value: "bitch", match: "compact" },
-    { value: "asshole", match: "compact" },
-    { value: "whore", match: "compact" },
-    { value: "slut", match: "compact" },
-    { value: "killyourself", match: "compact" },
-    { value: "killurself", match: "compact" },
-    { value: "cunt", match: "token" },
-    { value: "nazi", match: "token" },
-    { value: "hitler", match: "token" },
-    { value: "kkk", match: "token" },
-    { value: "rape", match: "token" },
-    { value: "rapist", match: "token" },
-    { value: "kys", match: "token" }
-  ];
 
-  // Sanity ceiling for a submitted time. A real run is minutes long; anything past
-  // a day is malformed or a clock/overflow bug, not a slow player.
-  const MAX_TIME_SECONDS = 24 * 60 * 60;
-
-  // Per-level "impossibly fast" floors in seconds (anti-cheat ticket f5c6f03e).
-  //
-  // The run clock only advances while the player is moving through the level, and
-  // the player's horizontal speed is hard-capped (MAX_RUN = 148 px/s in
-  // js/game.js). The platforms never carry the player, so the fastest a run can
-  // *physically* be is the distance from spawn to first goal overlap divided by
-  // that cap — jumping, acceleration, obstacles, and timing cycles only ADD time.
-  // That gives ~34.18s for whitepaper-run and ~36.88s for running-bitcoin; these
-  // floors sit just below those hard minimums so no real run is rejected while
-  // impossible 20-second clears are. See docs/leaderboard-anti-cheat.md for what
-  // this deliberately-lightweight check cannot catch.
-  const LEVEL_MIN_TIME = {
-    "whitepaper-run": 34,
-    "running-bitcoin": 36.5
-  };
-
-  // Per-level run metadata mirrored from js/game.js. Update this when timed level
-  // geometry, collectibles, or checkpoint definitions change.
-  const LEVEL_LIMITS = {
-    "whitepaper-run": {
-      minTime: LEVEL_MIN_TIME["whitepaper-run"],
-      maxCoins: 70,
-      pagesTotal: 9,
-      checkpoints: [
-        { index: 1, name: "CYPHERPUNKS" },
-        { index: 2, name: "GENESIS" },
-        { index: 3, name: "BLOCKCHAIN" },
-        { index: 4, name: "NETWORK" },
-        { index: 5, name: "HANDOFF" },
-        { index: 6, name: "WHITEPAPER" }
-      ]
-    },
-    "running-bitcoin": {
-      minTime: LEVEL_MIN_TIME["running-bitcoin"],
-      maxCoins: 81,
-      pagesTotal: 9,
-      checkpoints: [
-        { index: 1, name: "RUNNING BITCOIN" },
-        { index: 2, name: "BUG REPORTS" },
-        { index: 3, name: "HARDENING" },
-        { index: 4, name: "MINING RACE" },
-        { index: 5, name: "THE NETWORK" }
-      ]
-    }
-  };
-
-  const STARTING_LIVES = 3;
-
-  // Float comparison slack (one centisecond) for monotonic split checks, so
-  // sub-frame rounding never trips a "split exceeds final time" rejection.
-  const SPLIT_EPSILON = 0.011;
-
-  // Round to centisecond precision — the precision the contract ranks at (§3) and
-  // the precision the on-screen m:ss.cc display shows.
+  // Round to centisecond precision — the precision the board ranks at and the
+  // on-screen m:ss.cc display shows.
   function roundCentis(n) {
     return Math.round(n * 100) / 100;
   }
@@ -132,50 +53,10 @@
     return Number.isInteger(n) && n >= 0;
   }
 
-  function getLevelLimits(levelId) {
-    return typeof levelId === "string" && Object.prototype.hasOwnProperty.call(LEVEL_LIMITS, levelId)
-      ? LEVEL_LIMITS[levelId]
-      : null;
-  }
-
   // Stable identifier for a board. Runs are only ever compared within the same
-  // tuple (contract §6): a run is never ranked against a different build or ruleset.
+  // tuple: a run is never ranked against a different build or ruleset.
   function boardKey(levelId, category, gameVersion, rulesVersion) {
     return [levelId, category, gameVersion, rulesVersion].join("::");
-  }
-
-  function normalizeModerationChars(name) {
-    return name
-      .toLowerCase()
-      .replace(/0/g, "o")
-      .replace(/1/g, "i")
-      .replace(/3/g, "e")
-      .replace(/4/g, "a")
-      .replace(/5/g, "s")
-      .replace(/7/g, "t");
-  }
-
-  function normalizeNameForModeration(name) {
-    return normalizeModerationChars(name).replace(/[^a-z0-9]+/g, "");
-  }
-
-  function tokenizeNameForModeration(name) {
-    return normalizeModerationChars(name).split(/[^a-z0-9]+/).filter(Boolean);
-  }
-
-  function validateNameModeration(name) {
-    const compact = normalizeNameForModeration(name);
-    const tokens = tokenizeNameForModeration(name);
-    for (let i = 0; i < NAME_BLOCKED_TERMS.length; i += 1) {
-      const term = NAME_BLOCKED_TERMS[i];
-      const blocked = term.match === "token"
-        ? tokens.indexOf(term.value) !== -1
-        : compact.indexOf(term.value) !== -1;
-      if (blocked) {
-        return { ok: false, error: "playerName is not allowed" };
-      }
-    }
-    return { ok: true };
   }
 
   // Normalize and validate a display name. Returns { ok, value } or { ok:false, error }.
@@ -187,37 +68,23 @@
     if (name.length < NAME_MIN) return { ok: false, error: "playerName is empty" };
     if (name.length > NAME_MAX) return { ok: false, error: "playerName exceeds " + NAME_MAX + " characters" };
     if (!NAME_ALLOWED.test(name)) return { ok: false, error: "playerName has disallowed characters" };
-    const moderationResult = validateNameModeration(name);
-    if (!moderationResult.ok) return moderationResult;
     return { ok: true, value: name };
   }
 
-  // Validate one split object. Index/name/total/split shapes per contract §2.1.
-  function validateSplit(split, position) {
-    const where = "splits[" + position + "]";
-    if (typeof split !== "object" || split === null) return where + " is not an object";
-    if (!Number.isInteger(split.index) || split.index < 1) return where + ".index must be a positive integer";
-    if (typeof split.name !== "string" || split.name.length === 0) return where + ".name must be a non-empty string";
-    if (!isFiniteNumber(split.total) || split.total < 0) return where + ".total must be a non-negative number";
-    if (!isFiniteNumber(split.split) || split.split < 0) return where + ".split must be a non-negative number";
-    return null;
-  }
-
-  // Validate a full submission (run payload + envelope). This is the authoritative
-  // server-side gate, but the client runs it too for instant feedback (contract:
-  // "validated client-side and server-side").
+  // Validate and normalize a submission (run payload + envelope) before it is
+  // stored. Since storage is local-only, this is a light shape check — it ensures
+  // the fields the leaderboard view reads are present and well-typed, and drops any
+  // arbitrary extra client keys so storage only ever holds known fields.
   //
-  // Returns { ok: true, value } where `value` is a normalized run-payload object
-  // containing ONLY known contract fields (arbitrary extra client keys are dropped),
-  // or { ok: false, errors: [string, ...] } listing every problem found.
+  // Returns { ok: true, value } with a normalized run-payload object, or
+  // { ok: false, errors: [string, ...] } listing every problem found.
   function validateSubmission(input) {
     const errors = [];
     if (typeof input !== "object" || input === null) {
       return { ok: false, errors: ["submission must be a JSON object"] };
     }
-    const limits = getLevelLimits(input.levelId);
 
-    // levelId — authoritative grouping key. "combined" is derived, never submitted.
+    // levelId — grouping key. "combined" is derived, never submitted.
     if (typeof input.levelId !== "string" || !Object.prototype.hasOwnProperty.call(SUBMITTABLE_LEVELS, input.levelId)) {
       errors.push("levelId must be one of: " + Object.keys(SUBMITTABLE_LEVELS).join(", "));
     }
@@ -239,12 +106,8 @@
       errors.push("category must be one of: " + CATEGORIES.join(", "));
     }
 
-    if (!isFiniteNumber(input.time) || input.time <= 0 || input.time > MAX_TIME_SECONDS) {
-      errors.push("time must be a positive number of seconds within range");
-    } else if (limits && roundCentis(input.time) < limits.minTime) {
-      // Impossibly fast for this level — below the physical floor (anti-cheat
-      // f5c6f03e). Only checked once the time and levelId are otherwise well-formed.
-      errors.push("time is implausibly fast for " + input.levelId);
+    if (!isFiniteNumber(input.time) || input.time <= 0) {
+      errors.push("time must be a positive number of seconds");
     }
 
     if (!isNonNegativeInt(input.deaths)) errors.push("deaths must be a non-negative integer");
@@ -253,75 +116,10 @@
     if (!Number.isInteger(input.pagesTotal) || input.pagesTotal < 1) {
       errors.push("pagesTotal must be a positive integer");
     }
-    if (limits && isNonNegativeInt(input.coins) && input.coins > limits.maxCoins) {
-      errors.push("coins exceed the maximum for " + input.levelId);
-    }
-    if (limits && Number.isInteger(input.pagesTotal) && input.pagesTotal !== limits.pagesTotal) {
-      errors.push("pagesTotal must be " + limits.pagesTotal + " for " + input.levelId);
-    }
-    // pages can never exceed the pages available in the level.
     if (isNonNegativeInt(input.pages) && Number.isInteger(input.pagesTotal) && input.pages > input.pagesTotal) {
       errors.push("pages cannot exceed pagesTotal");
     }
-    if (limits && isNonNegativeInt(input.pages) && input.pages > limits.pagesTotal) {
-      errors.push("pages exceed the maximum for " + input.levelId);
-    }
-    if (!Number.isInteger(input.lives) || input.lives < 1) {
-      // A run that reached the goal must have at least one life left; 0 lives is a failure.
-      errors.push("lives must be an integer >= 1");
-    } else if (input.lives > STARTING_LIVES) {
-      errors.push("lives cannot exceed " + STARTING_LIVES);
-    }
-    if (isNonNegativeInt(input.deaths) && Number.isInteger(input.lives) && input.lives >= 1) {
-      if (input.deaths + input.lives !== STARTING_LIVES) {
-        errors.push("deaths and lives are inconsistent with a completed run");
-      }
-    }
 
-    // splits — array, each well-formed, cumulative totals non-decreasing and never
-    // past the final time (with one centisecond of float slack). For known levels,
-    // splits must be the exact checkpoint prefix the game records.
-    if (!Array.isArray(input.splits)) {
-      errors.push("splits must be an array");
-    } else {
-      let prevTotal = 0;
-      for (let i = 0; i < input.splits.length; i += 1) {
-        const splitError = validateSplit(input.splits[i], i);
-        if (splitError) {
-          errors.push(splitError);
-          continue;
-        }
-        if (limits) {
-          const checkpoint = limits.checkpoints[i];
-          if (!checkpoint) {
-            errors.push("splits[" + i + "].index is not a valid checkpoint for " + input.levelId);
-          } else {
-            if (input.splits[i].index !== checkpoint.index) {
-              errors.push("splits[" + i + "].index must be " + checkpoint.index + " for " + input.levelId);
-            }
-            if (input.splits[i].name !== checkpoint.name) {
-              errors.push("splits[" + i + "].name must be \"" + checkpoint.name + "\" for " + input.levelId);
-            }
-          }
-        }
-        if (input.splits[i].total + SPLIT_EPSILON < prevTotal) {
-          errors.push("splits[" + i + "].total is smaller than the previous split total");
-        }
-        if (isFiniteNumber(input.time) && input.splits[i].total > input.time + SPLIT_EPSILON) {
-          errors.push("splits[" + i + "].total exceeds the final time");
-        }
-        // Internal consistency (anti-cheat f5c6f03e): the segment time must equal
-        // the gap between this cumulative total and the previous one. The game
-        // records split = total - prevTotal exactly (recordSplit in js/game.js), so
-        // a mismatch beyond float slack means the splits were hand-edited.
-        if (Math.abs(input.splits[i].split - (input.splits[i].total - prevTotal)) > SPLIT_EPSILON) {
-          errors.push("splits[" + i + "].split is inconsistent with the cumulative totals");
-        }
-        prevTotal = input.splits[i].total;
-      }
-    }
-
-    // Envelope: player-supplied name (run payload itself carries no name).
     const nameResult = validateName(input.playerName);
     if (!nameResult.ok) errors.push(nameResult.error);
 
@@ -341,16 +139,18 @@
       coins: input.coins,
       pages: input.pages,
       pagesTotal: input.pagesTotal,
-      lives: input.lives,
+      lives: Number.isInteger(input.lives) ? input.lives : 0,
       isNewBest: input.isNewBest === true,
-      splits: input.splits.map(function (s) {
-        return {
-          index: s.index,
-          name: s.name,
-          total: roundCentis(s.total),
-          split: roundCentis(s.split)
-        };
-      }),
+      splits: Array.isArray(input.splits)
+        ? input.splits.map(function (s) {
+            return {
+              index: s.index,
+              name: s.name,
+              total: roundCentis(s.total),
+              split: roundCentis(s.split)
+            };
+          })
+        : [],
       playerName: nameResult.value
     };
     return { ok: true, value: value };
@@ -358,21 +158,18 @@
 
   // Normalized player identity. The game has no accounts, so a "player" on the
   // combined board is just a display name compared case-insensitively after
-  // trimming — the same identity rule the server uses for duplicate detection, so
-  // "Sat" and "SAT" are one person across both levels.
+  // trimming, so "Sat" and "SAT" are one person across both levels.
   function playerKey(name) {
     return typeof name === "string" ? name.trim().toLowerCase() : "";
   }
 
-  // Group raw level entries into each player's BEST qualifying entry per level,
-  // restricted to a single board tuple's category/gameVersion/rulesVersion
-  // (contract §5/§6 — combined never mixes builds or rulesets). Only the two
-  // submittable levels contribute; the virtual "combined" levelId is ignored if it
-  // somehow appears. Returns a Map(playerKey -> { displayName, levels }) where
-  // `levels[levelId]` is that player's fastest entry for the level. "Best" means
-  // lowest time, earliest serverTimestamp breaking a tie — so the combined total
-  // automatically improves whenever a faster level time lands (acceptance: updates
-  // when either level improves).
+  // Group raw level entries into each player's BEST entry per level, restricted to
+  // a single board tuple's category/gameVersion/rulesVersion (the combined board
+  // never mixes builds or rulesets). Only the two submittable levels contribute.
+  // Returns a Map(playerKey -> { displayName, levels }) where `levels[levelId]` is
+  // that player's fastest entry for the level. "Best" means lowest time, earliest
+  // serverTimestamp breaking a tie — so the combined total automatically improves
+  // whenever a faster level time lands.
   function groupBestByPlayer(entries, opts) {
     const wantedLevels = Object.keys(SUBMITTABLE_LEVELS);
     const players = new Map();
@@ -394,8 +191,7 @@
         player = { displayName: entry.playerName, latestTs: "", levels: {} };
         players.set(key, player);
       }
-      // Display-name casing follows the player's most recent submission so the
-      // combined row shows how they most recently spelled their name.
+      // Display-name casing follows the player's most recent submission.
       const ts = entry.serverTimestamp || "";
       if (ts >= player.latestTs) {
         player.latestTs = ts;
@@ -413,13 +209,11 @@
     return players;
   }
 
-  // Build the combined board (contract §5): for every player who has a qualifying
-  // entry on BOTH levels, sum their best level times into a single virtual entry.
-  // Players missing either level are excluded — the combined board only ranks
-  // fully-qualified runs. Returned entries are NOT yet ranked; pass them through
-  // rankEntries() to stamp `rank` (they rank on the summed `time` exactly like a
-  // real board, contract §3). Each entry carries a `levels` breakdown so the UI can
-  // show the contributing level times alongside the total.
+  // Build the combined board: for every player who has an entry on BOTH levels, sum
+  // their best level times into a single virtual entry. Players missing either level
+  // are excluded. Returned entries are NOT yet ranked; pass them through
+  // rankEntries() to stamp `rank`. Each entry carries a `levels` breakdown so the UI
+  // can show the contributing level times alongside the total.
   function combineEntries(entries, opts) {
     const players = groupBestByPlayer(entries, opts);
     const wantedLevels = Object.keys(SUBMITTABLE_LEVELS);
@@ -449,8 +243,8 @@
       });
 
       combined.push({
-        // Deterministic, stable virtual id — used by §3's final id tiebreak and
-        // never collides with a real (UUID) entry id.
+        // Deterministic, stable virtual id — used by the final id tiebreak and
+        // never collides with a real entry id.
         id: "combined::" + key,
         levelId: COMBINED_LEVEL_ID,
         category: opts.category,
@@ -459,7 +253,7 @@
         playerName: player.displayName,
         time: roundCentis(total),
         // The combined run is "achieved" when the LATER of the two level times was
-        // posted — that is the instant the player qualified. Tie-break (§3) uses it.
+        // posted — that is the instant the player qualified. Tie-break uses it.
         serverTimestamp: latestTs,
         levels: levels
       });
@@ -468,11 +262,10 @@
   }
 
   // Describe one player's progress toward the combined board so the UI can tell
-  // them exactly what they still need (acceptance: "understand what they still need
-  // to complete to qualify"). Returns { playerName, qualified, time, levels,
-  // missing } where `levels[levelId]` is { time, level } or null, and `missing`
-  // lists the level ids still needed. `time` is the combined total only once
-  // qualified. Returns null when no usable name is given.
+  // them exactly what they still need. Returns { playerName, qualified, time,
+  // levels, missing } where `levels[levelId]` is { time, level } or null, and
+  // `missing` lists the level ids still needed. `time` is the combined total only
+  // once qualified. Returns null when no usable name is given.
   function combinedProgress(entries, playerName, opts) {
     const key = playerKey(playerName);
     if (!key) return null;
@@ -507,7 +300,7 @@
     };
   }
 
-  // Sort entries into ranked order and stamp a 1-based `rank` (contract §3):
+  // Sort entries into ranked order and stamp a 1-based `rank`:
   //   1. time ascending (only ranking signal)
   //   2. earlier serverTimestamp wins ties
   //   3. ascending id as a final deterministic tiebreak
@@ -535,11 +328,9 @@
     NAME_MIN: NAME_MIN,
     NAME_MAX: NAME_MAX,
     NAME_ALLOWED: NAME_ALLOWED,
-    MAX_TIME_SECONDS: MAX_TIME_SECONDS,
-    LEVEL_MIN_TIME: LEVEL_MIN_TIME,
-    LEVEL_LIMITS: LEVEL_LIMITS,
     roundCentis: roundCentis,
     boardKey: boardKey,
+    playerKey: playerKey,
     validateName: validateName,
     validateSubmission: validateSubmission,
     combineEntries: combineEntries,

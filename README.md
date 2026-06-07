@@ -28,41 +28,26 @@ Stop the background server:
 npm stop
 ```
 
-## Leaderboard Backend
+## Leaderboard
 
-Public leaderboards need shared storage, so they are backed by a small
-dependency-free Node service (the game itself stays fully static). Run it
-alongside the game during development:
-
-```bash
-npm run server
-```
-
-That listens on `http://127.0.0.1:5050/`. Setup, endpoints, configuration, and
-deployment are documented in
-[`docs/leaderboard-backend.md`](docs/leaderboard-backend.md); the data shape it
-stores is the contract in
-[`docs/leaderboard-contract.md`](docs/leaderboard-contract.md). Privacy and name
-moderation rules are in
-[`docs/leaderboard-privacy.md`](docs/leaderboard-privacy.md). Leaderboard calls
-are optional — if the backend is offline, local play and personal bests are
-unaffected.
+The leaderboard is a **local high-score table** saved in your browser's
+`localStorage` on this device — there is no server, account, or network call. The
+game stays fully static. Scores are stored under the key
+`8bit-satoshi:leaderboard:v1`.
 
 ### Submitting a Score
 
 After finishing a level, the results screen shows an optional **SUBMIT TIME**
 form: enter a short display name (1–12 characters; letters, numbers, spaces,
-dots, underscores, and dashes only) and submit your run to the public
-leaderboard. A note on the form states that the display name, level, time, run
-stats, and submit date become public. The flow does not ask for an account,
-email, wallet, location, or device identifier. The name is validated both in the
-browser and again on the server, including a lightweight abusive-name blocklist.
+dots, underscores, and dashes only) and save your run to the local leaderboard.
+The display name, level, time, and run stats are stored only on this device. The
+flow does not ask for an account, email, wallet, location, or device identifier.
 
 Submitting is never required — **PLAY AGAIN** and **LEVELS** always work. The form
-reports a clear outcome for every case: success, an already-on-the-board duplicate,
-a validation problem (e.g. an empty or too-long name), the backend being offline,
-or an unexpected error. Offline and error states leave the form editable so you can
-retry; a successful or duplicate submit locks it so the same run is not posted twice.
+reports a clear outcome for every case: success, an already-saved duplicate, a
+validation problem (e.g. an empty or too-long name), storage being unavailable, or
+an unexpected error. Offline and error states leave the form editable so you can
+retry; a successful or duplicate submit locks it so the same run is not saved twice.
 
 ### Viewing the Leaderboard
 
@@ -70,10 +55,10 @@ The **LEADERBOARD** button on the title screen — and on the results screen aft
 run — opens an in-game rankings view. Tabs switch between the Level 1, Level 2, and
 **COMBINED** boards; each row shows the rank, player name, final time, and the run's
 context stats (deaths, coins, pages) plus the date. A run you submitted this session
-is highlighted. The view handles loading, empty, offline, and error states cleanly
-(offline/error offer a **RETRY**), and **BACK** (or `Esc`) returns to where you
-opened it from. Like the rest of the feature it is optional: if the backend is
-offline the rest of the game is unaffected.
+is highlighted. The view handles loading, empty, and storage-unavailable states
+cleanly, and **BACK** (or `Esc`) returns to where you opened it from. Like the rest
+of the feature it is optional: if storage is unavailable the rest of the game is
+unaffected.
 
 The **COMBINED** board ranks players by their **total time across both levels** — it
 sums your best Level 1 and Level 2 times, so you only appear once you have posted a
@@ -101,8 +86,7 @@ npm run check
 
 The timed category is **ANY%**. These rules are defined once in `TIMING_RULES`
 (in `js/game.js`) and applied consistently across the HUD timer, the results
-screen, locally saved personal bests, and the future leaderboard submission
-payload:
+screen, locally saved personal bests, and the leaderboard submission payload:
 
 - **Pausing:** the run timer **pauses on the pause screen** (real-time, but
   pausable). It also pauses if the tab is hidden mid-run.
@@ -116,12 +100,9 @@ payload:
 The rules are summarized on the title screen so players can read them before a
 run without interrupting gameplay. Personal bests are stamped with the ruleset
 version; bumping `TIMING_RULES.version` after a real rules change retires bests
-recorded under the old rules so comparisons stay fair.
-
-The leaderboard schema these timing rules feed into — categories, submitted
-fields, tie-breaking, and versioning — is specified in
-[`docs/leaderboard-contract.md`](docs/leaderboard-contract.md). Backend and
-frontend leaderboard work must implement that contract.
+recorded under the old rules so comparisons stay fair. The leaderboard groups
+entries by the same `gameVersion` and ruleset, so a run is never ranked against a
+different build.
 
 You can inspect the active rules and the last completed run in the browser
 console:
@@ -139,4 +120,11 @@ development or testing, run this in the browser console and reload:
 
 ```js
 eightBitSatoshi.resetBests()
+```
+
+The leaderboard is stored separately under `8bit-satoshi:leaderboard:v1`. To clear
+all saved scores, run this in the browser console and reload:
+
+```js
+localStorage.removeItem("8bit-satoshi:leaderboard:v1")
 ```

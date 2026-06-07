@@ -1,160 +1,164 @@
-// Browser-side leaderboard service calls.
+// Local leaderboard store.
 //
-// This is the seam the submission flow (ticket d14a34a5) and the leaderboard UI
-// (ticket 3048aa3c) call — it owns all network access to the backend so those
-// tickets never touch fetch directly. It loads the SAME validation module the
-// server uses (js/leaderboard-rules.js) for instant client-side feedback, then
-// lets the backend re-decide authoritatively.
+// The leaderboard is a high-score table saved in the browser's localStorage on the
+// player's own device — there is no backend or network access. This module is the
+// single seam the submission flow and the in-game leaderboard view call; it keeps
+// the SAME interface a networked client would (isAvailable / submitScore /
+// fetchLeaderboard) so the rest of the game does not care that storage is local.
+//
+// It loads the shared rules module (js/leaderboard-rules.js) for name validation,
+// submission normalization, ranking, and the virtual combined board.
 //
 // Hard rule: leaderboards are an optional extra, so nothing here ever throws into
 // gameplay. Every call resolves to a plain result object describing what happened
 // ({ status: "ok" | "duplicate" | "invalid" | "offline" | "error", ... }) so the
-// caller can show a state instead of crashing the game when the backend is down.
+// caller can show a state instead of crashing the game when storage is unavailable.
 (function () {
   "use strict";
 
   const rules = window.LeaderboardRules;
 
-  // Where the API lives. Defaults to same-host :5050 (the dev backend), but a
-  // deployment overrides it by setting `window.LEADERBOARD_API_BASE` before this
-  // script runs, or via a <meta name="leaderboard-api-base" content="..."> tag.
-  // This is what lets the static front-end be hosted anywhere and still find its API.
-  function resolveApiBase() {
-    if (typeof window.LEADERBOARD_API_BASE === "string" && window.LEADERBOARD_API_BASE) {
-      return window.LEADERBOARD_API_BASE.replace(/\/$/, "");
-    }
-    const meta = document.querySelector('meta[name="leaderboard-api-base"]');
-    if (meta && meta.content) return meta.content.replace(/\/$/, "");
-    return window.location.protocol + "//" + window.location.hostname + ":5050";
-  }
+  // Versioned storage key — bumping the suffix retires an incompatible schema
+  // without colliding with the personal-bests key (8bit-satoshi:bests:v1).
+  const STORAGE_KEY = "8bit-satoshi:leaderboard:v1";
 
-  const API_BASE = resolveApiBase();
-
-  // Network calls get a hard timeout so a hung/unreachable backend degrades to an
-  // "offline" state quickly instead of leaving the UI spinning forever.
-  const REQUEST_TIMEOUT_MS = 8000;
-
-  function fetchWithTimeout(url, options) {
-    const controller = new AbortController();
-    const timer = setTimeout(function () {
-      controller.abort();
-    }, REQUEST_TIMEOUT_MS);
-    const opts = Object.assign({}, options, { signal: controller.signal });
-    return fetch(url, opts).finally(function () {
-      clearTimeout(timer);
-    });
-  }
-
-  // Distinguish "backend unreachable" (offline, network error, timeout) from a
-  // real HTTP error response. The former is a normal, non-alarming state for an
-  // optional feature; the latter is worth surfacing differently.
-  function isNetworkError(err) {
-    return err && (err.name === "AbortError" || err.name === "TypeError");
-  }
-
-  // Liveness probe used by the UI to decide whether to even offer leaderboard
-  // actions. Never rejects.
-  async function isAvailable() {
+  // Read the whole board. Returns [] for an empty/missing/corrupt store rather than
+  // throwing — a garbled localStorage value must never break the game.
+  function readAll() {
+    let raw;
     try {
-      const res = await fetchWithTimeout(API_BASE + "/api/health", { method: "GET" });
-      return res.ok;
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch (err) {
+      return null; // storage blocked (private mode, disabled cookies, etc.)
+    }
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  // Persist the whole board. Returns false if storage is unavailable or full.
+  function writeAll(entries) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      return true;
     } catch (err) {
       return false;
     }
   }
 
-  // Submit a completed run. `submission` is the run payload from buildSubmission()
-  // plus the envelope fields { playerName, clientTimestamp }. We validate locally
-  // first for instant feedback, then POST and let the server be the authority.
-  //
-  // Resolves to one of:
+  // Unique id for a stored entry. crypto.randomUUID is available in every browser
+  // we target; the timestamp+counter fallback keeps ids unique if it is missing.
+  let idCounter = 0;
+  function makeId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    idCounter += 1;
+    return "lb-" + Date.now().toString(36) + "-" + idCounter.toString(36);
+  }
+
+  // Liveness probe, kept for interface parity with a networked client. The local
+  // board is "available" whenever localStorage can be read. Never rejects.
+  async function isAvailable() {
+    return readAll() !== null;
+  }
+
+  // Store a completed run. `submission` is the run payload from buildSubmission()
+  // plus the envelope fields { playerName, clientTimestamp }. Resolves to one of:
   //   { status: "ok", entry }          stored (entry has id, serverTimestamp, ...)
-  //   { status: "duplicate", entry }   identical run already on the board
-  //   { status: "invalid", errors }    rejected by validation (client or server)
-  //   { status: "offline" }            backend unreachable; caller can retry later
-  //   { status: "error", message }     backend returned an unexpected failure
+  //   { status: "duplicate", entry }   an identical run is already saved
+  //   { status: "invalid", errors }    rejected by validation
+  //   { status: "offline" }            storage unavailable; caller can retry later
+  //   { status: "error", message }     unexpected failure
   async function submitScore(submission) {
-    if (rules) {
-      const local = rules.validateSubmission(submission);
-      if (!local.ok) return { status: "invalid", errors: local.errors };
+    if (!rules) {
+      return { status: "error", message: "leaderboard rules unavailable" };
     }
 
-    const body = Object.assign({}, submission, {
-      clientTimestamp: submission.clientTimestamp || new Date().toISOString()
+    const validated = rules.validateSubmission(submission);
+    if (!validated.ok) return { status: "invalid", errors: validated.errors };
+
+    const entries = readAll();
+    if (entries === null) return { status: "offline" };
+
+    // serverTimestamp keeps the field name the UI reads; for a local store it is
+    // simply when the run was saved on this device.
+    const entry = Object.assign({}, validated.value, {
+      id: makeId(),
+      serverTimestamp: submission.clientTimestamp || new Date().toISOString()
     });
 
-    let res;
-    try {
-      res = await fetchWithTimeout(API_BASE + "/api/leaderboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-    } catch (err) {
-      if (isNetworkError(err)) return { status: "offline" };
-      return { status: "error", message: String(err && err.message ? err.message : err) };
-    }
+    // Treat an identical run (same level, same player, same time) as a duplicate so
+    // a double-tap on SUBMIT TIME does not post the same run twice.
+    const dupKey = rules.playerKey(entry.playerName);
+    const existing = entries.find(function (e) {
+      return e.levelId === entry.levelId &&
+        rules.playerKey(e.playerName) === dupKey &&
+        e.time === entry.time;
+    });
+    if (existing) return { status: "duplicate", entry: existing };
 
-    let data = null;
-    try {
-      data = await res.json();
-    } catch (err) {
-      return { status: "error", message: "backend returned an unreadable response" };
-    }
-
-    if (res.status === 400) {
-      return { status: "invalid", errors: (data && data.details) || [(data && data.error) || "validation failed"] };
-    }
-    if (!res.ok || !data || data.ok !== true) {
-      return { status: "error", message: (data && data.error) || ("backend error " + res.status) };
-    }
-    return { status: data.duplicate ? "duplicate" : "ok", entry: data.entry };
+    entries.push(entry);
+    if (!writeAll(entries)) return { status: "offline" };
+    return { status: "ok", entry: entry };
   }
 
   // Read ranked rows for one board. `params` is { levelId, category, gameVersion,
   // rulesVersion, limit?, playerName? }. `playerName` only applies to the virtual
-  // combined board (levelId "combined"), where it asks the server to also report
-  // that player's progress toward qualifying. Resolves to:
+  // combined board (levelId "combined"), where it also reports that player's
+  // progress toward qualifying. Resolves to:
   //   { status: "ok", board, total, entries, you? }
   //   { status: "offline" }
-  //   { status: "error", message }
-  // `you` is present only for the combined board and is null when no name was given
-  // or the player has no qualifying times yet.
+  // `you` is present only for the combined board and is null when no name was given.
   async function fetchLeaderboard(params) {
-    const query = new URLSearchParams({
-      levelId: params.levelId,
+    const all = readAll();
+    if (all === null) return { status: "offline" };
+
+    const opts = {
       category: params.category,
       gameVersion: params.gameVersion,
-      rulesVersion: String(params.rulesVersion)
+      rulesVersion: params.rulesVersion
+    };
+    const limit = params.limit != null ? Number(params.limit) : null;
+
+    if (params.levelId === rules.COMBINED_LEVEL_ID) {
+      const combined = rules.rankEntries(rules.combineEntries(all, opts));
+      const you = params.playerName ? rules.combinedProgress(all, params.playerName, opts) : null;
+      const limited = limit != null ? combined.slice(0, limit) : combined;
+      return {
+        status: "ok",
+        board: params.levelId,
+        total: combined.length,
+        entries: limited,
+        you: you
+      };
+    }
+
+    // A single level board: every entry for this exact (level, category, build,
+    // ruleset) tuple, ranked by time.
+    const matching = all.filter(function (entry) {
+      return entry &&
+        entry.levelId === params.levelId &&
+        entry.category === opts.category &&
+        entry.gameVersion === opts.gameVersion &&
+        entry.rulesVersion === opts.rulesVersion;
     });
-    if (params.limit != null) query.set("limit", String(params.limit));
-    if (params.playerName != null && params.playerName !== "") {
-      query.set("playerName", String(params.playerName));
-    }
-
-    let res;
-    try {
-      res = await fetchWithTimeout(API_BASE + "/api/leaderboard?" + query.toString(), { method: "GET" });
-    } catch (err) {
-      if (isNetworkError(err)) return { status: "offline" };
-      return { status: "error", message: String(err && err.message ? err.message : err) };
-    }
-
-    let data = null;
-    try {
-      data = await res.json();
-    } catch (err) {
-      return { status: "error", message: "backend returned an unreadable response" };
-    }
-
-    if (!res.ok || !data || data.ok !== true) {
-      return { status: "error", message: (data && data.error) || ("backend error " + res.status) };
-    }
-    return { status: "ok", board: data.board, total: data.total, entries: data.entries, you: data.you };
+    const ranked = rules.rankEntries(matching);
+    const limited = limit != null ? ranked.slice(0, limit) : ranked;
+    return {
+      status: "ok",
+      board: params.levelId,
+      total: ranked.length,
+      entries: limited
+    };
   }
 
   window.eightBitSatoshiLeaderboard = {
-    apiBase: API_BASE,
+    storageKey: STORAGE_KEY,
     isAvailable: isAvailable,
     submitScore: submitScore,
     fetchLeaderboard: fetchLeaderboard
