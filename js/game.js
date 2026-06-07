@@ -79,6 +79,29 @@
     white: "#f8f1dc"
   };
 
+  // Enemy archetypes. Each enemy `type` resolves to one tuning row so the engine
+  // never hardcodes type strings: `speed` (patrol px/s), `score` (stomp reward),
+  // `shape` (which existing draw routine to reuse), `spark` (stomp burst color),
+  // and `stompToast` (the line shown on a clean stomp). Level 1's banker/printer/
+  // miner keep their exact original values; Level 2's fud/chargeback/exploit map
+  // onto the same engine behaviors (patrol + stompable) with new identities.
+  // Distinct Level-2 enemy *art* is a separate ticket (60f350ff), so the new
+  // types reuse the closest existing shape here purely for readability.
+  const ENEMY_TYPES = {
+    banker: { speed: 28, score: 200, shape: "patroller", spark: palette.red, stompToast: "Threat cleared." },
+    printer: { speed: 28, score: 200, shape: "machine", spark: palette.red, stompToast: "Printer jammed." },
+    miner: { speed: 36, score: 350, shape: "critter", spark: palette.green, stompToast: "Threat cleared." },
+    fud: { speed: 30, score: 200, shape: "patroller", spark: palette.red, stompToast: "FUD debunked." },
+    chargeback: { speed: 26, score: 200, shape: "machine", spark: palette.violet, stompToast: "Reversal blocked." },
+    exploit: { speed: 40, score: 350, shape: "critter", spark: palette.green, stompToast: "Exploit patched." }
+  };
+
+  // Resolve an enemy type to its tuning row, falling back to a patroller so a
+  // typo in a level definition renders and behaves sanely instead of throwing.
+  function enemyConfig(type) {
+    return ENEMY_TYPES[type] || ENEMY_TYPES.banker;
+  }
+
   // Level definitions. All per-level content lives here so the game loop, timer,
   // checkpoints, HUD, completion, and respawn logic stay generic and read from
   // the active level — adding a level never duplicates the loop. Each definition
@@ -159,6 +182,103 @@
           { x: 4750, y: 172, index: 6, name: "WHITEPAPER" }
         ]
       }
+    },
+    {
+      // Level 2 — implements plans/level-2-design.md ("RUNNING BITCOIN"). Picks
+      // up after Satoshi fades: running the first nodes, hardening the code, and
+      // growing the network with Hal Finney and the early builders. Distinct
+      // mechanic = CONFIRMATION BLOCKS (the "confirm" platform kind below): the
+      // cadence is deterministic (driven by the run clock, no randomness), so
+      // timed attempts stay fair. Enemy/collectible art and the full palette
+      // pass are later tickets (60f350ff); this entry is the playable course.
+      id: "running-bitcoin",
+      title: "RUNNING BITCOIN",
+      description: "Run a node, harden the code, and grow the network with Hal and the early builders.",
+      worldW: 5600,
+      goal: { x: 5502, y: 128, w: 22, h: 48 },
+      // Level-specific display strings so the shared HUD/results/pickup copy reads
+      // in Level 2's terms (SATS / PATCHES) instead of Level 1's (BTC / pages).
+      // Absent on Level 1, which keeps the defaults baked into the code.
+      labels: { coin: "SATS", pageStat: "PATCHES", pageNote: "Patch" },
+      zones: [
+        { x: 0, name: "FIRST SEND", sky: "#1d2138", sky2: "#0e1020", ground: "#2a2e44", accent: "#36bd63", text: "Block 170: the first coins ever sent." },
+        { x: 780, name: "RUNNING BITCOIN", sky: "#22304e", sky2: "#101a30", ground: "#2f3a52", accent: "#4aa8f0", text: "Running bitcoin. The first nodes wake up." },
+        { x: 1650, name: "BUG REPORTS", sky: "#2a3a52", sky2: "#16223a", ground: "#34465c", accent: "#ffd166", text: "Bug reports roll in. The code gets read." },
+        { x: 2550, name: "HARDENING", sky: "#395066", sky2: "#1d3346", ground: "#2f8d50", accent: "#36bd63", text: "A patch closes the hole. The chain heals." },
+        { x: 3500, name: "MINING RACE", sky: "#4a6b6f", sky2: "#24484c", ground: "#2f8d50", accent: "#f7931a", text: "Hashes climb. Honest work secures the ledger." },
+        { x: 4550, name: "THE NETWORK", sky: "#6aa9f2", sky2: "#385a93", ground: "#2f8d50", accent: "#f7931a", text: "More builders join. No one owns it now." }
+      ],
+      layout: {
+        // Ground runs in segments with deliberate 80px gaps (pits) between them.
+        // The exception is the 160px gap at 3900–4060, which is too wide to clear
+        // in a single jump and is bridged only by the Confirmation Block wave —
+        // that is where Level 2's signature mechanic carries the route.
+        ground: [
+          [0, 640], [720, 470], [1270, 420], [1770, 500], [2350, 470],
+          [2900, 520], [3500, 400], [4060, 380], [4520, 440], [5040, 560]
+        ],
+        platforms: [
+          [300, 150, 70, 14, "ledger"], [430, 124, 54, 14, "question"],
+          [820, 150, 72, 14, "ledger"], [980, 128, 54, 14, "question"],
+          [1120, 146, 64, 14, "ledger"],
+          [1700, 140, 70, 14, "ledger"], [1900, 132, 56, 14, "question"],
+          [2120, 150, 74, 14, "ledger"],
+          [2560, 144, 76, 14, "question"], [2740, 122, 62, 14, "ledger"],
+          [2980, 150, 72, 14, "ledger"], [3180, 132, 64, 14, "question"],
+          // CONFIRMATION BLOCK wave across the 160px pit (3900–4060). Three
+          // blocks on a 1800ms cycle, staggered 600ms apart and up 1300ms each
+          // (~72%), so a confirmed step is almost always available while still
+          // demanding the player read the rhythm. Tuning is owned by 5905b7a5.
+          [3905, 170, 44, 12, "confirm", { periodMs: 1800, phaseMs: 0, onMs: 1300 }],
+          [3970, 166, 44, 12, "confirm", { periodMs: 1800, phaseMs: 600, onMs: 1300 }],
+          [4035, 170, 44, 12, "confirm", { periodMs: 1800, phaseMs: 1200, onMs: 1300 }],
+          [4560, 146, 72, 14, "ledger"], [4720, 124, 60, 14, "question"],
+          // Optional elevated Confirmation Block guarding a bonus PATCH. If it is
+          // unconfirmed when you jump you simply land back on the ground, so the
+          // main route is never gated by it.
+          [4860, 118, 44, 12, "confirm", { periodMs: 2000, phaseMs: 0, onMs: 1300 }],
+          [5080, 148, 72, 14, "ledger"], [5260, 130, 64, 14, "question"]
+        ],
+        blockStacks: [
+          [600, 2], [1340, 2], [2680, 3], [3300, 2], [4860, 2]
+        ],
+        // SATS — fast-pickup scatter (Level 2 reskin of Level 1 coin arcs).
+        coinArcs: [
+          [180, 130, 5], [430, 100, 5], [840, 124, 6], [1140, 110, 5],
+          [1700, 116, 6], [2140, 110, 6], [2760, 118, 5], [3220, 108, 6],
+          [3960, 150, 5], [4760, 110, 6], [5260, 116, 5]
+        ],
+        // PATCHES — milestone collectibles (Level 2 reskin of whitepaper pages):
+        // signed code contributions from the early builders, ~one per section
+        // plus two bonuses tied to Confirmation Blocks.
+        pages: [
+          [560, 150], [1080, 126], [1480, 122], [2160, 128], [2780, 130],
+          [3320, 118], [4040, 118], [4875, 96], [5320, 128]
+        ],
+        // fud/chargeback patrol the legacy world; exploit is the faster,
+        // higher-value stompable threat (a live bug you patch by landing on it).
+        enemies: [
+          [420, 178, 380, 600, "fud"], [900, 178, 820, 1150, "chargeback"],
+          [1380, 178, 1300, 1660, "fud"], [1950, 178, 1820, 2240, "exploit"],
+          [2480, 178, 2380, 2780, "chargeback"], [3050, 178, 2940, 3380, "fud"],
+          [3650, 178, 3540, 3880, "exploit"], [4200, 178, 4090, 4420, "chargeback"],
+          [4650, 178, 4540, 4920, "fud"], [5150, 178, 5060, 5400, "exploit"]
+        ],
+        // Downtime gaps / chain-fork cracks — static damage zones on the ground.
+        hazards: [
+          [500, 190, 36, 15], [1080, 190, 42, 15], [2000, 190, 42, 15],
+          [2980, 190, 42, 15], [3700, 190, 40, 15], [4660, 190, 42, 15]
+        ],
+        // Five checkpoints opening zones 2–6 (zone 1 is the spawn). One fewer
+        // than Level 1, giving Level 2 a tighter five-segment split structure.
+        checkpoints: [
+          { x: 800, y: 172, index: 1, name: "RUNNING BITCOIN" },
+          { x: 1800, y: 172, index: 2, name: "BUG REPORTS" },
+          { x: 2600, y: 172, index: 3, name: "HARDENING" },
+          { x: 3560, y: 172, index: 4, name: "MINING RACE" },
+          { x: 4600, y: 172, index: 5, name: "THE NETWORK" }
+        ]
+      }
     }
   ];
 
@@ -202,6 +322,14 @@
       throw new Error(`No level at index ${state.levelIndex} (LEVELS.length=${LEVELS.length}); check state.levelIndex.`);
     }
     return level;
+  }
+
+  // Read a display label from the active level, falling back to the Level 1
+  // default when a level does not override it. Keeps HUD, results, and pickup
+  // copy data-driven so each level reads in its own terms (e.g. SATS vs BTC).
+  function levelLabel(key, fallback) {
+    const labels = getCurrentLevel().labels;
+    return (labels && labels[key]) || fallback;
   }
 
   // Personal bests persist across reloads in localStorage under a versioned key.
@@ -305,10 +433,29 @@
   function getLastRun() {
     return state.lastRun ? JSON.parse(JSON.stringify(state.lastRun)) : null;
   }
+
+  // Load a level by 1-based number (the order players see). The full title-screen
+  // level select with unlock rules and best-time display is a separate ticket
+  // (00c3fc77); this is the minimal seam that lets a level be chosen now — used
+  // by the `?level=N` URL param and exposed for dev/testing/the demo. Rejects
+  // out-of-range values and refuses to swap the world out from under an active
+  // run; returns true only when the level was loaded.
+  function setLevel(levelNumber) {
+    const index = Math.floor(levelNumber) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= LEVELS.length) return false;
+    if (state.phase === "playing") return false;
+    state.levelIndex = index;
+    initLevel();
+    state.currentZone = 0;
+    syncHud(true);
+    return true;
+  }
   window.eightBitSatoshi = Object.assign({}, window.eightBitSatoshi, {
     resetBests,
     getTimingRules,
-    getLastRun
+    getLastRun,
+    setLevel,
+    levelCount: LEVELS.length
   });
 
   // Map of checkpoint index -> best split duration for the active level, captured
@@ -393,7 +540,7 @@
     checkpoints.length = 0;
 
     for (const [x, w] of layout.ground) addGround(x, w);
-    for (const [x, y, w, h, kind] of layout.platforms) addPlatform(x, y, w, h, kind);
+    for (const [x, y, w, h, kind, cycle] of layout.platforms) addPlatform(x, y, w, h, kind, cycle);
     for (const [x, count] of layout.blockStacks) addBlockStack(x, count);
     for (const [x, y, count] of layout.coinArcs) addCoinArc(x, y, count);
     for (const [x, y] of layout.pages) addPage(x, y);
@@ -408,8 +555,11 @@
     solids.push({ x, y: 204, w, h: 36, kind: "ground", hit: false });
   }
 
-  function addPlatform(x, y, w, h, kind) {
-    solids.push({ x, y, w, h, kind, hit: false });
+  // Confirmation Blocks pass an optional `cycle` ({ periodMs, phaseMs, onMs }):
+  // a platform that toggles between confirmed (solid) and unconfirmed (passable)
+  // on a deterministic cadence. Static platforms omit it and store `cycle: null`.
+  function addPlatform(x, y, w, h, kind, cycle) {
+    solids.push({ x, y, w, h, kind, hit: false, cycle: cycle || null });
   }
 
   function addBlockStack(x, count) {
@@ -429,7 +579,7 @@
   }
 
   function addEnemy(x, y, minX, maxX, type) {
-    enemies.push({ x, y, w: 16, h: 18, vx: type === "miner" ? 36 : 28, minX, maxX, type, alive: true, squashed: 0 });
+    enemies.push({ x, y, w: 16, h: 18, vx: enemyConfig(type).speed, minX, maxX, type, alive: true, squashed: 0 });
   }
 
   function addHazard(x, y, w, h) {
@@ -601,8 +751,8 @@
     const level = getCurrentLevel();
     const stats = [
       ["LEVEL", level.title],
-      ["BTC", pad2(state.coins)],
-      ["PAGES", `${state.pages}/${level.layout.pages.length}`],
+      [levelLabel("coin", "BTC"), pad2(state.coins)],
+      [levelLabel("pageStat", "PAGES"), `${state.pages}/${level.layout.pages.length}`],
       ["DEATHS", String(state.deaths)],
       ["LIVES", String(state.lives)]
     ];
@@ -719,12 +869,28 @@
     }
   }
 
+  // Whether a Confirmation Block is currently solid. The cadence is driven by
+  // the run clock (state.time, in seconds), which advances on the fixed timestep
+  // and pauses with the game — so the pattern is identical on every attempt and
+  // uses no randomness, keeping timed runs fair. Static solids (no cycle) and
+  // malformed cycles are always solid so a bad definition fails safe (passable
+  // would mean an impassable level).
+  function isConfirmed(solid) {
+    const cycle = solid.cycle;
+    if (!cycle || !(cycle.periodMs > 0)) return true;
+    const clockMs = state.time * 1000;
+    return ((clockMs + (cycle.phaseMs || 0)) % cycle.periodMs) < cycle.onMs;
+  }
+
   function moveAxis(body, dx, dy) {
     if (dx !== 0) body.x += dx;
     if (dy !== 0) body.y += dy;
 
     for (const solid of solids) {
       if (!overlap(body, solid)) continue;
+      // Unconfirmed Confirmation Blocks are non-solid: skip collision so the
+      // body passes through (or falls) until the block confirms again.
+      if (solid.cycle && !isConfirmed(solid)) continue;
 
       if (dx > 0) {
         body.x = solid.x - body.w;
@@ -751,7 +917,7 @@
     solid.hit = true;
     state.coins += 3;
     state.score += 300;
-    state.toast = "+3 BTC";
+    state.toast = `+3 ${levelLabel("coin", "BTC")}`;
     state.toastTime = 1.2;
     burst(solid.x + solid.w * 0.5, solid.y, palette.orange, 10);
     syncHud();
@@ -775,13 +941,14 @@
       const playerBottom = player.y + player.h;
       const stomped = player.vy > 90 && playerBottom - enemy.y < 12;
       if (stomped) {
+        const cfg = enemyConfig(enemy.type);
         enemy.alive = false;
         enemy.squashed = 0.3;
         player.vy = STOMP;
-        state.score += enemy.type === "miner" ? 350 : 200;
-        state.toast = enemy.type === "printer" ? "Printer jammed." : "Threat cleared.";
+        state.score += cfg.score;
+        state.toast = cfg.stompToast;
         state.toastTime = 1.1;
-        burst(enemy.x + enemy.w * 0.5, enemy.y + enemy.h * 0.5, enemy.type === "miner" ? palette.green : palette.red, 8);
+        burst(enemy.x + enemy.w * 0.5, enemy.y + enemy.h * 0.5, cfg.spark, 8);
       } else {
         hurtPlayer(false);
       }
@@ -804,7 +971,7 @@
         page.taken = true;
         state.pages += 1;
         state.score += 250;
-        state.toast = `Whitepaper page ${state.pages}/${getCurrentLevel().layout.pages.length}`;
+        state.toast = `${levelLabel("pageNote", "Whitepaper page")} ${state.pages}/${getCurrentLevel().layout.pages.length}`;
         state.toastTime = 1.7;
         burst(page.x + 5, page.y + 7, palette.paper, 10);
         syncHud();
@@ -993,6 +1160,30 @@
         rect(x, solid.y, solid.w, 3);
         ctx.fillStyle = palette.paper2;
         for (let i = 6; i < solid.w - 6; i += 14) rect(x + i, solid.y + 6, 6, 2);
+      } else if (solid.kind === "confirm") {
+        // Confirmed = solid green block with a check tick; unconfirmed = a dim
+        // green ghost outline so the player can read where it will return and
+        // time the jump. The render predicate is the same isConfirmed() the
+        // collision uses, so what you see is exactly what you can stand on.
+        if (isConfirmed(solid)) {
+          ctx.fillStyle = palette.green2;
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = palette.green;
+          rect(x, solid.y, solid.w, 3);
+          ctx.fillStyle = palette.white;
+          const cx = x + solid.w / 2;
+          rect(cx - 3, solid.y + 6, 2, 2);
+          rect(cx - 1, solid.y + 8, 2, 2);
+          rect(cx + 1, solid.y + 4, 2, 2);
+        } else {
+          ctx.fillStyle = "rgba(54, 189, 99, 0.16)";
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = "rgba(54, 189, 99, 0.55)";
+          rect(x, solid.y, solid.w, 1);
+          rect(x, solid.y + solid.h - 1, solid.w, 1);
+          rect(x, solid.y, 1, solid.h);
+          rect(x + solid.w - 1, solid.y, 1, solid.h);
+        }
       } else {
         ctx.fillStyle = palette.brown;
         rect(x, solid.y, solid.w, solid.h);
@@ -1083,7 +1274,11 @@
         continue;
       }
 
-      if (enemy.type === "printer") {
+      // Reuse one of three existing shapes per the enemy archetype (machine /
+      // critter / patroller). Level-2 types map onto these for readability;
+      // bespoke Level-2 art is ticket 60f350ff.
+      const shape = enemyConfig(enemy.type).shape;
+      if (shape === "machine") {
         ctx.fillStyle = palette.gray2;
         rect(x, enemy.y + 4, enemy.w, enemy.h - 4);
         ctx.fillStyle = palette.gray;
@@ -1092,7 +1287,7 @@
         rect(x + 3, enemy.y + 8, 10, 2);
         ctx.fillStyle = palette.paper;
         rect(x + 4, enemy.y + 13, 8, 3);
-      } else if (enemy.type === "miner") {
+      } else if (shape === "critter") {
         ctx.fillStyle = palette.green2;
         rect(x + 1, enemy.y + 6, enemy.w - 2, enemy.h - 6);
         ctx.fillStyle = palette.green;
@@ -1187,10 +1382,11 @@
 
   function syncHud(force = false) {
     const zoneName = zones[state.currentZone]?.name || "BROKEN WORLD";
-    const next = `${state.coins}|${state.lives}|${zoneName}|${state.pages}`;
+    const coinLabel = levelLabel("coin", "BTC");
+    const next = `${coinLabel}|${state.coins}|${state.lives}|${zoneName}|${state.pages}`;
     if (!force && next === state.hudCache) return;
     state.hudCache = next;
-    hudCoins.textContent = `BTC ${pad2(state.coins)}`;
+    hudCoins.textContent = `${coinLabel} ${pad2(state.coins)}`;
     hudLives.textContent = `LIVES ${state.lives}`;
     hudZone.textContent = zoneName;
   }
@@ -1390,6 +1586,14 @@
   // Surface the concise timing rules on the title screen, sourced from
   // TIMING_RULES so the player-facing note never drifts from the enforced rules.
   if (titleRules) titleRules.textContent = TIMING_RULES.summary;
+
+  // Optional deep-link to a specific level via `?level=N` (1-based). Out-of-range
+  // or missing values fall through to Level 1. Reading the param here (before the
+  // first initLevel) means the chosen level is active on the title screen too.
+  const requestedLevel = Number.parseInt(new URLSearchParams(location.search).get("level"), 10);
+  if (Number.isInteger(requestedLevel) && requestedLevel >= 1 && requestedLevel <= LEVELS.length) {
+    state.levelIndex = requestedLevel - 1;
+  }
 
   initLevel();
   initTouchControls();
