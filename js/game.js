@@ -3,7 +3,9 @@
 
   const VIEW_W = 256;
   const VIEW_H = 240;
-  const WORLD_W = 5200;
+  // World width is loaded from the active level definition (see LEVELS) so it can
+  // vary per level. Set in initLevel before the game loop reads it.
+  let WORLD_W = 0;
   const STEP = 1 / 60;
   const MAX_FRAME = 1 / 15;
   const GRAVITY = 1220;
@@ -18,7 +20,6 @@
   const COYOTE = 0.085;
   const JUMP_BUFFER = 0.11;
   const TILE = 16;
-  const LEVEL_NAME = "THE WHITEPAPER RUN";
 
   // Single source of truth for how the timed category works. Every surface that
   // touches timing (HUD, results, local bests, future leaderboard submissions)
@@ -78,19 +79,101 @@
     white: "#f8f1dc"
   };
 
-  const zones = [
-    { x: 0, name: "BROKEN WORLD", sky: "#52675b", sky2: "#2c3432", ground: "#4a4d47", accent: "#7d3a2c", text: "2008: money printers and broken banks." },
-    { x: 720, name: "CYPHERPUNKS", sky: "#435070", sky2: "#24283e", ground: "#3b4055", accent: "#8d6de8", text: "Cryptography gives the individual a shield." },
-    { x: 1450, name: "GENESIS", sky: "#6b778a", sky2: "#30394b", ground: "#565d63", accent: "#f7931a", text: "Mine the genesis block and keep moving." },
-    { x: 2300, name: "BLOCKCHAIN", sky: "#66a2d8", sky2: "#345a88", ground: "#2f8d50", accent: "#ffd166", text: "Blocks link together. Enemies cannot rewrite them." },
-    { x: 3150, name: "NETWORK", sky: "#5eb7c7", sky2: "#2a6770", ground: "#298766", accent: "#36bd63", text: "Nodes, miners, and users harden the network." },
-    { x: 4000, name: "HANDOFF", sky: "#526b9f", sky2: "#222c55", ground: "#3e5f48", accent: "#f4ead2", text: "Satoshi fades. The system keeps running." },
-    { x: 4700, name: "WHITEPAPER", sky: "#6aa9f2", sky2: "#385a93", ground: "#2f8d50", accent: "#f7931a", text: "Reach the whitepaper. The code lives on." }
+  // Level definitions. All per-level content lives here so the game loop, timer,
+  // checkpoints, HUD, completion, and respawn logic stay generic and read from
+  // the active level — adding a level never duplicates the loop. Each definition
+  // carries:
+  //   id          stable key for personal bests (never shown to players)
+  //   title       display/leaderboard name
+  //   description short one-line summary
+  //   worldW      level length in world pixels (varies per level)
+  //   goal        finish marker box {x, y, w, h} (placement varies per level)
+  //   zones       ordered scenery/section bands keyed by world x
+  //   layout      declarative collections consumed by the add* builders in
+  //               initLevel: ground, platforms, blockStacks, coinArcs, pages,
+  //               enemies, hazards, and checkpoints
+  const LEVELS = [
+    {
+      id: "whitepaper-run",
+      title: "THE WHITEPAPER RUN",
+      description: "Build Bitcoin from the broken world to the whitepaper.",
+      worldW: 5200,
+      goal: { x: 5102, y: 128, w: 22, h: 48 },
+      zones: [
+        { x: 0, name: "BROKEN WORLD", sky: "#52675b", sky2: "#2c3432", ground: "#4a4d47", accent: "#7d3a2c", text: "2008: money printers and broken banks." },
+        { x: 720, name: "CYPHERPUNKS", sky: "#435070", sky2: "#24283e", ground: "#3b4055", accent: "#8d6de8", text: "Cryptography gives the individual a shield." },
+        { x: 1450, name: "GENESIS", sky: "#6b778a", sky2: "#30394b", ground: "#565d63", accent: "#f7931a", text: "Mine the genesis block and keep moving." },
+        { x: 2300, name: "BLOCKCHAIN", sky: "#66a2d8", sky2: "#345a88", ground: "#2f8d50", accent: "#ffd166", text: "Blocks link together. Enemies cannot rewrite them." },
+        { x: 3150, name: "NETWORK", sky: "#5eb7c7", sky2: "#2a6770", ground: "#298766", accent: "#36bd63", text: "Nodes, miners, and users harden the network." },
+        { x: 4000, name: "HANDOFF", sky: "#526b9f", sky2: "#222c55", ground: "#3e5f48", accent: "#f4ead2", text: "Satoshi fades. The system keeps running." },
+        { x: 4700, name: "WHITEPAPER", sky: "#6aa9f2", sky2: "#385a93", ground: "#2f8d50", accent: "#f7931a", text: "Reach the whitepaper. The code lives on." }
+      ],
+      layout: {
+        ground: [
+          [0, 620], [700, 450], [1220, 360], [1640, 520], [2260, 460],
+          [2820, 520], [3420, 460], [3920, 360], [4380, 330], [4800, 400]
+        ],
+        platforms: [
+          [236, 154, 72, 14, "ledger"], [350, 128, 56, 14, "question"],
+          [762, 154, 70, 14, "ledger"], [936, 132, 54, 14, "question"],
+          [1288, 142, 78, 14, "ledger"], [1518, 150, 64, 14, "question"],
+          [1788, 132, 58, 14, "ledger"], [1998, 154, 76, 14, "ledger"],
+          [2328, 144, 76, 14, "question"], [2548, 120, 62, 14, "ledger"],
+          [2860, 152, 72, 14, "ledger"], [3066, 132, 64, 14, "question"],
+          [3460, 146, 78, 14, "ledger"], [3668, 120, 64, 14, "ledger"],
+          [3970, 150, 74, 14, "question"], [4230, 134, 72, 14, "ledger"],
+          [4480, 152, 62, 14, "ledger"], [4842, 150, 78, 14, "question"]
+        ],
+        blockStacks: [
+          [540, 2], [1120, 3], [2190, 2], [3340, 3], [4720, 2]
+        ],
+        coinArcs: [
+          [156, 132, 5], [770, 126, 5], [1268, 112, 6], [1770, 104, 5],
+          [2380, 112, 6], [2896, 120, 5], [3494, 112, 6], [4216, 106, 5],
+          [4848, 116, 6]
+        ],
+        pages: [
+          [610, 150], [1194, 138], [1626, 124], [2206, 136], [2786, 138],
+          [3366, 122], [3890, 136], [4550, 138], [5024, 116]
+        ],
+        enemies: [
+          [420, 178, 450, 575, "banker"], [880, 178, 822, 1060, "printer"],
+          [1346, 178, 1280, 1470, "banker"], [1900, 178, 1850, 2100, "printer"],
+          [2448, 178, 2398, 2700, "miner"], [3230, 178, 3020, 3320, "banker"],
+          [3550, 178, 3480, 3770, "printer"], [4100, 178, 4016, 4300, "miner"],
+          [4890, 178, 4820, 5040, "banker"]
+        ],
+        hazards: [
+          [655, 190, 40, 15], [1162, 190, 42, 15], [1570, 190, 42, 15],
+          [2762, 190, 42, 15], [3378, 190, 42, 15], [3870, 190, 42, 15],
+          [4338, 190, 42, 15]
+        ],
+        // Checkpoints carry a stable 1-based index and display name (the section
+        // they open) so splits stay identifiable across results and bests.
+        checkpoints: [
+          { x: 760, y: 172, index: 1, name: "CYPHERPUNKS" },
+          { x: 1510, y: 172, index: 2, name: "GENESIS" },
+          { x: 2350, y: 172, index: 3, name: "BLOCKCHAIN" },
+          { x: 3180, y: 172, index: 4, name: "NETWORK" },
+          { x: 4020, y: 172, index: 5, name: "HANDOFF" },
+          { x: 4750, y: 172, index: 6, name: "WHITEPAPER" }
+        ]
+      }
+    }
   ];
+
+  // Active level's scenery bands. Mirrors getCurrentLevel().zones so the existing
+  // zone-index logic keeps working unchanged; assigned in initLevel.
+  let zones = [];
+
+  function getCurrentLevel() {
+    return LEVELS[state.levelIndex];
+  }
 
   const state = {
     phase: "title",
     paused: false,
+    levelIndex: 0,
     cameraX: 0,
     time: 0,
     accumulator: 0,
@@ -186,7 +269,7 @@
   // ruleset that drive the HUD, results, and local bests also drive submissions.
   function buildSubmission(isNewBest) {
     return {
-      level: LEVEL_NAME,
+      level: getCurrentLevel().title,
       rulesVersion: TIMING_RULES.version,
       category: TIMING_RULES.category,
       time: state.completionTime,
@@ -266,9 +349,24 @@
   const hazards = [];
   const checkpoints = [];
   const particles = new Array(48).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, color: palette.orange }));
-  const goal = { x: 5102, y: 128, w: 22, h: 48 };
+  // Finish marker box. Position and size are loaded from the active level's
+  // definition in initLevel so the goal can sit anywhere per level.
+  const goal = { x: 0, y: 0, w: 0, h: 0 };
 
+  // Load the active level: pull its metadata (world width, scenery zones, goal
+  // box) into the live game state, then rebuild every collection from the level's
+  // declarative layout. The add* builders create fresh objects each call, and
+  // checkpoints are cloned with a per-run `taken` flag, so the immutable level
+  // definition is never mutated between runs.
   function initLevel() {
+    const level = getCurrentLevel();
+    WORLD_W = level.worldW;
+    zones = level.zones;
+    goal.x = level.goal.x;
+    goal.y = level.goal.y;
+    goal.w = level.goal.w;
+    goal.h = level.goal.h;
+
     solids.length = 0;
     coins.length = 0;
     pages.length = 0;
@@ -276,90 +374,17 @@
     hazards.length = 0;
     checkpoints.length = 0;
 
-    addGround(0, 620);
-    addGround(700, 450);
-    addGround(1220, 360);
-    addGround(1640, 520);
-    addGround(2260, 460);
-    addGround(2820, 520);
-    addGround(3420, 460);
-    addGround(3920, 360);
-    addGround(4380, 330);
-    addGround(4800, 400);
-
-    addPlatform(236, 154, 72, 14, "ledger");
-    addPlatform(350, 128, 56, 14, "question");
-    addPlatform(762, 154, 70, 14, "ledger");
-    addPlatform(936, 132, 54, 14, "question");
-    addPlatform(1288, 142, 78, 14, "ledger");
-    addPlatform(1518, 150, 64, 14, "question");
-    addPlatform(1788, 132, 58, 14, "ledger");
-    addPlatform(1998, 154, 76, 14, "ledger");
-    addPlatform(2328, 144, 76, 14, "question");
-    addPlatform(2548, 120, 62, 14, "ledger");
-    addPlatform(2860, 152, 72, 14, "ledger");
-    addPlatform(3066, 132, 64, 14, "question");
-    addPlatform(3460, 146, 78, 14, "ledger");
-    addPlatform(3668, 120, 64, 14, "ledger");
-    addPlatform(3970, 150, 74, 14, "question");
-    addPlatform(4230, 134, 72, 14, "ledger");
-    addPlatform(4480, 152, 62, 14, "ledger");
-    addPlatform(4842, 150, 78, 14, "question");
-
-    addBlockStack(540, 2);
-    addBlockStack(1120, 3);
-    addBlockStack(2190, 2);
-    addBlockStack(3340, 3);
-    addBlockStack(4720, 2);
-
-    addCoinArc(156, 132, 5);
-    addCoinArc(770, 126, 5);
-    addCoinArc(1268, 112, 6);
-    addCoinArc(1770, 104, 5);
-    addCoinArc(2380, 112, 6);
-    addCoinArc(2896, 120, 5);
-    addCoinArc(3494, 112, 6);
-    addCoinArc(4216, 106, 5);
-    addCoinArc(4848, 116, 6);
-
-    addPage(610, 150);
-    addPage(1194, 138);
-    addPage(1626, 124);
-    addPage(2206, 136);
-    addPage(2786, 138);
-    addPage(3366, 122);
-    addPage(3890, 136);
-    addPage(4550, 138);
-    addPage(5024, 116);
-
-    addEnemy(420, 178, 450, 575, "banker");
-    addEnemy(880, 178, 822, 1060, "printer");
-    addEnemy(1346, 178, 1280, 1470, "banker");
-    addEnemy(1900, 178, 1850, 2100, "printer");
-    addEnemy(2448, 178, 2398, 2700, "miner");
-    addEnemy(3230, 178, 3020, 3320, "banker");
-    addEnemy(3550, 178, 3480, 3770, "printer");
-    addEnemy(4100, 178, 4016, 4300, "miner");
-    addEnemy(4890, 178, 4820, 5040, "banker");
-
-    addHazard(655, 190, 40, 15);
-    addHazard(1162, 190, 42, 15);
-    addHazard(1570, 190, 42, 15);
-    addHazard(2762, 190, 42, 15);
-    addHazard(3378, 190, 42, 15);
-    addHazard(3870, 190, 42, 15);
-    addHazard(4338, 190, 42, 15);
-
-    // Checkpoints carry a stable 1-based index and display name (the section
-    // they open) so splits stay identifiable across results and personal bests.
-    checkpoints.push(
-      { x: 760, y: 172, index: 1, name: "CYPHERPUNKS", taken: false },
-      { x: 1510, y: 172, index: 2, name: "GENESIS", taken: false },
-      { x: 2350, y: 172, index: 3, name: "BLOCKCHAIN", taken: false },
-      { x: 3180, y: 172, index: 4, name: "NETWORK", taken: false },
-      { x: 4020, y: 172, index: 5, name: "HANDOFF", taken: false },
-      { x: 4750, y: 172, index: 6, name: "WHITEPAPER", taken: false }
-    );
+    const layout = level.layout;
+    for (const [x, w] of layout.ground) addGround(x, w);
+    for (const [x, y, w, h, kind] of layout.platforms) addPlatform(x, y, w, h, kind);
+    for (const [x, count] of layout.blockStacks) addBlockStack(x, count);
+    for (const [x, y, count] of layout.coinArcs) addCoinArc(x, y, count);
+    for (const [x, y] of layout.pages) addPage(x, y);
+    for (const [x, y, minX, maxX, type] of layout.enemies) addEnemy(x, y, minX, maxX, type);
+    for (const [x, y, w, h] of layout.hazards) addHazard(x, y, w, h);
+    for (const cp of layout.checkpoints) {
+      checkpoints.push({ x: cp.x, y: cp.y, index: cp.index, name: cp.name, taken: false });
+    }
   }
 
   function addGround(x, w) {
@@ -412,7 +437,7 @@
       state.completionTime = 0;
       state.deaths = 0;
       state.splits.length = 0;
-      state.bestSplits = loadBestSplitMap(LEVEL_NAME);
+      state.bestSplits = loadBestSplitMap(getCurrentLevel().id);
       initLevel();
     }
 
@@ -468,9 +493,9 @@
     state.completionTime = state.time;
     // Capture the prior best before overwriting so results can compare against
     // it, then persist this run's time and splits when it is a new best.
-    const previousBest = getLevelBest(LEVEL_NAME);
+    const previousBest = getLevelBest(getCurrentLevel().id);
     const isNewBest = previousBest === null || state.completionTime < previousBest.time;
-    if (isNewBest) saveLevelBest(LEVEL_NAME, state.completionTime, state.splits);
+    if (isNewBest) saveLevelBest(getCurrentLevel().id, state.completionTime, state.splits);
     // Capture the rules-stamped submission payload for this run so local bests
     // and any future leaderboard submission share one consistent shape.
     state.lastRun = buildSubmission(isNewBest);
@@ -555,10 +580,11 @@
   }
 
   function buildStats() {
+    const level = getCurrentLevel();
     const stats = [
-      ["LEVEL", LEVEL_NAME],
+      ["LEVEL", level.title],
       ["BTC", pad2(state.coins)],
-      ["PAGES", `${state.pages}/9`],
+      ["PAGES", `${state.pages}/${level.layout.pages.length}`],
       ["DEATHS", String(state.deaths)],
       ["LIVES", String(state.lives)]
     ];
