@@ -291,11 +291,15 @@
         //   triggerX world x that fires the ambient line (slightly ahead of the
         //            sprite so the line reads as you arrive; offset from zone and
         //            checkpoint boundaries so it never clobbers those toasts)
+        //   name     who the cameo is — kept as readable metadata for the data row
+        //   line     the one-shot ambient toast text shown when triggerX is crossed
         allies: [
           // Zone 1 FIRST SEND — Hal Finney receiving the first coins ever sent.
           { kind: "hal", x: 340, y: 182, triggerX: 290, name: "HAL FINNEY", line: "Hal Finney: got the coins — thanks!" },
-          // Zone 6 THE NETWORK — early builders bringing more nodes online.
-          { kind: "nodes", x: 4820, y: 184, triggerX: 4780, name: "EARLY BUILDERS", line: "Early builders: more nodes online." }
+          // Zone 6 THE NETWORK — early builders bringing more nodes online. Placed
+          // at x:4930 so it sits clear of the zone-6 fud patrol (maxX 4920) while
+          // staying on ground segment [4520,440] (spans 4520–4960).
+          { kind: "nodes", x: 4930, y: 184, triggerX: 4880, name: "EARLY BUILDERS", line: "Early builders: more nodes online." }
         ]
       }
     }
