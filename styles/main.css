@@ -269,14 +269,11 @@ button {
 }
 
 /* Quieter than the bitcoin-orange primary buttons so LEVELS reads as a
-   secondary action next to CONTINUE / RESTART / PLAY AGAIN. */
+   secondary action next to CONTINUE / RESTART / PLAY AGAIN. (Its hidden state is
+   handled by the existing `.button-row .hidden` rule, since it lives there.) */
 .secondary-button {
   background: var(--panel-2);
   color: var(--paper);
-}
-
-.secondary-button.hidden {
-  display: none;
 }
 
 .button-row {

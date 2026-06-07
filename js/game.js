@@ -358,7 +358,10 @@
     try {
       localStorage.setItem(BESTS_KEY, JSON.stringify(bests));
     } catch (err) {
-      // Storage unavailable or over quota: bests stay in-memory for the session.
+      // Storage unavailable or over quota. Persistence now also gates level
+      // unlock, so surface the failure (a cleared level may not unlock on the
+      // next load) instead of failing completely silently.
+      console.warn("8-Bit Satoshi: could not persist bests; progress and level unlock may not be saved.", err);
     }
   }
 
@@ -381,6 +384,11 @@
     const bests = loadBests();
     bests[level] = {
       rulesVersion: TIMING_RULES.version,
+      // `cleared` records that the level was completed at all, independent of the
+      // timing ruleset. Level unlock reads this (see isLevelCleared) so bumping
+      // TIMING_RULES.version retires the best *time* for comparison without
+      // silently re-locking a level the player genuinely finished.
+      cleared: true,
       time,
       splits: splits.map((entry) => ({
         index: entry.index,
@@ -390,6 +398,14 @@
       }))
     };
     saveBests(bests);
+  }
+
+  // Whether a level has ever been completed, independent of the timing-rules
+  // version. The first completion of a level is always a new best (no prior
+  // entry), so saveLevelBest writes the `cleared` flag then; this is the durable
+  // unlock signal that survives a TIMING_RULES.version bump.
+  function isLevelCleared(level) {
+    return loadBests()[level]?.cleared === true;
   }
 
   // Wipe persisted personal bests. Exposed on `window.eightBitSatoshi.resetBests`
@@ -463,13 +479,14 @@
   });
 
   // Level unlock rule: Level 1 is always available, and each later level unlocks
-  // once the previous level has been completed. A completion records a personal
-  // best, so a saved best doubles as the persisted "cleared" signal — the unlock
-  // state survives reloads with no extra storage.
+  // once the previous level has been completed. Completion is tracked by the
+  // persisted, rules-version-independent `cleared` flag (isLevelCleared) so the
+  // unlock survives reloads — and a TIMING_RULES.version bump — without extra
+  // storage.
   function isLevelUnlocked(index) {
     if (index <= 0) return true;
     if (index >= LEVELS.length) return false;
-    return getLevelBest(LEVELS[index - 1].id) !== null;
+    return isLevelCleared(LEVELS[index - 1].id);
   }
 
   // Title-screen level select. Cards are built from LEVELS so the picker scales
@@ -481,6 +498,9 @@
     if (!levelSelect) return;
     const cards = LEVELS.map((level, index) => {
       const unlocked = isLevelUnlocked(index);
+      // `cleared` is the durable completion flag; `best` is the current-ruleset
+      // best time (null after a rules-version bump even when still cleared).
+      const cleared = isLevelCleared(level.id);
       const best = unlocked ? getLevelBest(level.id) : null;
       const selected = index === state.levelIndex;
 
@@ -489,15 +509,18 @@
       card.className = "level-card";
       card.classList.toggle("selected", selected);
       card.classList.toggle("locked", !unlocked);
-      card.classList.toggle("cleared", best !== null);
+      card.classList.toggle("cleared", cleared);
       card.dataset.index = String(index);
       card.setAttribute("role", "radio");
       card.setAttribute("aria-checked", selected ? "true" : "false");
       card.disabled = !unlocked;
 
+      // One three-way status used for both the visible label and the aria-label,
+      // so the screen-reader text never drifts from what is shown.
       let status;
       if (!unlocked) status = `LOCKED · CLEAR ${LEVELS[index - 1].title}`;
       else if (best) status = `BEST ${formatTime(best.time)}`;
+      else if (cleared) status = "CLEARED";
       else status = "NOT CLEARED";
 
       card.append(
@@ -505,10 +528,7 @@
         makeSpan("level-card-title", level.title),
         makeSpan("level-card-status", status)
       );
-      card.setAttribute(
-        "aria-label",
-        `Level ${index + 1}, ${level.title}. ${unlocked ? (best ? `Best time ${formatTime(best.time)}` : "Not cleared yet") : "Locked"}.`
-      );
+      card.setAttribute("aria-label", `Level ${index + 1}, ${level.title}. ${status}.`);
       return card;
     });
     levelSelect.replaceChildren(...cards);
@@ -529,6 +549,7 @@
   // unlocked level, skipping locked entries so keyboard and touch navigation
   // never land on an unstartable level.
   function moveSelection(dir) {
+    if (!dir) return; // a zero step would loop forever; callers pass ±1.
     for (let i = state.levelIndex + dir; i >= 0 && i < LEVELS.length; i += dir) {
       if (isLevelUnlocked(i)) {
         selectLevel(i);
@@ -545,7 +566,11 @@
     state.paused = false;
     menuButton.classList.add("hidden");
     messageScreen.classList.add("hidden");
-    renderLevelSelect();
+    // Re-validate the selection: if the current level is no longer unlocked
+    // (e.g. bests were wiped via resetBests), fall back to Level 1 so START
+    // never launches a level the picker would lock. selectLevel re-renders.
+    if (!isLevelUnlocked(state.levelIndex)) selectLevel(0);
+    else renderLevelSelect();
     titleScreen.classList.remove("hidden");
   }
 
@@ -1694,7 +1719,9 @@
   levelSelect.addEventListener("click", (event) => {
     const card = event.target.closest(".level-card");
     if (!card || card.disabled) return;
-    selectLevel(Number.parseInt(card.dataset.index, 10));
+    const index = Number.parseInt(card.dataset.index, 10);
+    if (!Number.isInteger(index)) return; // defensive: malformed card data
+    selectLevel(index);
   });
   document.addEventListener("keydown", handleKeyDown);
   document.addEventListener("keyup", handleKeyUp);
