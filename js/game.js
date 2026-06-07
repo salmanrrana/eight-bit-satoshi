@@ -166,10 +166,6 @@
   // zone-index logic keeps working unchanged; assigned in initLevel.
   let zones = [];
 
-  function getCurrentLevel() {
-    return LEVELS[state.levelIndex];
-  }
-
   const state = {
     phase: "title",
     paused: false,
@@ -195,6 +191,18 @@
     hudCache: "",
     timerCache: ""
   };
+
+  // The active level definition. Declared after `state` (which it reads) to avoid
+  // any temporal-dead-zone hazard, and guarded so a bad levelIndex fails loudly
+  // with an actionable message instead of throwing a cryptic TypeError frames
+  // later when a caller dereferences undefined.
+  function getCurrentLevel() {
+    const level = LEVELS[state.levelIndex];
+    if (!level) {
+      throw new Error(`No level at index ${state.levelIndex} (LEVELS.length=${LEVELS.length}); check state.levelIndex.`);
+    }
+    return level;
+  }
 
   // Personal bests persist across reloads in localStorage under a versioned key.
   // Bumping the version (or calling resetBests, exposed below for testing)
@@ -358,14 +366,24 @@
   // declarative layout. The add* builders create fresh objects each call, and
   // checkpoints are cloned with a per-run `taken` flag, so the immutable level
   // definition is never mutated between runs.
+  // Layout collections every level definition must provide. Validated on load so
+  // a missing or misspelled key fails loudly instead of leaving the world empty.
+  const LAYOUT_KEYS = ["ground", "platforms", "blockStacks", "coinArcs", "pages", "enemies", "hazards", "checkpoints"];
+
   function initLevel() {
     const level = getCurrentLevel();
+    const layout = level.layout || {};
+    for (const key of LAYOUT_KEYS) {
+      if (!Array.isArray(layout[key])) {
+        throw new Error(`Level "${level.id}" layout.${key} must be an array (use [] for an empty collection).`);
+      }
+    }
+
     WORLD_W = level.worldW;
-    zones = level.zones;
-    goal.x = level.goal.x;
-    goal.y = level.goal.y;
-    goal.w = level.goal.w;
-    goal.h = level.goal.h;
+    // Shallow-clone zones so the lazy gradient cache (getZoneGradient) lives on
+    // per-run copies and never mutates the immutable LEVELS definition.
+    zones = level.zones.map((zone) => ({ ...zone }));
+    Object.assign(goal, level.goal);
 
     solids.length = 0;
     coins.length = 0;
@@ -374,7 +392,6 @@
     hazards.length = 0;
     checkpoints.length = 0;
 
-    const layout = level.layout;
     for (const [x, w] of layout.ground) addGround(x, w);
     for (const [x, y, w, h, kind] of layout.platforms) addPlatform(x, y, w, h, kind);
     for (const [x, count] of layout.blockStacks) addBlockStack(x, count);
@@ -383,7 +400,7 @@
     for (const [x, y, minX, maxX, type] of layout.enemies) addEnemy(x, y, minX, maxX, type);
     for (const [x, y, w, h] of layout.hazards) addHazard(x, y, w, h);
     for (const cp of layout.checkpoints) {
-      checkpoints.push({ x: cp.x, y: cp.y, index: cp.index, name: cp.name, taken: false });
+      checkpoints.push({ ...cp, taken: false });
     }
   }
 
@@ -493,9 +510,10 @@
     state.completionTime = state.time;
     // Capture the prior best before overwriting so results can compare against
     // it, then persist this run's time and splits when it is a new best.
-    const previousBest = getLevelBest(getCurrentLevel().id);
+    const levelId = getCurrentLevel().id;
+    const previousBest = getLevelBest(levelId);
     const isNewBest = previousBest === null || state.completionTime < previousBest.time;
-    if (isNewBest) saveLevelBest(getCurrentLevel().id, state.completionTime, state.splits);
+    if (isNewBest) saveLevelBest(levelId, state.completionTime, state.splits);
     // Capture the rules-stamped submission payload for this run so local bests
     // and any future leaderboard submission share one consistent shape.
     state.lastRun = buildSubmission(isNewBest);
@@ -786,7 +804,7 @@
         page.taken = true;
         state.pages += 1;
         state.score += 250;
-        state.toast = `Whitepaper page ${state.pages}/9`;
+        state.toast = `Whitepaper page ${state.pages}/${getCurrentLevel().layout.pages.length}`;
         state.toastTime = 1.7;
         burst(page.x + 5, page.y + 7, palette.paper, 10);
         syncHud();
