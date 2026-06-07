@@ -1201,6 +1201,10 @@
     leaderboardScreen.classList.add("hidden");
     // Stop honoring in-flight responses so a late fetch can't render into a now-hidden board.
     leaderboardRequestId += 1;
+    // Return focus to the button that opened the view so keyboard/screen-reader
+    // users keep their place. Captured before restoring the screen so the target
+    // is visible when focused.
+    const opener = state.leaderboardOrigin === "results" ? resultsLeaderboardButton : leaderboardButton;
     if (state.leaderboardOrigin === "results") {
       state.phase = "complete";
       messageScreen.classList.remove("hidden");
@@ -1208,6 +1212,7 @@
       showTitle();
     }
     state.leaderboardOrigin = null;
+    if (opener && typeof opener.focus === "function") opener.focus();
   }
 
   function renderLeaderboardTabs() {
@@ -1220,6 +1225,7 @@
       tab.classList.toggle("active", active);
       tab.setAttribute("role", "tab");
       tab.setAttribute("aria-selected", active ? "true" : "false");
+      tab.setAttribute("aria-controls", "leaderboard-body");
       tab.dataset.levelId = level.id;
       tab.textContent = "LEVEL " + (LEVELS.indexOf(level) + 1);
       tab.setAttribute("aria-label", "Level " + (LEVELS.indexOf(level) + 1) + " leaderboard, " + level.title);
