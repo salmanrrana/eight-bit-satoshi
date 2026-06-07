@@ -145,10 +145,28 @@ levels** for the same player.
 - `time` = sum of the player's best qualifying Level 1 and Level 2 `time`.
 - The UI shows the combined total plus each contributing level time, and tells a
   player which level they still need to qualify (ticket `afbc8b2c`).
-- Ranked and tie-broken exactly as §3, using the summed `time`.
+- Ranked and tie-broken exactly as §3, using the summed `time`. Its
+  `serverTimestamp` (for the §3 tie-break) is the **later** of the two contributing
+  level timestamps — the instant the player qualified — and its `id` is the derived,
+  stable `combined::<normalized-name>`, which never collides with a real entry id.
 
 A combined entry is derived from level entries; it is not submitted directly by
-the client.
+the client. A derived row therefore adds one field beyond §2:
+
+| Field    | Type   | Meaning                                                                 |
+| -------- | ------ | ---------------------------------------------------------------------- |
+| `levels` | object | Per-level breakdown keyed by `levelId`, each `{ levelId, level, time, serverTimestamp, id }`, so the UI can show each contributing level time beside the total. |
+
+Player identity for grouping is the display name compared case-insensitively after
+trimming (the same identity rule the backend uses for duplicate detection) — the
+game has no accounts. Because the board is recomputed on every read from the best
+level entries, a faster time on either level updates the combined total
+automatically.
+
+The read API also exposes a player's progress toward qualifying: a `GET` for the
+combined board with an optional `playerName` returns a `you` object
+`{ playerName, qualified, time, levels, missing }`, where `missing` lists the level
+ids the player still needs. This is advisory UI data, never a ranked row.
 
 ---
 

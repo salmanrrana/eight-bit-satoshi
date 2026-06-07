@@ -585,6 +585,19 @@ button {
   box-shadow: 0 4px 0 var(--ink), inset 0 0 0 2px var(--bitcoin);
 }
 
+/* Combined-board progress line ("Finish L2 to qualify…" / "You qualify!"). Sits
+   above the rows and reads as a quiet instruction, not a row. */
+.leaderboard-hint {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--bitcoin);
+  background: oklch(72% 0.18 62 / 0.1);
+  color: var(--paper);
+  font-size: clamp(9px, 2vw, 12px);
+  line-height: 1.5;
+  text-align: left;
+}
+
 /* Scroll container for the rows. min-height reserves space so the loading/empty/
    error states don't make the box collapse and jump as content swaps in. */
 .leaderboard-body {

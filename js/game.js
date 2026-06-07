@@ -1162,30 +1162,61 @@
   // it owns no gameplay state, never throws into the loop, and degrades to clean
   // offline/error states when the backend is unreachable.
 
-  // The boards we can show: every playable level the contract accepts a submission
-  // for ("combined" is a virtual board owned by a separate ticket). Falls back to
-  // all levels if the rules module is missing so the picker is never empty.
+  // The playable levels the contract accepts a submission for. Falls back to all
+  // levels if the rules module is missing so the picker is never empty.
   const boardLevels = LEVELS.filter(function (level) {
     if (!leaderboardRules) return true;
     return Object.prototype.hasOwnProperty.call(leaderboardRules.SUBMITTABLE_LEVELS, level.id);
   });
 
+  const COMBINED_BOARD_ID = (leaderboardRules && leaderboardRules.COMBINED_LEVEL_ID) || "combined";
+
+  // The tabs the view offers: one per submittable level, plus the virtual combined
+  // total (contract §5) when at least two levels can contribute to it. A board
+  // descriptor is { id, kind: "level" | "combined", level, label, title }; `level`
+  // is null for the combined board.
+  const boards = boardLevels.map(function (level) {
+    return {
+      id: level.id,
+      kind: "level",
+      level: level,
+      label: "LEVEL " + (LEVELS.indexOf(level) + 1),
+      title: level.title
+    };
+  });
+  if (boardLevels.length >= 2) {
+    boards.push({
+      id: COMBINED_BOARD_ID,
+      kind: "combined",
+      level: null,
+      label: "COMBINED",
+      title: "COMBINED TOTAL"
+    });
+  }
+
   // Monotonic token so a slow fetch from a previously-selected tab can never
   // overwrite the rows of the tab the player switched to in the meantime.
   let leaderboardRequestId = 0;
 
-  function getBoardLevel() {
-    return LEVELS.find(function (level) { return level.id === state.leaderboardLevelId; })
-      || boardLevels[0]
+  function getCurrentBoard() {
+    return boards.find(function (board) { return board.id === state.leaderboardLevelId; })
+      || boards[0]
       || null;
   }
 
-  // Open the leaderboard, showing `levelId`'s board (defaults to the first board)
+  // Short level tag ("L1"/"L2") used in the combined breakdown so a row stays
+  // legible in the narrow frame.
+  function levelShortLabel(levelId) {
+    const index = LEVELS.findIndex(function (level) { return level.id === levelId; });
+    return index >= 0 ? "L" + (index + 1) : levelId;
+  }
+
+  // Open the leaderboard, showing `boardId`'s board (defaults to the first board)
   // and remembering where to return: "results" reshows the completion screen, any
   // other origin returns to the title.
-  function openLeaderboard(levelId, origin) {
-    if (!leaderboardClient || boardLevels.length === 0) return;
-    const target = boardLevels.find(function (level) { return level.id === levelId; }) || boardLevels[0];
+  function openLeaderboard(boardId, origin) {
+    if (!leaderboardClient || boards.length === 0) return;
+    const target = boards.find(function (board) { return board.id === boardId; }) || boards[0];
     state.leaderboardLevelId = target.id;
     state.leaderboardOrigin = origin || "title";
     state.phase = "leaderboard";
@@ -1217,8 +1248,8 @@
 
   function renderLeaderboardTabs() {
     if (!leaderboardTabs) return;
-    const tabs = boardLevels.map(function (level) {
-      const active = level.id === state.leaderboardLevelId;
+    const tabs = boards.map(function (board) {
+      const active = board.id === state.leaderboardLevelId;
       const tab = document.createElement("button");
       tab.type = "button";
       tab.className = "leaderboard-tab";
@@ -1226,12 +1257,17 @@
       tab.setAttribute("role", "tab");
       tab.setAttribute("aria-selected", active ? "true" : "false");
       tab.setAttribute("aria-controls", "leaderboard-body");
-      tab.dataset.levelId = level.id;
-      tab.textContent = "LEVEL " + (LEVELS.indexOf(level) + 1);
-      tab.setAttribute("aria-label", "Level " + (LEVELS.indexOf(level) + 1) + " leaderboard, " + level.title);
+      tab.dataset.levelId = board.id;
+      tab.textContent = board.label;
+      tab.setAttribute(
+        "aria-label",
+        board.kind === "combined"
+          ? "Combined total leaderboard across all levels"
+          : "Level " + (LEVELS.indexOf(board.level) + 1) + " leaderboard, " + board.title
+      );
       tab.addEventListener("click", function () {
-        if (state.leaderboardLevelId === level.id) return;
-        state.leaderboardLevelId = level.id;
+        if (state.leaderboardLevelId === board.id) return;
+        state.leaderboardLevelId = board.id;
         renderLeaderboardTabs();
         loadLeaderboard();
       });
@@ -1316,11 +1352,105 @@
     return table;
   }
 
+  // A short instructional line shown above the combined board explaining what the
+  // player still needs (acceptance: "understand what they still need to qualify").
+  function leaderboardHint(text) {
+    const hint = document.createElement("p");
+    hint.className = "leaderboard-hint";
+    hint.textContent = text;
+    return hint;
+  }
+
+  // Personalised combined-progress line from the server's `you` summary. Tells a
+  // player which level(s) they still need, confirms when they qualify, or — when we
+  // don't know who they are this session — explains the combined board generically.
+  function buildCombinedHint(you) {
+    if (!you) {
+      return leaderboardHint("The combined board ranks your total time across both levels — post a time on each to appear here.");
+    }
+    if (you.qualified) {
+      return leaderboardHint("You qualify! Your combined total is " + formatTime(you.time) + " across both levels.");
+    }
+    const missing = Array.isArray(you.missing) ? you.missing : [];
+    if (missing.length === 0) return null;
+    const names = missing.map(function (levelId) {
+      const level = LEVELS.find(function (l) { return l.id === levelId; });
+      return levelShortLabel(levelId) + (level ? " (" + level.title + ")" : "");
+    });
+    return leaderboardHint("Finish " + names.join(" and ") + " to qualify for the combined total.");
+  }
+
+  // Build a combined-board row's level breakdown ("L1 1:02.40 · L2 1:55.10"), in
+  // the canonical level order, from the entry's `levels` map.
+  function combinedBreakdown(levels) {
+    if (!levels) return [];
+    return Object.keys(leaderboardRules.SUBMITTABLE_LEVELS)
+      .filter(function (levelId) { return levels[levelId]; })
+      .map(function (levelId) { return levelShortLabel(levelId) + " " + formatTime(levels[levelId].time); });
+  }
+
+  // The combined board (contract §5): total time across both levels, with each
+  // contributing level time shown in the row meta. Highlights the current player by
+  // name (combined rows carry a derived id, so we match on name, not lastSubmittedEntry.id).
+  function buildCombinedTable(entries, you) {
+    const youName = (you && you.playerName) ||
+      (state.lastSubmittedEntry && state.lastSubmittedEntry.playerName) || "";
+    const youKey = youName.trim().toLowerCase();
+
+    const container = document.createElement("div");
+    const hint = buildCombinedHint(you);
+    if (hint) container.append(hint);
+
+    const table = document.createElement("div");
+    table.className = "leaderboard-table";
+    for (const entry of entries) {
+      const isYou = !!youKey && typeof entry.playerName === "string" &&
+        entry.playerName.trim().toLowerCase() === youKey;
+      const date = formatRunDate(entry.serverTimestamp);
+      const breakdown = combinedBreakdown(entry.levels);
+      const metaParts = breakdown.slice();
+      if (date) metaParts.push(date);
+
+      const row = document.createElement("div");
+      row.className = "leaderboard-row";
+      if (isYou) row.classList.add("is-you");
+      row.append(
+        lbCell("rank", String(entry.rank)),
+        lbCell("name", entry.playerName),
+        lbCell("time", formatTime(entry.time)),
+        lbCell("meta", metaParts.join(" · "))
+      );
+      row.setAttribute(
+        "aria-label",
+        "Rank " + entry.rank + ", " + entry.playerName + (isYou ? " (your run)" : "")
+          + ", total time " + formatTime(entry.time)
+          + (breakdown.length ? ", " + breakdown.join(", ") : "")
+      );
+      table.append(row);
+    }
+    container.append(table);
+    return container;
+  }
+
+  // Empty state for the combined board: no player has posted both level times yet.
+  // Still shows the personalised hint so a half-qualified player learns what's left.
+  function buildCombinedEmpty(you) {
+    const wrap = document.createElement("div");
+    wrap.className = "leaderboard-message is-empty";
+    const message = document.createElement("p");
+    message.className = "leaderboard-message-text";
+    message.textContent = "No combined times yet. Post a time on both levels to be the first!";
+    wrap.append(message);
+    const hint = buildCombinedHint(you);
+    if (hint) wrap.append(hint);
+    return wrap;
+  }
+
   // Fetch and render the currently-selected board. Resolves every client status to
   // a visible state and never throws; the request token guards against tab-switch races.
   async function loadLeaderboard() {
-    const level = getBoardLevel();
-    if (!leaderboardClient || !leaderboardRules || !level) {
+    const board = getCurrentBoard();
+    if (!leaderboardClient || !leaderboardRules || !board) {
       setLeaderboardBody(leaderboardMessage("error", "Leaderboard is unavailable.", false));
       return;
     }
@@ -1328,15 +1458,22 @@
     const requestId = (leaderboardRequestId += 1);
     setLeaderboardBody(leaderboardMessage("loading", "Loading times…", false));
 
+    const params = {
+      levelId: board.id,
+      category: leaderboardRules.CATEGORIES[0],
+      gameVersion: GAME_VERSION,
+      rulesVersion: TIMING_RULES.version,
+      limit: 50
+    };
+    // For the combined board, tell the server who "you" are (if we know from a
+    // submission this session) so it can report what's left to qualify.
+    if (board.kind === "combined" && state.lastSubmittedEntry) {
+      params.playerName = state.lastSubmittedEntry.playerName;
+    }
+
     let result;
     try {
-      result = await leaderboardClient.fetchLeaderboard({
-        levelId: level.id,
-        category: leaderboardRules.CATEGORIES[0],
-        gameVersion: GAME_VERSION,
-        rulesVersion: TIMING_RULES.version,
-        limit: 50
-      });
+      result = await leaderboardClient.fetchLeaderboard(params);
     } catch (err) {
       result = { status: "error", message: String(err && err.message ? err.message : err) };
     }
@@ -1361,14 +1498,22 @@
       return;
     }
     if (!Array.isArray(result.entries) || result.entries.length === 0) {
-      setLeaderboardBody(leaderboardMessage(
-        "empty",
-        "No times yet. Finish " + level.title + " to claim the top spot!",
-        false
-      ));
+      if (board.kind === "combined") {
+        setLeaderboardBody(buildCombinedEmpty(result.you));
+      } else {
+        setLeaderboardBody(leaderboardMessage(
+          "empty",
+          "No times yet. Finish " + board.title + " to claim the top spot!",
+          false
+        ));
+      }
       return;
     }
-    setLeaderboardBody(buildLeaderboardTable(level, result.entries));
+    if (board.kind === "combined") {
+      setLeaderboardBody(buildCombinedTable(result.entries, result.you));
+    } else {
+      setLeaderboardBody(buildLeaderboardTable(board.level, result.entries));
+    }
   }
 
   function update(dt) {

@@ -62,19 +62,28 @@ retry; a successful or duplicate submit locks it so the same run is not posted t
 ### Viewing the Leaderboard
 
 The **LEADERBOARD** button on the title screen — and on the results screen after a
-run — opens an in-game rankings view. Tabs switch between the Level 1 and Level 2
-boards; each row shows the rank, player name, final time, and the run's context
-stats (deaths, coins, pages) plus the date. A run you submitted this session is
-highlighted. The view handles loading, empty, offline, and error states cleanly
+run — opens an in-game rankings view. Tabs switch between the Level 1, Level 2, and
+**COMBINED** boards; each row shows the rank, player name, final time, and the run's
+context stats (deaths, coins, pages) plus the date. A run you submitted this session
+is highlighted. The view handles loading, empty, offline, and error states cleanly
 (offline/error offer a **RETRY**), and **BACK** (or `Esc`) returns to where you
 opened it from. Like the rest of the feature it is optional: if the backend is
 offline the rest of the game is unaffected.
+
+The **COMBINED** board ranks players by their **total time across both levels** — it
+sums your best Level 1 and Level 2 times, so you only appear once you have posted a
+time on each. Each row shows the combined total plus the contributing per-level
+times (`L1 … · L2 …`), and a line at the top tells you what you still need (for
+example, "Finish L2 (RUNNING BITCOIN) to qualify for the combined total."). Improving
+either level time updates your combined total automatically the next time the board
+loads.
 
 You can also open it from the browser console:
 
 ```js
 eightBitSatoshi.openLeaderboard()                  // first board
 eightBitSatoshi.openLeaderboard("running-bitcoin") // Level 2 board
+eightBitSatoshi.openLeaderboard("combined")        // combined total board
 ```
 
 ## Check

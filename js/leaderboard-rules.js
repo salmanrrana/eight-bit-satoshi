@@ -30,6 +30,10 @@
     "running-bitcoin": "RUNNING BITCOIN"
   };
 
+  // The virtual combined board's levelId (contract §1/§5). It is never submitted;
+  // it is derived on read from a player's best entry on every submittable level.
+  const COMBINED_LEVEL_ID = "combined";
+
   // Display-name constraints. These are the baseline limits enforced on both
   // sides; ticket 7f02e282 (privacy & moderation) layers a profanity/abuse filter
   // and the public-data notice on top of this — it does not loosen these bounds.
@@ -201,6 +205,157 @@
     return { ok: true, value: value };
   }
 
+  // Normalized player identity. The game has no accounts, so a "player" on the
+  // combined board is just a display name compared case-insensitively after
+  // trimming — the same identity rule the server uses for duplicate detection, so
+  // "Sat" and "SAT" are one person across both levels.
+  function playerKey(name) {
+    return typeof name === "string" ? name.trim().toLowerCase() : "";
+  }
+
+  // Group raw level entries into each player's BEST qualifying entry per level,
+  // restricted to a single board tuple's category/gameVersion/rulesVersion
+  // (contract §5/§6 — combined never mixes builds or rulesets). Only the two
+  // submittable levels contribute; the virtual "combined" levelId is ignored if it
+  // somehow appears. Returns a Map(playerKey -> { displayName, levels }) where
+  // `levels[levelId]` is that player's fastest entry for the level. "Best" means
+  // lowest time, earliest serverTimestamp breaking a tie — so the combined total
+  // automatically improves whenever a faster level time lands (acceptance: updates
+  // when either level improves).
+  function groupBestByPlayer(entries, opts) {
+    const wantedLevels = Object.keys(SUBMITTABLE_LEVELS);
+    const players = new Map();
+    if (!Array.isArray(entries)) return players;
+
+    for (let i = 0; i < entries.length; i += 1) {
+      const entry = entries[i];
+      if (!entry || typeof entry !== "object") continue;
+      if (entry.category !== opts.category) continue;
+      if (entry.gameVersion !== opts.gameVersion) continue;
+      if (entry.rulesVersion !== opts.rulesVersion) continue;
+      if (wantedLevels.indexOf(entry.levelId) === -1) continue;
+      if (!isFiniteNumber(entry.time)) continue;
+      const key = playerKey(entry.playerName);
+      if (!key) continue;
+
+      let player = players.get(key);
+      if (!player) {
+        player = { displayName: entry.playerName, latestTs: "", levels: {} };
+        players.set(key, player);
+      }
+      // Display-name casing follows the player's most recent submission so the
+      // combined row shows how they most recently spelled their name.
+      const ts = entry.serverTimestamp || "";
+      if (ts >= player.latestTs) {
+        player.latestTs = ts;
+        player.displayName = entry.playerName;
+      }
+      const current = player.levels[entry.levelId];
+      if (
+        !current ||
+        entry.time < current.time ||
+        (entry.time === current.time && ts < (current.serverTimestamp || ""))
+      ) {
+        player.levels[entry.levelId] = entry;
+      }
+    }
+    return players;
+  }
+
+  // Build the combined board (contract §5): for every player who has a qualifying
+  // entry on BOTH levels, sum their best level times into a single virtual entry.
+  // Players missing either level are excluded — the combined board only ranks
+  // fully-qualified runs. Returned entries are NOT yet ranked; pass them through
+  // rankEntries() to stamp `rank` (they rank on the summed `time` exactly like a
+  // real board, contract §3). Each entry carries a `levels` breakdown so the UI can
+  // show the contributing level times alongside the total.
+  function combineEntries(entries, opts) {
+    const players = groupBestByPlayer(entries, opts);
+    const wantedLevels = Object.keys(SUBMITTABLE_LEVELS);
+    const combined = [];
+
+    players.forEach(function (player, key) {
+      const hasAll = wantedLevels.every(function (levelId) {
+        return player.levels[levelId];
+      });
+      if (!hasAll) return;
+
+      let total = 0;
+      let latestTs = "";
+      const levels = {};
+      wantedLevels.forEach(function (levelId) {
+        const entry = player.levels[levelId];
+        total += entry.time;
+        const ts = entry.serverTimestamp || "";
+        if (ts > latestTs) latestTs = ts;
+        levels[levelId] = {
+          levelId: levelId,
+          level: entry.level || SUBMITTABLE_LEVELS[levelId],
+          time: roundCentis(entry.time),
+          serverTimestamp: entry.serverTimestamp,
+          id: entry.id
+        };
+      });
+
+      combined.push({
+        // Deterministic, stable virtual id — used by §3's final id tiebreak and
+        // never collides with a real (UUID) entry id.
+        id: "combined::" + key,
+        levelId: COMBINED_LEVEL_ID,
+        category: opts.category,
+        gameVersion: opts.gameVersion,
+        rulesVersion: opts.rulesVersion,
+        playerName: player.displayName,
+        time: roundCentis(total),
+        // The combined run is "achieved" when the LATER of the two level times was
+        // posted — that is the instant the player qualified. Tie-break (§3) uses it.
+        serverTimestamp: latestTs,
+        levels: levels
+      });
+    });
+    return combined;
+  }
+
+  // Describe one player's progress toward the combined board so the UI can tell
+  // them exactly what they still need (acceptance: "understand what they still need
+  // to complete to qualify"). Returns { playerName, qualified, time, levels,
+  // missing } where `levels[levelId]` is { time, level } or null, and `missing`
+  // lists the level ids still needed. `time` is the combined total only once
+  // qualified. Returns null when no usable name is given.
+  function combinedProgress(entries, playerName, opts) {
+    const key = playerKey(playerName);
+    if (!key) return null;
+
+    const player = groupBestByPlayer(entries, opts).get(key);
+    const wantedLevels = Object.keys(SUBMITTABLE_LEVELS);
+    const levels = {};
+    const missing = [];
+    let total = 0;
+
+    wantedLevels.forEach(function (levelId) {
+      const entry = player && player.levels[levelId];
+      if (entry) {
+        levels[levelId] = {
+          levelId: levelId,
+          level: entry.level || SUBMITTABLE_LEVELS[levelId],
+          time: roundCentis(entry.time)
+        };
+        total += entry.time;
+      } else {
+        levels[levelId] = null;
+        missing.push(levelId);
+      }
+    });
+
+    return {
+      playerName: player ? player.displayName : playerName.trim(),
+      qualified: missing.length === 0,
+      time: missing.length === 0 ? roundCentis(total) : null,
+      levels: levels,
+      missing: missing
+    };
+  }
+
   // Sort entries into ranked order and stamp a 1-based `rank` (contract §3):
   //   1. time ascending (only ranking signal)
   //   2. earlier serverTimestamp wins ties
@@ -225,6 +380,7 @@
   return {
     CATEGORIES: CATEGORIES,
     SUBMITTABLE_LEVELS: SUBMITTABLE_LEVELS,
+    COMBINED_LEVEL_ID: COMBINED_LEVEL_ID,
     NAME_MIN: NAME_MIN,
     NAME_MAX: NAME_MAX,
     NAME_ALLOWED: NAME_ALLOWED,
@@ -233,6 +389,8 @@
     boardKey: boardKey,
     validateName: validateName,
     validateSubmission: validateSubmission,
+    combineEntries: combineEntries,
+    combinedProgress: combinedProgress,
     rankEntries: rankEntries
   };
 });

@@ -165,6 +165,33 @@ function handleGetLeaderboard(url, res) {
     limit = Math.min(parsed, MAX_LIMIT);
   }
 
+  const board = {
+    levelId: levelId,
+    category: category,
+    gameVersion: gameVersion,
+    rulesVersion: rulesVersion
+  };
+
+  // The combined board is virtual (contract §5): it is derived from each player's
+  // best entry on both levels rather than stored, so it is never submitted and not
+  // matched by boardKey. An optional ?playerName lets the caller learn its own
+  // progress ("what you still need to qualify") in the same round-trip.
+  if (levelId === rules.COMBINED_LEVEL_ID) {
+    const opts = { category: category, gameVersion: gameVersion, rulesVersion: rulesVersion };
+    const combined = rules.combineEntries(entries, opts);
+    const ranked = rules.rankEntries(combined).slice(0, limit);
+    const playerName = url.searchParams.get("playerName");
+    const you = playerName ? rules.combinedProgress(entries, playerName, opts) : null;
+    sendJson(res, 200, {
+      ok: true,
+      board: board,
+      total: combined.length,
+      entries: ranked,
+      you: you
+    });
+    return;
+  }
+
   const key = rules.boardKey(levelId, category, gameVersion, rulesVersion);
   const matching = entries.filter(function (entry) {
     return rules.boardKey(entry.levelId, entry.category, entry.gameVersion, entry.rulesVersion) === key;
@@ -173,12 +200,7 @@ function handleGetLeaderboard(url, res) {
 
   sendJson(res, 200, {
     ok: true,
-    board: {
-      levelId: levelId,
-      category: category,
-      gameVersion: gameVersion,
-      rulesVersion: rulesVersion
-    },
+    board: board,
     total: matching.length,
     entries: ranked
   });

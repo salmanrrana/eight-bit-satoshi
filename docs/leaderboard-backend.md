@@ -30,6 +30,23 @@ All four board-identifying params (`levelId`, `category`, `gameVersion`,
 `rulesVersion`) are **required** on read, so runs from different builds or rulesets
 are never mixed (contract §6).
 
+### The combined board (`levelId=combined`)
+
+`combined` is a **virtual** board (contract §5): nothing is ever submitted to it.
+On read, the server derives it from each player's best entry on *both* levels
+(matched by case-insensitive display name within the same
+`category`/`gameVersion`/`rulesVersion`), sums those two times, and ranks the totals
+with the same rules as any other board. Players missing either level are excluded.
+Each returned row carries a `levels` breakdown of the contributing level times, a
+derived `id` (`combined::<name>`), and a `serverTimestamp` equal to the later of the
+two level times (the instant the player qualified). Because it is recomputed on
+every read, a faster level time updates the combined total automatically.
+
+An optional `playerName` query param asks the server to also return a `you` object
+describing that player's own progress — `{ playerName, qualified, time, levels,
+missing }`, where `missing` lists the level ids still needed — so the UI can tell a
+player exactly what is left to qualify. It is omitted (null) for normal boards.
+
 A `POST` body is a full submission: the run payload from `buildSubmission()` plus
 the envelope `{ playerName, clientTimestamp }`. Responses:
 

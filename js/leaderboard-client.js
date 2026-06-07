@@ -112,10 +112,14 @@
   }
 
   // Read ranked rows for one board. `params` is { levelId, category, gameVersion,
-  // rulesVersion, limit? }. Resolves to:
-  //   { status: "ok", board, total, entries }
+  // rulesVersion, limit?, playerName? }. `playerName` only applies to the virtual
+  // combined board (levelId "combined"), where it asks the server to also report
+  // that player's progress toward qualifying. Resolves to:
+  //   { status: "ok", board, total, entries, you? }
   //   { status: "offline" }
   //   { status: "error", message }
+  // `you` is present only for the combined board and is null when no name was given
+  // or the player has no qualifying times yet.
   async function fetchLeaderboard(params) {
     const query = new URLSearchParams({
       levelId: params.levelId,
@@ -124,6 +128,9 @@
       rulesVersion: String(params.rulesVersion)
     });
     if (params.limit != null) query.set("limit", String(params.limit));
+    if (params.playerName != null && params.playerName !== "") {
+      query.set("playerName", String(params.playerName));
+    }
 
     let res;
     try {
@@ -143,7 +150,7 @@
     if (!res.ok || !data || data.ok !== true) {
       return { status: "error", message: (data && data.error) || ("backend error " + res.status) };
     }
-    return { status: "ok", board: data.board, total: data.total, entries: data.entries };
+    return { status: "ok", board: data.board, total: data.total, entries: data.entries, you: data.you };
   }
 
   window.eightBitSatoshiLeaderboard = {
