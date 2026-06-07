@@ -63,10 +63,24 @@
   ];
 
   // Sanity ceiling for a submitted time. A real run is minutes long; anything past
-  // a day is malformed or a clock/overflow bug, not a slow player. Deeper plausibility
-  // checks (impossible-fast times, stat/split inconsistencies) live in the
-  // anti-cheat ticket f5c6f03e; this is the "obviously malformed" floor/ceiling.
+  // a day is malformed or a clock/overflow bug, not a slow player.
   const MAX_TIME_SECONDS = 24 * 60 * 60;
+
+  // Per-level "impossibly fast" floors in seconds (anti-cheat ticket f5c6f03e).
+  //
+  // The run clock only advances while the player is moving through the level, and
+  // the player's horizontal speed is hard-capped (MAX_RUN = 148 px/s in
+  // js/game.js). The platforms never carry the player, so the fastest a run can
+  // *physically* be is the level's traverse distance divided by that cap — jumping
+  // and obstacles only ADD time. That gives ~34.5s for whitepaper-run (5102 px) and
+  // ~37.2s for running-bitcoin (5502 px). We set the floors at roughly HALF those
+  // hard minimums: low enough that no real run is ever rejected, high enough to
+  // reject the obviously-fake "3 second clear". This is a deliberately conservative,
+  // lightweight check — see docs/leaderboard-anti-cheat.md for what it cannot catch.
+  const LEVEL_MIN_TIME = {
+    "whitepaper-run": 16,
+    "running-bitcoin": 18
+  };
 
   // Float comparison slack (one centisecond) for monotonic split checks, so
   // sub-frame rounding never trips a "split exceeds final time" rejection.
@@ -188,6 +202,14 @@
 
     if (!isFiniteNumber(input.time) || input.time <= 0 || input.time > MAX_TIME_SECONDS) {
       errors.push("time must be a positive number of seconds within range");
+    } else if (
+      typeof input.levelId === "string" &&
+      Object.prototype.hasOwnProperty.call(LEVEL_MIN_TIME, input.levelId) &&
+      input.time + EPSILON < LEVEL_MIN_TIME[input.levelId]
+    ) {
+      // Impossibly fast for this level — below the physical floor (anti-cheat
+      // f5c6f03e). Only checked once the time and levelId are otherwise well-formed.
+      errors.push("time is implausibly fast for " + input.levelId);
     }
 
     if (!isNonNegativeInt(input.deaths)) errors.push("deaths must be a non-negative integer");
@@ -222,6 +244,13 @@
         }
         if (isFiniteNumber(input.time) && input.splits[i].total > input.time + EPSILON) {
           errors.push("splits[" + i + "].total exceeds the final time");
+        }
+        // Internal consistency (anti-cheat f5c6f03e): the segment time must equal
+        // the gap between this cumulative total and the previous one. The game
+        // records split = total - prevTotal exactly (recordSplit in js/game.js), so
+        // a mismatch beyond float slack means the splits were hand-edited.
+        if (Math.abs(input.splits[i].split - (input.splits[i].total - prevTotal)) > EPSILON) {
+          errors.push("splits[" + i + "].split is inconsistent with the cumulative totals");
         }
         prevTotal = input.splits[i].total;
       }
@@ -442,6 +471,7 @@
     NAME_MAX: NAME_MAX,
     NAME_ALLOWED: NAME_ALLOWED,
     MAX_TIME_SECONDS: MAX_TIME_SECONDS,
+    LEVEL_MIN_TIME: LEVEL_MIN_TIME,
     roundCentis: roundCentis,
     boardKey: boardKey,
     validateName: validateName,

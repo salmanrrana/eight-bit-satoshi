@@ -20,11 +20,20 @@ between client and server.
 
 ## Endpoints
 
-| Method | Path                                                                | Purpose                         |
-| ------ | ------------------------------------------------------------------- | ------------------------------- |
-| `GET`  | `/api/health`                                                       | Liveness probe.                 |
-| `GET`  | `/api/leaderboard?levelId&category&gameVersion&rulesVersion[&limit]` | Ranked rows for one board.      |
-| `POST` | `/api/leaderboard`                                                   | Submit a completed run.         |
+| Method   | Path                                                                | Purpose                              |
+| -------- | ------------------------------------------------------------------- | ------------------------------------ |
+| `GET`    | `/api/health`                                                       | Liveness probe.                      |
+| `GET`    | `/api/leaderboard?levelId&category&gameVersion&rulesVersion[&limit]` | Ranked rows for one board.           |
+| `POST`   | `/api/leaderboard`                                                   | Submit a completed run.              |
+| `DELETE` | `/api/leaderboard?id=<entryId>`                                      | Remove one bogus entry (admin only). |
+
+`DELETE` is the maintenance path for removing fake submissions; it is disabled
+unless `LEADERBOARD_ADMIN_TOKEN` is set and requires a matching `X-Admin-Token`
+header. See [`leaderboard-anti-cheat.md`](leaderboard-anti-cheat.md) for the full
+flow and the limits of anti-cheat on a static browser game. The same path can
+remove abusive display names; see
+[`leaderboard-privacy.md`](leaderboard-privacy.md) for the privacy and moderation
+policy.
 
 All four board-identifying params (`levelId`, `category`, `gameVersion`,
 `rulesVersion`) are **required** on read, so runs from different builds or rulesets
@@ -58,6 +67,11 @@ the envelope `{ playerName, clientTimestamp }`. Responses:
 - `400 { ok: false, error, details }` — validation failed; `details` lists each
   problem.
 - `413` / `500` — body too large / unexpected server failure.
+
+Display names are checked by the shared rules module on both write and read.
+Submissions with blocked names are rejected. If the blocklist changes later, older
+stored rows that no longer pass `validateName()` are omitted from leaderboard
+responses until a maintainer deletes them.
 
 ## Local development
 
@@ -94,6 +108,7 @@ curl -s 'http://127.0.0.1:5050/api/leaderboard?levelId=whitepaper-run&category=A
 | ------------------ | -------------------------------- | ---------------------------------------- |
 | `PORT`             | `5050`                           | Port the API listens on.                 |
 | `LEADERBOARD_DATA` | `server/data/leaderboard.json`   | Path to the JSON store.                  |
+| `LEADERBOARD_ADMIN_TOKEN` | unset                    | Enables authenticated `DELETE` for bogus or abusive entries. |
 
 The store directory is created on first write and is **git-ignored** — entries are
 runtime data, not source.
@@ -116,12 +131,20 @@ So a production page hosting the API elsewhere just adds a meta tag.
    match your platform and put it behind HTTPS (a reverse proxy such as nginx/Caddy,
    or the platform's built-in TLS).
 3. Persist `LEADERBOARD_DATA` on a durable volume so entries survive restarts.
-4. Add a `<meta name="leaderboard-api-base">` (or set `window.LEADERBOARD_API_BASE`)
+4. Set a long random `LEADERBOARD_ADMIN_TOKEN` so bogus or abusive rows can be
+   removed without opening public deletes.
+5. Review host/proxy/CDN access logs. The app does not store IP addresses or
+   device identifiers in leaderboard data, but infrastructure logs may.
+6. Review the display-name blocklist in `js/leaderboard-rules.js` for your
+   audience and update it as needed.
+7. Add a `<meta name="leaderboard-api-base">` (or set `window.LEADERBOARD_API_BASE`)
    on the static page pointing at the deployed API origin.
 
 The API sends permissive CORS (`Access-Control-Allow-Origin: *`) because it is
 public by design and is consumed from a different origin than the static files.
-It stores nothing but freely-chosen display names and run stats.
+It stores nothing but freely-chosen display names and run stats. The deployment
+privacy and moderation checklist lives in
+[`leaderboard-privacy.md`](leaderboard-privacy.md).
 
 ## Resilience
 
@@ -148,5 +171,6 @@ This is deliberately lightweight. It validates **obviously malformed** submissio
 (bad types, out-of-range values, inconsistent stats/splits) but is not, by itself,
 cheat-proof — a determined player can still hand-craft a plausible POST. Stronger
 plausibility checks, rate limiting, and an admin path to remove bogus entries are
-the anti-cheat ticket (`f5c6f03e`); name moderation and the public-data notice are
-the privacy ticket (`7f02e282`).
+the anti-cheat ticket (`f5c6f03e`). Name moderation is also deliberately
+lightweight: it rejects and read-filters obvious abusive display names, but a
+maintainer should still review reports and remove rows when needed.

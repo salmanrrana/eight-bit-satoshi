@@ -16,6 +16,7 @@
 //   GET  /api/leaderboard?levelId&category&gameVersion&rulesVersion[&limit]
 //                                                     ranked rows for one board
 //   POST /api/leaderboard                             submit a run (full submission body)
+//   DELETE /api/leaderboard?id=<entryId>              remove one row (admin only)
 //
 // See docs/leaderboard-backend.md for setup and deployment, including how to put a
 // managed datastore behind the same two endpoints if you outgrow the JSON file.
@@ -34,6 +35,16 @@ const PORT = Number(process.env.PORT) || 5050;
 const DATA_FILE = process.env.LEADERBOARD_DATA
   ? path.resolve(process.env.LEADERBOARD_DATA)
   : path.join(__dirname, "data", "leaderboard.json");
+
+// Maintenance path for removing bogus entries (anti-cheat ticket f5c6f03e). The
+// game has no accounts and the API is public-write by design, so a determined
+// player can still hand-craft a plausible submission; this is the deliberate
+// escape hatch a maintainer uses to delete one after the fact. It is OFF unless a
+// shared secret is configured — set LEADERBOARD_ADMIN_TOKEN to enable
+// `DELETE /api/leaderboard?id=<entryId>` with an `X-Admin-Token` header. With no
+// token set, the route stays disabled so an open public endpoint never exposes
+// deletes. See docs/leaderboard-anti-cheat.md.
+const ADMIN_TOKEN = process.env.LEADERBOARD_ADMIN_TOKEN || "";
 
 // Cap on accepted request bodies. A submission is a few KB at most; anything past
 // this is abuse or a bug, so we reject early instead of buffering it.
@@ -88,8 +99,8 @@ function persistEntries() {
 // it stores nothing but freely-chosen names and run stats.
 function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Token");
 }
 
 function sendJson(res, status, body) {
@@ -354,6 +365,66 @@ async function handlePostLeaderboard(req, res) {
   sendJson(res, 201, { ok: true, duplicate: false, entry: publicEntry(entry) });
 }
 
+// Constant-time comparison of a presented admin token against the configured one,
+// so a wrong token cannot be discovered by timing the response. Returns false fast
+// when either side is missing or the lengths differ (timingSafeEqual requires equal
+// lengths). Used only by the maintenance delete path.
+function tokenMatches(presented) {
+  if (!ADMIN_TOKEN || typeof presented !== "string" || presented.length === 0) return false;
+  const a = Buffer.from(presented);
+  const b = Buffer.from(ADMIN_TOKEN);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+// DELETE a single entry by id — the maintenance path for removing bogus runs
+// (anti-cheat ticket f5c6f03e). Guarded by a shared secret: disabled entirely
+// unless LEADERBOARD_ADMIN_TOKEN is set, and otherwise requires a matching
+// `X-Admin-Token` header. Combined rows are virtual (derived on read), so only real
+// stored entries — keyed by their server-assigned UUID — can be deleted.
+function handleDeleteEntry(req, url, res) {
+  if (!ADMIN_TOKEN) {
+    sendJson(res, 403, {
+      ok: false,
+      error: "admin actions are disabled; set LEADERBOARD_ADMIN_TOKEN to enable entry removal"
+    });
+    return;
+  }
+  if (!tokenMatches(req.headers["x-admin-token"])) {
+    sendJson(res, 401, { ok: false, error: "missing or invalid admin token" });
+    return;
+  }
+
+  const id = url.searchParams.get("id");
+  if (!id) {
+    sendJson(res, 400, { ok: false, error: "id query param is required" });
+    return;
+  }
+
+  const index = entries.findIndex(function (entry) {
+    return entry.id === id;
+  });
+  if (index === -1) {
+    sendJson(res, 404, { ok: false, error: "no entry with id " + id });
+    return;
+  }
+
+  const [removed] = entries.splice(index, 1);
+  try {
+    persistEntries();
+  } catch (err) {
+    // Restore the row at its original position so in-memory state never diverges
+    // from disk after a failed write; the caller sees a clean failure to retry.
+    entries.splice(index, 0, removed);
+    console.error("[leaderboard] failed to persist after delete:", err.message);
+    sendJson(res, 500, { ok: false, error: "failed to remove entry" });
+    return;
+  }
+
+  console.log("[leaderboard] admin removed entry " + id);
+  sendJson(res, 200, { ok: true, deleted: removed });
+}
+
 // ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
@@ -387,6 +458,10 @@ const server = http.createServer(function (req, res) {
       console.error("[leaderboard] unexpected error:", err);
       sendJson(res, 500, { ok: false, error: "internal server error" });
     });
+    return;
+  }
+  if (req.method === "DELETE" && url.pathname === "/api/leaderboard") {
+    handleDeleteEntry(req, url, res);
     return;
   }
 
