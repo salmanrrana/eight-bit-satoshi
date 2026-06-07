@@ -18,6 +18,25 @@
   const COYOTE = 0.085;
   const JUMP_BUFFER = 0.11;
   const TILE = 16;
+  const LEVEL_NAME = "THE WHITEPAPER RUN";
+
+  // Single source of truth for how the timed category works. Every surface that
+  // touches timing (HUD, results, local bests, future leaderboard submissions)
+  // reads these decisions so the rules stay consistent and are versioned:
+  // bumping `version` after a real rules change invalidates stale personal bests
+  // recorded under the old ruleset. The chosen rules for this category:
+  //   - The run timer pauses on the pause screen (real-time, but pausable).
+  //   - Deaths are allowed; each costs a life and is counted, the timer keeps
+  //     running, and the run ends only when lives reach zero.
+  //   - Respawning at a checkpoint keeps the same timer and earlier splits.
+  const TIMING_RULES = {
+    version: 1,
+    category: "ANY%",
+    timerPausesWhilePaused: true,
+    deathsAllowed: true,
+    respawnKeepsTimer: true,
+    summary: "ANY%: timer pauses when paused, deaths cost a life but keep the clock, checkpoints save your spot — not your time."
+  };
 
   const canvas = document.getElementById("game-canvas");
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
@@ -25,12 +44,15 @@
   const messageScreen = document.getElementById("message-screen");
   const messageTitle = document.getElementById("message-title");
   const messageCopy = document.getElementById("message-copy");
+  const messageResults = document.getElementById("message-results");
   const startButton = document.getElementById("start-button");
   const continueButton = document.getElementById("continue-button");
   const restartButton = document.getElementById("restart-button");
   const hudCoins = document.getElementById("hud-coins");
   const hudLives = document.getElementById("hud-lives");
   const hudZone = document.getElementById("hud-zone");
+  const hudTimer = document.getElementById("hud-timer");
+  const titleRules = document.getElementById("title-rules");
 
   ctx.imageSmoothingEnabled = false;
 
@@ -83,8 +105,136 @@
     toastTime: 0,
     shake: 0,
     completionTime: 0,
-    hudCache: ""
+    deaths: 0,
+    splits: [],
+    bestSplits: {},
+    lastRun: null,
+    hudCache: "",
+    timerCache: ""
   };
+
+  // Personal bests persist across reloads in localStorage under a versioned key.
+  // Bumping the version (or calling resetBests, exposed below for testing)
+  // invalidates older shapes so corrupt or legacy data never breaks a run.
+  const BESTS_KEY = "8bit-satoshi:bests:v1";
+
+  // Read the full bests map, tolerating missing, unavailable, or corrupt
+  // storage by falling back to an empty map. Storage access itself can throw
+  // (private mode, disabled cookies), so the whole read is guarded.
+  function loadBests() {
+    try {
+      const raw = localStorage.getItem(BESTS_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveBests(bests) {
+    try {
+      localStorage.setItem(BESTS_KEY, JSON.stringify(bests));
+    } catch (err) {
+      // Storage unavailable or over quota: bests stay in-memory for the session.
+    }
+  }
+
+  // Return a validated best for a level, or null when absent/corrupt. Guards the
+  // exact fields the UI reads so a partially-written entry never throws later.
+  // Bests are tied to the timing ruleset: an entry recorded under a different
+  // (newer) rules version is treated as absent so stale times never compete
+  // against the current rules. Entries predating versioning lack the field and
+  // are accepted as the current version, since they were set under these rules.
+  function getLevelBest(level) {
+    const entry = loadBests()[level];
+    if (!entry || typeof entry.time !== "number" || !Number.isFinite(entry.time)) return null;
+    const rulesVersion = typeof entry.rulesVersion === "number" ? entry.rulesVersion : TIMING_RULES.version;
+    if (rulesVersion !== TIMING_RULES.version) return null;
+    const splits = Array.isArray(entry.splits) ? entry.splits : [];
+    return { time: entry.time, splits };
+  }
+
+  function saveLevelBest(level, time, splits) {
+    const bests = loadBests();
+    bests[level] = {
+      rulesVersion: TIMING_RULES.version,
+      time,
+      splits: splits.map((entry) => ({
+        index: entry.index,
+        name: entry.name,
+        total: entry.total,
+        split: entry.split
+      }))
+    };
+    saveBests(bests);
+  }
+
+  // Wipe persisted personal bests. Exposed on `window.eightBitSatoshi.resetBests`
+  // for development/testing — run it in the browser console and reload to clear
+  // saved times and splits. Returns true when storage was cleared.
+  function resetBests() {
+    try {
+      localStorage.removeItem(BESTS_KEY);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+  // Build a structured, rules-stamped summary of a finished run. This is the
+  // single shape future leaderboard submission will send, so the same fields and
+  // ruleset that drive the HUD, results, and local bests also drive submissions.
+  function buildSubmission(isNewBest) {
+    return {
+      level: LEVEL_NAME,
+      rulesVersion: TIMING_RULES.version,
+      category: TIMING_RULES.category,
+      time: state.completionTime,
+      deaths: state.deaths,
+      coins: state.coins,
+      pages: state.pages,
+      lives: state.lives,
+      isNewBest,
+      splits: state.splits.map((entry) => ({
+        index: entry.index,
+        name: entry.name,
+        total: entry.total,
+        split: entry.split
+      }))
+    };
+  }
+
+  // Expose timing helpers for development/testing and future leaderboard wiring:
+  //   resetBests()   wipe persisted personal bests
+  //   getTimingRules() read the active ruleset (frozen copy)
+  //   getLastRun()   read the last completed run's submission payload, or null
+  function getTimingRules() {
+    return Object.freeze(Object.assign({}, TIMING_RULES));
+  }
+  function getLastRun() {
+    return state.lastRun ? JSON.parse(JSON.stringify(state.lastRun)) : null;
+  }
+  window.eightBitSatoshi = Object.assign({}, window.eightBitSatoshi, {
+    resetBests,
+    getTimingRules,
+    getLastRun
+  });
+
+  // Map of checkpoint index -> best split duration for the active level, captured
+  // once per full run so the in-run toast can flag faster sections without
+  // re-reading storage at every checkpoint.
+  function loadBestSplitMap(level) {
+    const best = getLevelBest(level);
+    const map = {};
+    if (best) {
+      for (const entry of best.splits) {
+        if (typeof entry.index === "number" && typeof entry.split === "number") {
+          map[entry.index] = entry.split;
+        }
+      }
+    }
+    return map;
+  }
 
   const input = {
     left: false,
@@ -200,13 +350,15 @@
     addHazard(3870, 190, 42, 15);
     addHazard(4338, 190, 42, 15);
 
+    // Checkpoints carry a stable 1-based index and display name (the section
+    // they open) so splits stay identifiable across results and personal bests.
     checkpoints.push(
-      { x: 760, y: 172, taken: false },
-      { x: 1510, y: 172, taken: false },
-      { x: 2350, y: 172, taken: false },
-      { x: 3180, y: 172, taken: false },
-      { x: 4020, y: 172, taken: false },
-      { x: 4750, y: 172, taken: false }
+      { x: 760, y: 172, index: 1, name: "CYPHERPUNKS", taken: false },
+      { x: 1510, y: 172, index: 2, name: "GENESIS", taken: false },
+      { x: 2350, y: 172, index: 3, name: "BLOCKCHAIN", taken: false },
+      { x: 3180, y: 172, index: 4, name: "NETWORK", taken: false },
+      { x: 4020, y: 172, index: 5, name: "HANDOFF", taken: false },
+      { x: 4750, y: 172, index: 6, name: "WHITEPAPER", taken: false }
     );
   }
 
@@ -256,6 +408,11 @@
       state.score = 0;
       state.checkpointX = 30;
       state.currentZone = 0;
+      state.time = 0;
+      state.completionTime = 0;
+      state.deaths = 0;
+      state.splits.length = 0;
+      state.bestSplits = loadBestSplitMap(LEVEL_NAME);
       initLevel();
     }
 
@@ -287,6 +444,8 @@
   function showMessage(title, copy, restartLabel = "RESTART", canContinue = false) {
     messageTitle.textContent = title;
     messageCopy.textContent = copy;
+    messageCopy.classList.remove("hidden");
+    messageResults.classList.add("hidden");
     restartButton.textContent = restartLabel;
     continueButton.classList.toggle("hidden", !canContinue);
     messageScreen.classList.remove("hidden");
@@ -307,7 +466,122 @@
     if (state.phase === "complete") return;
     state.phase = "complete";
     state.completionTime = state.time;
-    showMessage("BITCOIN LIVES", `Whitepaper pages ${state.pages}/9. BTC ${pad2(state.coins)}.`, "PLAY AGAIN");
+    // Capture the prior best before overwriting so results can compare against
+    // it, then persist this run's time and splits when it is a new best.
+    const previousBest = getLevelBest(LEVEL_NAME);
+    const isNewBest = previousBest === null || state.completionTime < previousBest.time;
+    if (isNewBest) saveLevelBest(LEVEL_NAME, state.completionTime, state.splits);
+    // Capture the rules-stamped submission payload for this run so local bests
+    // and any future leaderboard submission share one consistent shape.
+    state.lastRun = buildSubmission(isNewBest);
+    showResults(isNewBest, previousBest);
+  }
+
+  // Build the completion overlay: prominent final time, in-order checkpoint
+  // splits, run stats, and a personal-best marker. Reuses the shared message
+  // screen so PLAY AGAIN (restartButton) keeps its existing wiring.
+  function showResults(isNewBest, previousBest) {
+    messageTitle.textContent = "BITCOIN LIVES";
+    messageCopy.classList.add("hidden");
+
+    messageResults.replaceChildren(
+      buildFinalTime(state.completionTime, isNewBest),
+      buildComparison(state.completionTime, previousBest, isNewBest),
+      buildSplitList(state.splits),
+      buildStats()
+    );
+    messageResults.classList.remove("hidden");
+
+    restartButton.textContent = "PLAY AGAIN";
+    continueButton.classList.add("hidden");
+    messageScreen.classList.remove("hidden");
+  }
+
+  function buildFinalTime(time, isNewBest) {
+    const wrap = document.createElement("p");
+    wrap.className = "results-final";
+    wrap.append(
+      makeSpan("results-final-label", "FINAL TIME"),
+      makeSpan("results-final-value", formatTime(time))
+    );
+    if (isNewBest) wrap.append(makeSpan("results-best-badge", "NEW BEST"));
+    return wrap;
+  }
+
+  // Compare this run's final time against the saved personal best. First clears
+  // (no prior best) say so; otherwise show the saved best and the signed delta
+  // (negative when this run is faster).
+  function buildComparison(time, previousBest, isNewBest) {
+    const wrap = document.createElement("p");
+    wrap.className = "results-compare";
+    if (previousBest === null) {
+      wrap.append(makeSpan("results-compare-label", "FIRST CLEAR — TIME TO BEAT IT"));
+      return wrap;
+    }
+    const delta = time - previousBest.time;
+    const sign = delta < 0 ? "-" : "+";
+    wrap.append(
+      makeSpan("results-compare-label", "BEST"),
+      makeSpan("results-compare-best", formatTime(previousBest.time)),
+      makeSpan(
+        isNewBest ? "results-compare-delta faster" : "results-compare-delta slower",
+        `${sign}${formatTime(Math.abs(delta))}`
+      )
+    );
+    return wrap;
+  }
+
+  function buildSplitList(splits) {
+    const list = document.createElement("ul");
+    list.className = "results-splits";
+    if (!splits.length) {
+      const empty = document.createElement("li");
+      empty.className = "results-split results-split-empty";
+      empty.textContent = "No checkpoint splits recorded.";
+      list.append(empty);
+      return list;
+    }
+    for (const entry of splits) {
+      const row = document.createElement("li");
+      row.className = "results-split";
+      row.append(
+        makeSpan("split-name", `${entry.index}. ${entry.name}`),
+        makeSpan("split-time", `+${formatTime(entry.split)}`),
+        makeSpan("split-total", formatTime(entry.total))
+      );
+      list.append(row);
+    }
+    return list;
+  }
+
+  function buildStats() {
+    const stats = [
+      ["LEVEL", LEVEL_NAME],
+      ["BTC", pad2(state.coins)],
+      ["PAGES", `${state.pages}/9`],
+      ["DEATHS", String(state.deaths)],
+      ["LIVES", String(state.lives)]
+    ];
+    const dl = document.createElement("dl");
+    dl.className = "results-stats";
+    for (const [label, value] of stats) {
+      const pair = document.createElement("div");
+      pair.className = "results-stat";
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = value;
+      pair.append(dt, dd);
+      dl.append(pair);
+    }
+    return dl;
+  }
+
+  function makeSpan(className, value) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.textContent = value;
+    return span;
   }
 
   function gameOver() {
@@ -499,17 +773,37 @@
       if (!checkpoint.taken && player.x > checkpoint.x) {
         checkpoint.taken = true;
         state.checkpointX = checkpoint.x;
-        state.toast = "Checkpoint saved.";
-        state.toastTime = 1.25;
+        recordSplit(checkpoint);
         burst(checkpoint.x, checkpoint.y, palette.blue, 8);
       }
     }
+  }
+
+  // Record the elapsed total and section split when a checkpoint is first
+  // reached. The checkpoint's `taken` flag (set before this runs) guarantees a
+  // single split per checkpoint per run; the index check is a defensive backstop.
+  function recordSplit(checkpoint) {
+    if (state.splits.some((entry) => entry.index === checkpoint.index)) return;
+    const previousTotal = state.splits.length ? state.splits[state.splits.length - 1].total : 0;
+    const total = state.time;
+    const split = Math.max(0, total - previousTotal);
+    state.splits.push({ index: checkpoint.index, name: checkpoint.name, total, split });
+    // Flag the section as faster than the saved personal-best split, showing how
+    // much time was gained so players feel the improvement mid-run.
+    const bestSplit = state.bestSplits[checkpoint.index];
+    const faster = typeof bestSplit === "number" && split < bestSplit;
+    const marker = faster ? ` -${formatTime(bestSplit - split)}` : "";
+    state.toast = `${checkpoint.name} ${formatTime(split)}${marker}`;
+    state.toastTime = 1.6;
   }
 
   function hurtPlayer(fell) {
     if (player.invincible > 0 && !fell) return;
 
     state.lives -= 1;
+    // Deaths accumulate across checkpoint respawns within a run; they reset only
+    // on a full restart (resetRun(true)), matching how the run timer behaves.
+    state.deaths += 1;
     syncHud(true);
 
     if (state.lives <= 0) {
@@ -570,6 +864,8 @@
     drawPlayer(cam);
     drawToast();
     drawVignette();
+
+    syncTimer();
   }
 
   function drawBackground(cam, zone) {
@@ -855,6 +1151,24 @@
     hudZone.textContent = zoneName;
   }
 
+  function syncTimer() {
+    const formatted = formatTime(state.time);
+    if (formatted === state.timerCache) return;
+    state.timerCache = formatted;
+    hudTimer.textContent = formatted;
+  }
+
+  // Speedrun-friendly readout: minutes:seconds.centiseconds, e.g. "0:42.37".
+  // Seconds and centiseconds are always two digits so the width stays stable.
+  function formatTime(seconds) {
+    const totalCentis = Math.max(0, Math.floor(seconds * 100));
+    const centis = totalCentis % 100;
+    const totalSeconds = Math.floor(totalCentis / 100);
+    const secs = totalSeconds % 60;
+    const mins = Math.floor(totalSeconds / 60);
+    return `${mins}:${pad2(secs)}.${pad2(centis)}`;
+  }
+
   function getJumpImpulse() {
     return JUMP - Math.min(state.coins * JUMP_PER_BTC, MAX_BTC_JUMP_BOOST);
   }
@@ -1028,6 +1342,10 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && state.phase === "playing") pauseGame();
   });
+
+  // Surface the concise timing rules on the title screen, sourced from
+  // TIMING_RULES so the player-facing note never drifts from the enforced rules.
+  if (titleRules) titleRules.textContent = TIMING_RULES.summary;
 
   initLevel();
   initTouchControls();

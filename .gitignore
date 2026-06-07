@@ -2,6 +2,7 @@
 node_modules/
 .DS_Store
 *.log
+plans/
 
 # Local design notes and legacy story-engine files are not needed for the
 # playable public build.

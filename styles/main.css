@@ -107,6 +107,25 @@ button {
   text-align: right;
 }
 
+/* Live run timer sits on its own line below the HUD row so it stays
+   prominent and never crowds the BTC / lives / zone text. tabular-nums
+   keeps the readout from jittering as the digits change. */
+.hud-timer {
+  position: absolute;
+  top: clamp(24px, 8.2vw, 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--paper);
+  font-size: clamp(11px, 3vw, 19px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 var(--ink);
+  pointer-events: none;
+  z-index: 10;
+}
+
 .overlay {
   position: absolute;
   inset: 0;
@@ -129,6 +148,14 @@ button {
   justify-items: center;
   gap: clamp(10px, 2.4vw, 18px);
   text-align: center;
+}
+
+/* Keep tall content (the completion results) inside the fixed screen frame on
+   both desktop and mobile; scroll internally rather than overflow the bezel. */
+.message-box {
+  max-height: min(100%, 92dvh);
+  padding: clamp(6px, 2vw, 14px) 0;
+  overflow-y: auto;
 }
 
 .title-stack h1,
@@ -157,6 +184,20 @@ button {
   text-shadow: 0 2px 0 var(--ink);
 }
 
+/* Concise timing-rules note on the title screen. Quieter than the tagline so it
+   reads as reference text players can find before a run without interrupting
+   active gameplay. Empty until JS fills it from the single rules source. */
+.title-stack .title-rules {
+  max-width: 38ch;
+  opacity: 0.72;
+  font-size: clamp(9px, 2vw, 12px);
+  line-height: 1.5;
+}
+
+.title-rules:empty {
+  display: none;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -166,6 +207,151 @@ button {
 
 .button-row .hidden {
   display: none;
+}
+
+.message-results.hidden,
+#message-copy.hidden {
+  display: none;
+}
+
+.message-results {
+  width: 100%;
+  display: grid;
+  gap: clamp(6px, 1.6vw, 12px);
+  color: var(--paper);
+}
+
+.results-final {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px 10px;
+}
+
+.results-final-label {
+  opacity: 0.75;
+  font-size: clamp(9px, 2vw, 13px);
+  letter-spacing: 0.5px;
+}
+
+.results-final-value {
+  color: var(--bitcoin);
+  font-size: clamp(20px, 6vw, 40px);
+  line-height: 1;
+  text-shadow: 0 2px 0 var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.results-best-badge {
+  align-self: center;
+  padding: 2px 6px;
+  background: var(--bitcoin);
+  color: var(--ink);
+  font-size: clamp(8px, 1.8vw, 11px);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  border: 2px solid var(--outline);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.results-compare {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px 8px;
+  font-size: clamp(8px, 1.9vw, 12px);
+}
+
+.results-compare-label {
+  opacity: 0.75;
+  letter-spacing: 0.5px;
+}
+
+.results-compare-best {
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.results-compare-delta {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.results-compare-delta.faster {
+  color: var(--bitcoin);
+}
+
+.results-compare-delta.slower {
+  opacity: 0.75;
+}
+
+.results-splits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.results-split {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 2px 4px;
+  font-size: clamp(8px, 1.9vw, 12px);
+  background: oklch(100% 0 0 / 0.05);
+}
+
+.results-split-empty {
+  display: block;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.split-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.split-time {
+  color: var(--bitcoin);
+  font-variant-numeric: tabular-nums;
+}
+
+.split-total {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.results-stats {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+}
+
+.results-stat {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  font-size: clamp(8px, 1.8vw, 12px);
+}
+
+.results-stat dt {
+  opacity: 0.7;
+}
+
+.results-stat dd {
+  margin: 0;
+  color: var(--bitcoin);
 }
 
 .primary-button,

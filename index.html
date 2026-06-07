@@ -19,11 +19,14 @@
         <span id="hud-zone">BROKEN WORLD</span>
       </div>
 
+      <div id="hud-timer" class="hud-timer" role="timer" aria-label="Run time">0:00.00</div>
+
       <div id="title-screen" class="overlay title-screen">
         <div class="title-stack">
           <h1>8-BIT SATOSHI</h1>
           <p>Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
           <button id="start-button" class="primary-button" type="button">START</button>
+          <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
         </div>
       </div>
 
@@ -31,6 +34,7 @@
         <div class="message-box">
           <h2 id="message-title">PAUSED</h2>
           <p id="message-copy">Game paused.</p>
+          <div id="message-results" class="message-results hidden" role="region" aria-label="Run results"></div>
           <div class="button-row">
             <button id="continue-button" class="primary-button" type="button">CONTINUE</button>
             <button id="restart-button" class="primary-button" type="button">RESTART</button>
