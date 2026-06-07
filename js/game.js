@@ -329,7 +329,8 @@
   // copy data-driven so each level reads in its own terms (e.g. SATS vs BTC).
   function levelLabel(key, fallback) {
     const labels = getCurrentLevel().labels;
-    return (labels && labels[key]) || fallback;
+    // Nullish (not falsy) so a level can intentionally set an empty-string label.
+    return labels && labels[key] != null ? labels[key] : fallback;
   }
 
   // Personal bests persist across reloads in localStorage under a versioned key.
@@ -441,10 +442,11 @@
   // out-of-range values and refuses to swap the world out from under an active
   // run; returns true only when the level was loaded.
   function setLevel(levelNumber) {
-    const index = Math.floor(levelNumber) - 1;
-    if (!Number.isInteger(index) || index < 0 || index >= LEVELS.length) return false;
+    // Accept only an in-range 1-based integer; reject NaN/floats/out-of-range
+    // rather than silently truncating, since this is a public API.
+    if (!Number.isInteger(levelNumber) || levelNumber < 1 || levelNumber > LEVELS.length) return false;
     if (state.phase === "playing") return false;
-    state.levelIndex = index;
+    state.levelIndex = levelNumber - 1;
     initLevel();
     state.currentZone = 0;
     syncHud(true);
@@ -619,7 +621,7 @@
     player.invincible = 1.1;
     player.deadTimer = 0;
     state.cameraX = Math.max(0, player.x - 80);
-    state.toast = full ? "Run, jump, collect BTC." : "Back to checkpoint.";
+    state.toast = full ? `Run, jump, collect ${levelLabel("coin", "BTC")}.` : "Back to checkpoint.";
     state.toastTime = 2.2;
     state.shake = full ? 0 : 0.22;
     syncHud(true);
@@ -877,7 +879,10 @@
   // would mean an impassable level).
   function isConfirmed(solid) {
     const cycle = solid.cycle;
-    if (!cycle || !(cycle.periodMs > 0)) return true;
+    // Fail safe to solid if any required field is missing/non-positive — a bad
+    // cycle should never make a platform permanently non-solid (which could make
+    // a level uncompletable) without a loud failure elsewhere.
+    if (!cycle || !(cycle.periodMs > 0) || !(cycle.onMs > 0)) return true;
     const clockMs = state.time * 1000;
     return ((clockMs + (cycle.phaseMs || 0)) % cycle.periodMs) < cycle.onMs;
   }
@@ -890,7 +895,9 @@
       if (!overlap(body, solid)) continue;
       // Unconfirmed Confirmation Blocks are non-solid: skip collision so the
       // body passes through (or falls) until the block confirms again.
-      if (solid.cycle && !isConfirmed(solid)) continue;
+      // isConfirmed() returns true for static (non-cycle) solids, so this shares
+      // the exact predicate the renderer uses.
+      if (!isConfirmed(solid)) continue;
 
       if (dx > 0) {
         body.x = solid.x - body.w;
@@ -1587,15 +1594,12 @@
   // TIMING_RULES so the player-facing note never drifts from the enforced rules.
   if (titleRules) titleRules.textContent = TIMING_RULES.summary;
 
-  // Optional deep-link to a specific level via `?level=N` (1-based). Out-of-range
-  // or missing values fall through to Level 1. Reading the param here (before the
-  // first initLevel) means the chosen level is active on the title screen too.
+  // Optional deep-link to a specific level via `?level=N` (1-based). setLevel
+  // validates the value and runs initLevel() itself when it succeeds (so the
+  // chosen level is active on the title screen too); otherwise fall back to
+  // loading Level 1. Either branch runs initLevel exactly once.
   const requestedLevel = Number.parseInt(new URLSearchParams(location.search).get("level"), 10);
-  if (Number.isInteger(requestedLevel) && requestedLevel >= 1 && requestedLevel <= LEVELS.length) {
-    state.levelIndex = requestedLevel - 1;
-  }
-
-  initLevel();
+  if (!setLevel(requestedLevel)) initLevel();
   initTouchControls();
   syncHud(true);
   requestAnimationFrame(loop);
