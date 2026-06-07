@@ -278,8 +278,8 @@
           // 11px past the bridge exit — so a clean crossing could be immediately
           // contested, and a hit here respawns at checkpoint 4 (x=3560), forcing
           // a full re-cross of the level's hardest section. minX nudged to 4150 to
-          // leave a ~70px enemy-free landing zone (4060–4150) so the bridge clear
-          // is bankable on repeated timed attempts.
+          // leave a ~70px enemy-free landing zone past the ~4079 bridge exit so the
+          // bridge clear is bankable on repeated timed attempts.
           [3650, 178, 3540, 3880, "exploit"], [4200, 178, 4150, 4420, "chargeback"],
           [4650, 178, 4540, 4920, "fud"], [5150, 178, 5060, 5400, "exploit"]
         ],
