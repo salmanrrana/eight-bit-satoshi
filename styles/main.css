@@ -526,6 +526,160 @@ button {
   color: var(--red);
 }
 
+/* Title-screen LEADERBOARD button is hidden only when the leaderboard client
+   script is absent (the feature cannot work); the network being offline is a
+   handled in-board state, not a reason to hide the entry point. */
+.leaderboard-button.hidden {
+  display: none;
+}
+
+/* Leaderboard overlay. Reuses the shared .overlay backdrop; its own column layout
+   gives the rankings a scroll area so a long board stays inside the screen frame on
+   both desktop and mobile. */
+.leaderboard-box {
+  width: min(86%, 540px);
+  max-height: min(100%, 92dvh);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: clamp(8px, 2vw, 14px);
+  padding: clamp(8px, 2.4vw, 16px);
+  text-align: center;
+}
+
+.leaderboard-box h2 {
+  margin: 0;
+  color: var(--bitcoin);
+  font-size: clamp(20px, 5vw, 40px);
+  line-height: 1;
+  text-shadow:
+    0 3px 0 oklch(34% 0.08 42),
+    0 6px 0 var(--ink);
+}
+
+.leaderboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(6px, 1.6vw, 12px);
+}
+
+.leaderboard-tab {
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 2px solid var(--outline);
+  background: var(--panel);
+  color: var(--paper);
+  font-weight: 800;
+  font-size: clamp(10px, 2.2vw, 14px);
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+}
+
+.leaderboard-tab:hover {
+  filter: brightness(1.08);
+}
+
+.leaderboard-tab.active {
+  background: var(--panel-2);
+  border-color: var(--bitcoin);
+  box-shadow: 0 4px 0 var(--ink), inset 0 0 0 2px var(--bitcoin);
+}
+
+/* Scroll container for the rows. min-height reserves space so the loading/empty/
+   error states don't make the box collapse and jump as content swaps in. */
+.leaderboard-body {
+  min-height: clamp(120px, 36dvh, 280px);
+  overflow-y: auto;
+}
+
+.leaderboard-table {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+/* Two-line row: rank / name / time on top, a muted stats+date line below, so the
+   board reads cleanly in the narrow 256px frame instead of a cramped wide table. */
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "rank name time"
+    "meta meta meta";
+  gap: 1px 8px;
+  align-items: baseline;
+  padding: 5px 7px;
+  background: oklch(100% 0 0 / 0.05);
+}
+
+.leaderboard-row.is-you {
+  background: oklch(72% 0.18 62 / 0.18);
+  box-shadow: inset 0 0 0 2px var(--bitcoin);
+}
+
+.lb-rank {
+  grid-area: rank;
+  min-width: 1.6em;
+  color: var(--muted);
+  font-size: clamp(10px, 2.2vw, 14px);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-name {
+  grid-area: name;
+  overflow: hidden;
+  color: var(--paper);
+  font-weight: 800;
+  font-size: clamp(11px, 2.4vw, 15px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-row.is-you .lb-name {
+  color: var(--bitcoin);
+}
+
+.lb-time {
+  grid-area: time;
+  color: var(--bitcoin);
+  font-size: clamp(11px, 2.4vw, 15px);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-meta {
+  grid-area: meta;
+  color: var(--muted);
+  opacity: 0.85;
+  font-size: clamp(8px, 1.8vw, 11px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Loading / empty / offline / error states share one centered layout. */
+.leaderboard-message {
+  display: grid;
+  justify-items: center;
+  gap: clamp(8px, 2vw, 14px);
+  padding: clamp(16px, 6vw, 36px) clamp(8px, 3vw, 18px);
+  text-align: center;
+}
+
+.leaderboard-message-text {
+  max-width: 36ch;
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(10px, 2.2vw, 14px);
+  line-height: 1.5;
+}
+
+.leaderboard-message.is-loading .leaderboard-message-text,
+.leaderboard-message.is-offline .leaderboard-message-text {
+  color: var(--muted);
+}
+
+.leaderboard-message.is-error .leaderboard-message-text {
+  color: var(--red);
+}
+
 .primary-button,
 .touch-button {
   border: 2px solid var(--outline);

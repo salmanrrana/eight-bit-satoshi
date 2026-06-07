@@ -65,6 +65,18 @@
   const hudZone = document.getElementById("hud-zone");
   const hudTimer = document.getElementById("hud-timer");
   const titleRules = document.getElementById("title-rules");
+  const leaderboardButton = document.getElementById("leaderboard-button");
+  const resultsLeaderboardButton = document.getElementById("results-leaderboard-button");
+  const leaderboardScreen = document.getElementById("leaderboard-screen");
+  const leaderboardTabs = document.getElementById("leaderboard-tabs");
+  const leaderboardBody = document.getElementById("leaderboard-body");
+  const leaderboardBack = document.getElementById("leaderboard-back");
+
+  // The two leaderboard modules load before this script (see index.html order).
+  // Captured once; both are optional — a missing client means the feature simply
+  // never appears and local play is untouched.
+  const leaderboardClient = window.eightBitSatoshiLeaderboard || null;
+  const leaderboardRules = window.LeaderboardRules || null;
 
   ctx.imageSmoothingEnabled = false;
 
@@ -357,6 +369,13 @@
     splits: [],
     bestSplits: {},
     lastRun: null,
+    // The entry the player most recently submitted (the server row, with its id),
+    // so the leaderboard view can highlight "their" run. Null until a submit succeeds.
+    lastSubmittedEntry: null,
+    // Which level board the leaderboard view is currently showing, and where to
+    // return when it closes ("title" or "results"). Both null while it is closed.
+    leaderboardLevelId: null,
+    leaderboardOrigin: null,
     hudCache: "",
     timerCache: ""
   };
@@ -540,6 +559,9 @@
     getTimingRules,
     getLastRun,
     setLevel,
+    // Open the leaderboard view to a given level id (defaults to the first board).
+    // Exposed for the demo and manual testing; the in-game buttons call it too.
+    openLeaderboard: (levelId) => openLeaderboard(levelId, "title"),
     levelCount: LEVELS.length,
     gameVersion: GAME_VERSION
   });
@@ -632,6 +654,7 @@
     state.paused = false;
     menuButton.classList.add("hidden");
     messageScreen.classList.add("hidden");
+    if (leaderboardScreen) leaderboardScreen.classList.add("hidden");
     // Re-validate the selection: if the current level is no longer unlocked
     // (e.g. bests were wiped via resetBests), fall back to Level 1 so START
     // never launches a level the picker would lock. selectLevel re-renders.
@@ -851,6 +874,9 @@
     restartButton.textContent = restartLabel;
     continueButton.classList.toggle("hidden", !canContinue);
     menuButton.classList.toggle("hidden", !canMenu);
+    // The leaderboard action belongs to the completion screen only, never to the
+    // pause or game-over message that reuses this overlay.
+    if (resultsLeaderboardButton) resultsLeaderboardButton.classList.add("hidden");
     messageScreen.classList.remove("hidden");
   }
 
@@ -900,6 +926,9 @@
     restartButton.textContent = "PLAY AGAIN";
     continueButton.classList.add("hidden");
     menuButton.classList.remove("hidden");
+    // Offer the leaderboard only when its client script is present; otherwise the
+    // button would lead nowhere. Replay/LEVELS never depend on it.
+    if (resultsLeaderboardButton) resultsLeaderboardButton.classList.toggle("hidden", !leaderboardClient);
     messageScreen.classList.remove("hidden");
   }
 
@@ -1092,9 +1121,13 @@
       }
 
       if (result.status === "ok") {
+        // Remember the stored row (it carries the server id) so the leaderboard
+        // view can highlight this player's run when they open it.
+        state.lastSubmittedEntry = result.entry || null;
         setStatus("ok", "You're on the leaderboard!");
         lockForm();
       } else if (result.status === "duplicate") {
+        state.lastSubmittedEntry = result.entry || null;
         setStatus("ok", "This run is already on the leaderboard.");
         lockForm();
       } else if (result.status === "invalid") {
@@ -1121,6 +1154,215 @@
   function gameOver() {
     state.phase = "gameover";
     showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN", false, true);
+  }
+
+  // ----- Leaderboard view (ticket 3048aa3c) -------------------------------------
+  // An in-game overlay listing top times per level. Reachable from the title and
+  // results screens. Like the rest of the leaderboard feature it is purely additive:
+  // it owns no gameplay state, never throws into the loop, and degrades to clean
+  // offline/error states when the backend is unreachable.
+
+  // The boards we can show: every playable level the contract accepts a submission
+  // for ("combined" is a virtual board owned by a separate ticket). Falls back to
+  // all levels if the rules module is missing so the picker is never empty.
+  const boardLevels = LEVELS.filter(function (level) {
+    if (!leaderboardRules) return true;
+    return Object.prototype.hasOwnProperty.call(leaderboardRules.SUBMITTABLE_LEVELS, level.id);
+  });
+
+  // Monotonic token so a slow fetch from a previously-selected tab can never
+  // overwrite the rows of the tab the player switched to in the meantime.
+  let leaderboardRequestId = 0;
+
+  function getBoardLevel() {
+    return LEVELS.find(function (level) { return level.id === state.leaderboardLevelId; })
+      || boardLevels[0]
+      || null;
+  }
+
+  // Open the leaderboard, showing `levelId`'s board (defaults to the first board)
+  // and remembering where to return: "results" reshows the completion screen, any
+  // other origin returns to the title.
+  function openLeaderboard(levelId, origin) {
+    if (!leaderboardClient || boardLevels.length === 0) return;
+    const target = boardLevels.find(function (level) { return level.id === levelId; }) || boardLevels[0];
+    state.leaderboardLevelId = target.id;
+    state.leaderboardOrigin = origin || "title";
+    state.phase = "leaderboard";
+    titleScreen.classList.add("hidden");
+    messageScreen.classList.add("hidden");
+    leaderboardScreen.classList.remove("hidden");
+    renderLeaderboardTabs();
+    loadLeaderboard();
+    if (leaderboardBack) leaderboardBack.focus();
+  }
+
+  function closeLeaderboard() {
+    leaderboardScreen.classList.add("hidden");
+    // Stop honoring in-flight responses so a late fetch can't render into a now-hidden board.
+    leaderboardRequestId += 1;
+    if (state.leaderboardOrigin === "results") {
+      state.phase = "complete";
+      messageScreen.classList.remove("hidden");
+    } else {
+      showTitle();
+    }
+    state.leaderboardOrigin = null;
+  }
+
+  function renderLeaderboardTabs() {
+    if (!leaderboardTabs) return;
+    const tabs = boardLevels.map(function (level) {
+      const active = level.id === state.leaderboardLevelId;
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "leaderboard-tab";
+      tab.classList.toggle("active", active);
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+      tab.dataset.levelId = level.id;
+      tab.textContent = "LEVEL " + (LEVELS.indexOf(level) + 1);
+      tab.setAttribute("aria-label", "Level " + (LEVELS.indexOf(level) + 1) + " leaderboard, " + level.title);
+      tab.addEventListener("click", function () {
+        if (state.leaderboardLevelId === level.id) return;
+        state.leaderboardLevelId = level.id;
+        renderLeaderboardTabs();
+        loadLeaderboard();
+      });
+      return tab;
+    });
+    leaderboardTabs.replaceChildren(...tabs);
+  }
+
+  // A centered single-line state (loading / empty / offline / error), optionally
+  // with a RETRY button that re-runs the current board's fetch.
+  function leaderboardMessage(kind, text, withRetry) {
+    const wrap = document.createElement("div");
+    wrap.className = "leaderboard-message" + (kind ? " is-" + kind : "");
+    const message = document.createElement("p");
+    message.className = "leaderboard-message-text";
+    message.textContent = text;
+    wrap.append(message);
+    if (withRetry) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "primary-button secondary-button";
+      retry.textContent = "RETRY";
+      retry.addEventListener("click", function () { loadLeaderboard(); });
+      wrap.append(retry);
+    }
+    return wrap;
+  }
+
+  function setLeaderboardBody(node) {
+    if (leaderboardBody) leaderboardBody.replaceChildren(node);
+  }
+
+  function lbCell(area, text) {
+    const span = document.createElement("span");
+    span.className = "lb-" + area;
+    span.textContent = text;
+    return span;
+  }
+
+  // Short, locale-independent date for a row. The serverTimestamp is ISO 8601, so
+  // its first 10 chars are the UTC calendar date (YYYY-MM-DD); empty if absent.
+  function formatRunDate(iso) {
+    return typeof iso === "string" && iso.length >= 10 ? iso.slice(0, 10) : "";
+  }
+
+  function buildLeaderboardTable(level, entries) {
+    // Stats read in the board level's own terms (BTC vs SATS, PAGES vs PATCHES).
+    const coinLabel = (level.labels && level.labels.coin) || "BTC";
+    const pageLabel = (level.labels && level.labels.pageStat) || "PAGES";
+    const youId = state.lastSubmittedEntry ? state.lastSubmittedEntry.id : null;
+
+    const table = document.createElement("div");
+    table.className = "leaderboard-table";
+
+    for (const entry of entries) {
+      const isYou = !!youId && entry.id === youId;
+      const date = formatRunDate(entry.serverTimestamp);
+      // Context stats only — ANY% ranks on time alone (contract §3).
+      const metaParts = [
+        entry.deaths + (entry.deaths === 1 ? " death" : " deaths"),
+        entry.coins + " " + coinLabel,
+        entry.pages + "/" + entry.pagesTotal + " " + pageLabel
+      ];
+      if (date) metaParts.push(date);
+
+      const row = document.createElement("div");
+      row.className = "leaderboard-row";
+      if (isYou) row.classList.add("is-you");
+      row.append(
+        lbCell("rank", String(entry.rank)),
+        lbCell("name", entry.playerName),
+        lbCell("time", formatTime(entry.time)),
+        lbCell("meta", metaParts.join(" · "))
+      );
+      row.setAttribute(
+        "aria-label",
+        "Rank " + entry.rank + ", " + entry.playerName + (isYou ? " (your run)" : "")
+          + ", time " + formatTime(entry.time) + ", " + metaParts.join(", ")
+      );
+      table.append(row);
+    }
+    return table;
+  }
+
+  // Fetch and render the currently-selected board. Resolves every client status to
+  // a visible state and never throws; the request token guards against tab-switch races.
+  async function loadLeaderboard() {
+    const level = getBoardLevel();
+    if (!leaderboardClient || !leaderboardRules || !level) {
+      setLeaderboardBody(leaderboardMessage("error", "Leaderboard is unavailable.", false));
+      return;
+    }
+
+    const requestId = (leaderboardRequestId += 1);
+    setLeaderboardBody(leaderboardMessage("loading", "Loading times…", false));
+
+    let result;
+    try {
+      result = await leaderboardClient.fetchLeaderboard({
+        levelId: level.id,
+        category: leaderboardRules.CATEGORIES[0],
+        gameVersion: GAME_VERSION,
+        rulesVersion: TIMING_RULES.version,
+        limit: 50
+      });
+    } catch (err) {
+      result = { status: "error", message: String(err && err.message ? err.message : err) };
+    }
+
+    // A newer request (tab switch or close) superseded this one — drop the result.
+    if (requestId !== leaderboardRequestId) return;
+
+    if (result.status === "offline") {
+      setLeaderboardBody(leaderboardMessage(
+        "offline",
+        "Leaderboard offline. Start the backend (npm run server) to see rankings.",
+        true
+      ));
+      return;
+    }
+    if (result.status !== "ok") {
+      setLeaderboardBody(leaderboardMessage(
+        "error",
+        "Couldn't load the leaderboard. " + (result.message || "Try again."),
+        true
+      ));
+      return;
+    }
+    if (!Array.isArray(result.entries) || result.entries.length === 0) {
+      setLeaderboardBody(leaderboardMessage(
+        "empty",
+        "No times yet. Finish " + level.title + " to claim the top spot!",
+        false
+      ));
+      return;
+    }
+    setLeaderboardBody(buildLeaderboardTable(level, result.entries));
   }
 
   function update(dt) {
@@ -2132,6 +2374,22 @@
 
   function handleKeyDown(event) {
     if (isTextEntryTarget(event)) return;
+
+    // While the leaderboard overlay is open the game ignores gameplay keys; Escape
+    // closes it, and every other key is left alone so Tab/Enter/Space drive its
+    // buttons natively (the global game shortcuts must not swallow them).
+    if (state.phase === "leaderboard") {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLeaderboard();
+      }
+      return;
+    }
+
+    // On the title screen "any key starts the game"; let the focused LEADERBOARD
+    // button activate natively instead of being swallowed by that shortcut.
+    if (state.phase === "title" && event.target === leaderboardButton) return;
+
     const key = event.key.toLowerCase();
     if (["arrowleft", "arrowright", "arrowup", " ", "a", "d", "w", "enter", "p", "r"].includes(key)) {
       event.preventDefault();
@@ -2232,6 +2490,21 @@
   continueButton.addEventListener("click", resumeGame);
   restartButton.addEventListener("click", startGame);
   menuButton.addEventListener("click", showTitle);
+
+  // Leaderboard entry points. The title button opens the first board; the results
+  // button opens the board for the level just completed (and the submitted run is
+  // highlighted there when present). Both are no-ops without the client module.
+  if (leaderboardButton) {
+    // Hide the title entry point entirely when the feature can't work at all.
+    leaderboardButton.classList.toggle("hidden", !leaderboardClient || boardLevels.length === 0);
+    leaderboardButton.addEventListener("click", function () { openLeaderboard(null, "title"); });
+  }
+  if (resultsLeaderboardButton) {
+    resultsLeaderboardButton.addEventListener("click", function () {
+      openLeaderboard(state.lastRun ? state.lastRun.levelId : null, "results");
+    });
+  }
+  if (leaderboardBack) leaderboardBack.addEventListener("click", closeLeaderboard);
   // Mouse/touch level picking: a tap on an unlocked card selects that level.
   // Delegated so the listener survives renderLevelSelect rebuilding the cards.
   levelSelect.addEventListener("click", (event) => {

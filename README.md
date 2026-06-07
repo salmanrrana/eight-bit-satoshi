@@ -59,6 +59,24 @@ a validation problem (e.g. an empty or too-long name), the backend being offline
 or an unexpected error. Offline and error states leave the form editable so you can
 retry; a successful or duplicate submit locks it so the same run is not posted twice.
 
+### Viewing the Leaderboard
+
+The **LEADERBOARD** button on the title screen — and on the results screen after a
+run — opens an in-game rankings view. Tabs switch between the Level 1 and Level 2
+boards; each row shows the rank, player name, final time, and the run's context
+stats (deaths, coins, pages) plus the date. A run you submitted this session is
+highlighted. The view handles loading, empty, offline, and error states cleanly
+(offline/error offer a **RETRY**), and **BACK** (or `Esc`) returns to where you
+opened it from. Like the rest of the feature it is optional: if the backend is
+offline the rest of the game is unaffected.
+
+You can also open it from the browser console:
+
+```js
+eightBitSatoshi.openLeaderboard()                  // first board
+eightBitSatoshi.openLeaderboard("running-bitcoin") // Level 2 board
+```
+
 ## Check
 
 ```bash

@@ -27,6 +27,7 @@
           <p>Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
           <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
           <button id="start-button" class="primary-button" type="button">START</button>
+          <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
           <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
         </div>
       </div>
@@ -39,7 +40,19 @@
           <div class="button-row">
             <button id="continue-button" class="primary-button" type="button">CONTINUE</button>
             <button id="restart-button" class="primary-button" type="button">RESTART</button>
+            <button id="results-leaderboard-button" class="primary-button secondary-button hidden" type="button">LEADERBOARD</button>
             <button id="menu-button" class="primary-button secondary-button hidden" type="button">LEVELS</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="leaderboard-screen" class="overlay leaderboard-screen hidden">
+        <div class="leaderboard-box">
+          <h2>LEADERBOARD</h2>
+          <div id="leaderboard-tabs" class="leaderboard-tabs" role="tablist" aria-label="Choose a level leaderboard"></div>
+          <div id="leaderboard-body" class="leaderboard-body" role="region" aria-live="polite" aria-label="Leaderboard rankings"></div>
+          <div class="button-row">
+            <button id="leaderboard-back" class="primary-button secondary-button" type="button">BACK</button>
           </div>
         </div>
       </div>
