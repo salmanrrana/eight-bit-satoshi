@@ -20,6 +20,7 @@
   const COYOTE = 0.085;
   const JUMP_BUFFER = 0.11;
   const TILE = 16;
+  const SOUND_KEY = "8bit-satoshi:sound:v1";
 
   // Single source of truth for how the timed category works. Every surface that
   // touches timing (HUD, results, local bests, future leaderboard submissions)
@@ -70,6 +71,7 @@
   const leaderboardTabs = document.getElementById("leaderboard-tabs");
   const leaderboardBody = document.getElementById("leaderboard-body");
   const leaderboardBack = document.getElementById("leaderboard-back");
+  const soundButton = document.getElementById("sound-button");
 
   // The two leaderboard modules load before this script (see index.html order).
   // Captured once; both are optional — a missing client means the feature simply
@@ -379,6 +381,75 @@
     timerCache: ""
   };
 
+  const audio = {
+    ctx: null,
+    master: null,
+    musicGain: null,
+    sfxGain: null,
+    pulseWave: null,
+    narrowPulseWave: null,
+    noiseBuffer: null,
+    enabled: loadSoundEnabled(),
+    musicActive: false,
+    musicStep: 0,
+    nextStepTime: 0,
+    songId: null
+  };
+
+  // Original chiptune-style loops: pulse-wave lead, triangle bass, and tiny
+  // noise drums. They aim for a bright NES platformer feel without copying any
+  // existing game melody.
+  const SONGS = {
+    city: {
+      bpm: 156,
+      leadGain: 0.045,
+      harmonyGain: 0.024,
+      bassGain: 0.05,
+      lead: noteRow(`
+        E5 . G5 . C6 . G5 E5 D5 . F5 . A5 . F5 D5
+        C5 . E5 G5 C6 . B5 G5 A5 . G5 E5 D5 . C5 .
+        G5 . B5 . D6 . B5 G5 E5 . G5 . C6 . E6 D6
+        C6 . A5 . F5 . D5 . G5 . E5 . C5 . . .
+      `),
+      harmony: noteRow(`
+        . . C5 . . . E5 . . . D5 . . . F5 .
+        . . E5 . G5 . . . F5 . E5 . D5 . . .
+        . . G5 . . . B5 . . . G5 . . . C6 .
+        . . A5 . . . F5 . . . E5 . C5 . . .
+      `),
+      bass: noteRow(`
+        C3 . G2 . C3 . G2 . F2 . C3 . F2 . C3 .
+        A2 . E2 . A2 . E2 . G2 . D3 . G2 . D3 .
+        E2 . B2 . E3 . B2 . C3 . G2 . C3 . G2 .
+        F2 . C3 . F2 . C3 . G2 . D3 . C3 . G2 .
+      `)
+    },
+    network: {
+      bpm: 138,
+      leadGain: 0.04,
+      harmonyGain: 0.022,
+      bassGain: 0.052,
+      lead: noteRow(`
+        A4 . C5 . E5 . C5 A4 B4 . D5 . F5 . D5 B4
+        C5 . E5 A5 G5 . E5 C5 B4 . D5 G5 F5 . D5 B4
+        E5 . G5 . B5 . G5 E5 D5 . F5 . A5 . F5 D5
+        C5 . E5 . A5 . G5 E5 D5 . C5 . B4 . A4 .
+      `),
+      harmony: noteRow(`
+        . . A4 . . . C5 . . . B4 . . . D5 .
+        . . C5 . E5 . . . D5 . B4 . . . B4 .
+        . . E5 . . . G5 . . . F5 . . . A5 .
+        . . C5 . . . E5 . . . D5 . B4 . A4 .
+      `),
+      bass: noteRow(`
+        A2 . E2 . A2 . E2 . G2 . D3 . G2 . D3 .
+        C3 . G2 . C3 . G2 . B2 . F#2 . B2 . F#2 .
+        E2 . B2 . E3 . B2 . D3 . A2 . D3 . A2 .
+        C3 . G2 . A2 . E2 . F2 . C3 . E2 . A2 .
+      `)
+    }
+  };
+
   // The active level definition. Declared after `state` (which it reads) to avoid
   // any temporal-dead-zone hazard, and guarded so a bad levelIndex fails loudly
   // with an actionable message instead of throwing a cryptic TypeError frames
@@ -650,6 +721,7 @@
   function showTitle() {
     state.phase = "title";
     state.paused = false;
+    stopMusic();
     menuButton.classList.add("hidden");
     messageScreen.classList.add("hidden");
     if (leaderboardScreen) leaderboardScreen.classList.add("hidden");
@@ -817,6 +889,297 @@
     });
   }
 
+  function loadSoundEnabled() {
+    try {
+      return localStorage.getItem(SOUND_KEY) !== "off";
+    } catch (err) {
+      return true;
+    }
+  }
+
+  function saveSoundEnabled(enabled) {
+    try {
+      localStorage.setItem(SOUND_KEY, enabled ? "on" : "off");
+    } catch (err) {
+      // Sound preference is convenience-only; blocked storage should not affect play.
+    }
+  }
+
+  function noteRow(value) {
+    return value.trim().split(/\s+/).map((token) => (token === "." ? null : token));
+  }
+
+  function noteFrequency(name) {
+    if (typeof name === "number") return name;
+    if (!name) return 0;
+    const match = /^([A-G])([#b]?)(\d)$/.exec(name);
+    if (!match) return 0;
+    const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[match[1]];
+    const accidental = match[2] === "#" ? 1 : match[2] === "b" ? -1 : 0;
+    const octave = Number.parseInt(match[3], 10);
+    const midi = 12 * (octave + 1) + base + accidental;
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  function makePulseWave(duty) {
+    const harmonics = 32;
+    const real = new Float32Array(harmonics);
+    const imag = new Float32Array(harmonics);
+    for (let n = 1; n < harmonics; n += 1) {
+      imag[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty);
+    }
+    return audio.ctx.createPeriodicWave(real, imag);
+  }
+
+  function makeNoiseBuffer() {
+    const length = audio.ctx.sampleRate;
+    const buffer = audio.ctx.createBuffer(1, length, audio.ctx.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) {
+      samples[i] = Math.random() * 2 - 1;
+    }
+    return buffer;
+  }
+
+  function ensureAudio() {
+    if (!audio.enabled) return false;
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return false;
+
+    if (!audio.ctx) {
+      audio.ctx = new AudioCtor();
+      audio.master = audio.ctx.createGain();
+      audio.musicGain = audio.ctx.createGain();
+      audio.sfxGain = audio.ctx.createGain();
+      audio.master.gain.value = 0.62;
+      audio.musicGain.gain.value = 0;
+      audio.sfxGain.gain.value = 0.48;
+      audio.musicGain.connect(audio.master);
+      audio.sfxGain.connect(audio.master);
+      audio.master.connect(audio.ctx.destination);
+      audio.pulseWave = makePulseWave(0.5);
+      audio.narrowPulseWave = makePulseWave(0.25);
+      audio.noiseBuffer = makeNoiseBuffer();
+    }
+
+    if (audio.ctx.state === "suspended") {
+      audio.ctx.resume().catch(() => {});
+    }
+    return true;
+  }
+
+  function syncSoundButton() {
+    if (!soundButton) return;
+    soundButton.textContent = audio.enabled ? "SOUND ON" : "SOUND OFF";
+    soundButton.setAttribute("aria-pressed", audio.enabled ? "true" : "false");
+  }
+
+  function setSoundEnabled(enabled) {
+    audio.enabled = !!enabled;
+    saveSoundEnabled(audio.enabled);
+    syncSoundButton();
+    if (!audio.enabled) {
+      stopMusic();
+      return;
+    }
+    if (audio.sfxGain) audio.sfxGain.gain.value = 0.48;
+    if (state.phase === "playing" && !state.paused) startMusic(false);
+  }
+
+  function toggleSound() {
+    setSoundEnabled(!audio.enabled);
+    if (audio.enabled) playSfx("toggle");
+  }
+
+  function fadeMusic(target, timeConstant = 0.025) {
+    if (!audio.ctx || !audio.musicGain) return;
+    const now = audio.ctx.currentTime;
+    audio.musicGain.gain.cancelScheduledValues(now);
+    audio.musicGain.gain.setTargetAtTime(target, now, timeConstant);
+  }
+
+  function startMusic(restart) {
+    if (!ensureAudio()) return;
+    const songId = getCurrentLevel().id;
+    if (restart || audio.songId !== songId) {
+      audio.musicStep = 0;
+      audio.songId = songId;
+    }
+    audio.musicActive = true;
+    audio.nextStepTime = audio.ctx.currentTime + 0.045;
+    fadeMusic(1, 0.018);
+  }
+
+  function stopMusic() {
+    audio.musicActive = false;
+    fadeMusic(0, 0.02);
+  }
+
+  function getCurrentSong() {
+    return SONGS[getTheme()] || SONGS.city;
+  }
+
+  function updateAudio() {
+    if (!audio.musicActive || !audio.ctx || audio.ctx.state !== "running") return;
+    const song = getCurrentSong();
+    const stepTime = 60 / song.bpm / 4;
+    const leadLength = song.lead.length;
+    while (audio.nextStepTime < audio.ctx.currentTime + 0.14) {
+      playMusicStep(song, audio.musicStep % leadLength, audio.nextStepTime, stepTime);
+      audio.musicStep = (audio.musicStep + 1) % leadLength;
+      audio.nextStepTime += stepTime;
+    }
+  }
+
+  function playMusicStep(song, step, time, stepTime) {
+    const lead = song.lead[step];
+    const harmony = song.harmony[step % song.harmony.length];
+    const bass = song.bass[step % song.bass.length];
+    if (lead) {
+      playTone(lead, time, stepTime * 0.82, song.leadGain, {
+        wave: audio.narrowPulseWave,
+        destination: audio.musicGain
+      });
+    }
+    if (harmony) {
+      playTone(harmony, time, stepTime * 0.72, song.harmonyGain, {
+        wave: audio.pulseWave,
+        destination: audio.musicGain
+      });
+    }
+    if (bass) {
+      playTone(bass, time, stepTime * 1.08, song.bassGain, {
+        type: "triangle",
+        destination: audio.musicGain
+      });
+    }
+    if (step % 8 === 0) playKick(time, audio.musicGain, 0.045);
+    if (step % 8 === 4) playNoise(time, 0.055, 0.032, 1200, audio.musicGain);
+    if (step % 2 === 1) playNoise(time, 0.018, 0.012, 5200, audio.musicGain);
+  }
+
+  function playTone(note, time, duration, gain, options = {}) {
+    if (!audio.ctx) return;
+    const frequency = noteFrequency(note);
+    if (!frequency) return;
+    const end = time + duration;
+    const osc = audio.ctx.createOscillator();
+    const amp = audio.ctx.createGain();
+    if (options.wave) osc.setPeriodicWave(options.wave);
+    else osc.type = options.type || "square";
+    osc.frequency.setValueAtTime(frequency, time);
+    if (options.slideTo) {
+      const target = Math.max(1, noteFrequency(options.slideTo));
+      osc.frequency.exponentialRampToValueAtTime(target, end);
+    }
+
+    const attackEnd = time + Math.min(0.012, duration * 0.25);
+    const holdAt = Math.max(attackEnd, end - Math.min(0.028, duration * 0.5));
+    amp.gain.setValueAtTime(0.0001, time);
+    amp.gain.linearRampToValueAtTime(gain, attackEnd);
+    amp.gain.setValueAtTime(gain * 0.75, holdAt);
+    amp.gain.linearRampToValueAtTime(0.0001, end);
+
+    osc.connect(amp);
+    amp.connect(options.destination || audio.sfxGain);
+    osc.start(time);
+    osc.stop(end + 0.03);
+  }
+
+  function playNoise(time, duration, gain, cutoff, destination) {
+    if (!audio.ctx || !audio.noiseBuffer) return;
+    const end = time + duration;
+    const source = audio.ctx.createBufferSource();
+    const filter = audio.ctx.createBiquadFilter();
+    const amp = audio.ctx.createGain();
+    source.buffer = audio.noiseBuffer;
+    source.loop = true;
+    filter.type = "highpass";
+    filter.frequency.value = cutoff;
+    amp.gain.setValueAtTime(0.0001, time);
+    amp.gain.linearRampToValueAtTime(gain, time + Math.min(0.006, duration * 0.35));
+    amp.gain.linearRampToValueAtTime(0.0001, end);
+    source.connect(filter);
+    filter.connect(amp);
+    amp.connect(destination || audio.sfxGain);
+    source.start(time);
+    source.stop(end + 0.01);
+  }
+
+  function playKick(time, destination, gain) {
+    playTone(98, time, 0.09, gain, {
+      type: "triangle",
+      slideTo: 43,
+      destination
+    });
+  }
+
+  function playSfx(name) {
+    if (!ensureAudio()) return;
+    const t = audio.ctx.currentTime + 0.008;
+    const dest = audio.sfxGain;
+
+    if (name === "toggle") {
+      playTone("C6", t, 0.04, 0.055, { wave: audio.narrowPulseWave, destination: dest });
+      return;
+    }
+    if (name === "start") {
+      playTone("C4", t, 0.06, 0.055, { type: "triangle", destination: dest });
+      playTone("E4", t + 0.055, 0.06, 0.055, { type: "triangle", destination: dest });
+      playTone("G4", t + 0.11, 0.09, 0.06, { type: "triangle", destination: dest });
+      return;
+    }
+    if (name === "jump") {
+      playTone("E5", t, 0.09, 0.05, { wave: audio.narrowPulseWave, slideTo: "A5", destination: dest });
+      return;
+    }
+    if (name === "coin") {
+      playTone("B5", t, 0.045, 0.052, { wave: audio.narrowPulseWave, destination: dest });
+      playTone("E6", t + 0.045, 0.055, 0.05, { wave: audio.narrowPulseWave, destination: dest });
+      return;
+    }
+    if (name === "page") {
+      ["C5", "E5", "G5", "C6"].forEach((note, index) => {
+        playTone(note, t + index * 0.045, 0.08, 0.052, { wave: audio.pulseWave, destination: dest });
+      });
+      return;
+    }
+    if (name === "block") {
+      playTone("C4", t, 0.055, 0.05, { wave: audio.pulseWave, slideTo: "C3", destination: dest });
+      return;
+    }
+    if (name === "stomp") {
+      playKick(t, dest, 0.07);
+      playNoise(t + 0.018, 0.055, 0.045, 1800, dest);
+      return;
+    }
+    if (name === "hurt") {
+      playTone("C5", t, 0.08, 0.065, { wave: audio.pulseWave, slideTo: "G3", destination: dest });
+      playNoise(t, 0.12, 0.038, 900, dest);
+      return;
+    }
+    if (name === "checkpoint") {
+      ["G4", "C5", "E5"].forEach((note, index) => {
+        playTone(note, t + index * 0.055, 0.075, 0.05, { wave: audio.narrowPulseWave, destination: dest });
+      });
+      return;
+    }
+    if (name === "finish") {
+      ["C5", "E5", "G5", "C6", "G5", "C6"].forEach((note, index) => {
+        playTone(note, t + index * 0.07, index === 5 ? 0.22 : 0.08, 0.06, {
+          wave: audio.pulseWave,
+          destination: dest
+        });
+      });
+      return;
+    }
+    if (name === "gameover") {
+      ["C5", "G4", "E4", "C4"].forEach((note, index) => {
+        playTone(note, t + index * 0.09, 0.1, 0.06, { wave: audio.pulseWave, destination: dest });
+      });
+    }
+  }
+
   function resetRun(full = true) {
     input.left = false;
     input.right = false;
@@ -862,6 +1225,8 @@
     state.phase = "playing";
     state.paused = false;
     resetRun(true);
+    startMusic(true);
+    playSfx("start");
   }
 
   function showMessage(title, copy, restartLabel = "RESTART", canContinue = false, canMenu = false) {
@@ -881,17 +1246,21 @@
   function pauseGame() {
     if (state.phase !== "playing") return;
     state.paused = true;
+    stopMusic();
     showMessage("PAUSED", "Game paused.", "RESTART", true, true);
   }
 
   function resumeGame() {
     state.paused = false;
     messageScreen.classList.add("hidden");
+    startMusic(false);
   }
 
   function completeGame() {
     if (state.phase === "complete") return;
     state.phase = "complete";
+    stopMusic();
+    playSfx("finish");
     state.completionTime = state.time;
     // Capture the prior best before overwriting so results can compare against
     // it, then persist this run's time and splits when it is a new best.
@@ -1151,6 +1520,8 @@
 
   function gameOver() {
     state.phase = "gameover";
+    stopMusic();
+    playSfx("gameover");
     showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN", false, true);
   }
 
@@ -1214,6 +1585,7 @@
   // other origin returns to the title.
   function openLeaderboard(boardId, origin) {
     if (!leaderboardClient || boards.length === 0) return;
+    stopMusic();
     const target = boards.find(function (board) { return board.id === boardId; }) || boards[0];
     state.leaderboardLevelId = target.id;
     state.leaderboardOrigin = origin || "title";
@@ -1585,6 +1957,7 @@
       player.coyote = 0;
       player.jumpBuffer = 0;
       burst(player.x + player.w * 0.5, player.y + player.h, palette.paper2, 4);
+      playSfx("jump");
     }
 
     if (input.jumpReleased && player.vy < -120) {
@@ -1662,6 +2035,7 @@
     state.toast = `+3 ${levelLabel("coin", "BTC")}`;
     state.toastTime = 1.2;
     burst(solid.x + solid.w * 0.5, solid.y, palette.orange, 10);
+    playSfx("block");
     syncHud();
   }
 
@@ -1691,6 +2065,7 @@
         state.toast = cfg.stompToast;
         state.toastTime = 1.1;
         burst(enemy.x + enemy.w * 0.5, enemy.y + enemy.h * 0.5, cfg.spark, 8);
+        playSfx("stomp");
       } else {
         hurtPlayer(false);
       }
@@ -1704,6 +2079,7 @@
         state.coins += 1;
         state.score += 50;
         burst(coin.x + 4, coin.y + 4, palette.orange, 5);
+        playSfx("coin");
         syncHud();
       }
     }
@@ -1716,6 +2092,7 @@
         state.toast = `${levelLabel("pageNote", "Whitepaper page")} ${state.pages}/${getCurrentLevel().layout.pages.length}`;
         state.toastTime = 1.7;
         burst(page.x + 5, page.y + 7, palette.paper, 10);
+        playSfx("page");
         syncHud();
       }
     }
@@ -1748,6 +2125,7 @@
     const marker = faster ? ` -${formatTime(bestSplit - split)}` : "";
     state.toast = `${checkpoint.name} ${formatTime(split)}${marker}`;
     state.toastTime = 1.6;
+    playSfx("checkpoint");
   }
 
   // Fire an ally's ambient line the first time the player crosses its trigger.
@@ -1781,6 +2159,7 @@
     }
 
     burst(player.x + player.w * 0.5, player.y + player.h * 0.5, palette.red, 14);
+    playSfx("hurt");
     resetRun(false);
   }
 
@@ -2461,6 +2840,7 @@
     }
 
     render();
+    updateAudio();
     requestAnimationFrame(loop);
   }
 
@@ -2540,13 +2920,18 @@
       return;
     }
 
-    // On the title screen "any key starts the game"; let the focused LEADERBOARD
-    // button activate natively instead of being swallowed by that shortcut.
-    if (state.phase === "title" && event.target === leaderboardButton) return;
+    // On the title screen "any key starts the game"; let focused title buttons
+    // activate natively instead of being swallowed by that shortcut.
+    if (state.phase === "title" && (event.target === leaderboardButton || event.target === soundButton)) return;
 
     const key = event.key.toLowerCase();
-    if (["arrowleft", "arrowright", "arrowup", " ", "a", "d", "w", "enter", "p", "r"].includes(key)) {
+    if (["arrowleft", "arrowright", "arrowup", " ", "a", "d", "w", "enter", "p", "r", "m"].includes(key)) {
       event.preventDefault();
+    }
+
+    if (key === "m") {
+      toggleSound();
+      return;
     }
 
     if (state.phase === "title") {
@@ -2644,6 +3029,7 @@
   continueButton.addEventListener("click", resumeGame);
   restartButton.addEventListener("click", startGame);
   menuButton.addEventListener("click", showTitle);
+  if (soundButton) soundButton.addEventListener("click", toggleSound);
 
   // Leaderboard entry points. The title button opens the first board; the results
   // button opens the board for the level just completed (and the submitted run is
@@ -2677,6 +3063,7 @@
   // Surface the concise timing rules on the title screen, sourced from
   // TIMING_RULES so the player-facing note never drifts from the enforced rules.
   if (titleRules) titleRules.textContent = TIMING_RULES.summary;
+  syncSoundButton();
 
   // Optional deep-link to a specific level via `?level=N` (1-based). setLevel
   // validates the value and runs initLevel() itself when it succeeds (so the

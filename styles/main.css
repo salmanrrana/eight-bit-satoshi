@@ -533,6 +533,16 @@ button {
   display: none;
 }
 
+.sound-button {
+  position: absolute;
+  right: clamp(8px, 3vw, 16px);
+  bottom: clamp(8px, 3vw, 16px);
+  min-width: 116px;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: clamp(9px, 2vw, 12px);
+}
+
 /* Leaderboard overlay. Reuses the shared .overlay backdrop; its own column layout
    gives the rankings a scroll area so a long board stays inside the screen frame on
    both desktop and mobile. */
