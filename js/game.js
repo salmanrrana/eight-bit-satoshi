@@ -390,6 +390,8 @@
     narrowPulseWave: null,
     noiseBuffer: null,
     enabled: loadSoundEnabled(),
+    unlocked: false,
+    resumePromise: null,
     musicActive: false,
     musicStep: 0,
     nextStepTime: 0,
@@ -402,9 +404,9 @@
   const SONGS = {
     city: {
       bpm: 156,
-      leadGain: 0.045,
-      harmonyGain: 0.024,
-      bassGain: 0.05,
+      leadGain: 0.075,
+      harmonyGain: 0.04,
+      bassGain: 0.085,
       lead: noteRow(`
         E5 . G5 . C6 . G5 E5 D5 . F5 . A5 . F5 D5
         C5 . E5 G5 C6 . B5 G5 A5 . G5 E5 D5 . C5 .
@@ -426,9 +428,9 @@
     },
     network: {
       bpm: 138,
-      leadGain: 0.04,
-      harmonyGain: 0.022,
-      bassGain: 0.052,
+      leadGain: 0.07,
+      harmonyGain: 0.038,
+      bassGain: 0.088,
       lead: noteRow(`
         A4 . C5 . E5 . C5 A4 B4 . D5 . F5 . D5 B4
         C5 . E5 A5 G5 . E5 C5 B4 . D5 G5 F5 . D5 B4
@@ -947,30 +949,71 @@
     if (!AudioCtor) return false;
 
     if (!audio.ctx) {
-      audio.ctx = new AudioCtor();
-      audio.master = audio.ctx.createGain();
-      audio.musicGain = audio.ctx.createGain();
-      audio.sfxGain = audio.ctx.createGain();
-      audio.master.gain.value = 0.62;
-      audio.musicGain.gain.value = 0;
-      audio.sfxGain.gain.value = 0.48;
-      audio.musicGain.connect(audio.master);
-      audio.sfxGain.connect(audio.master);
-      audio.master.connect(audio.ctx.destination);
-      audio.pulseWave = makePulseWave(0.5);
-      audio.narrowPulseWave = makePulseWave(0.25);
-      audio.noiseBuffer = makeNoiseBuffer();
+      try {
+        audio.ctx = new AudioCtor();
+        audio.master = audio.ctx.createGain();
+        audio.musicGain = audio.ctx.createGain();
+        audio.sfxGain = audio.ctx.createGain();
+        audio.master.gain.value = 0.95;
+        audio.musicGain.gain.value = 0;
+        audio.sfxGain.gain.value = 0.72;
+        audio.musicGain.connect(audio.master);
+        audio.sfxGain.connect(audio.master);
+        audio.master.connect(audio.ctx.destination);
+        try {
+          audio.pulseWave = typeof audio.ctx.createPeriodicWave === "function" ? makePulseWave(0.5) : null;
+          audio.narrowPulseWave = typeof audio.ctx.createPeriodicWave === "function" ? makePulseWave(0.25) : null;
+        } catch (waveError) {
+          audio.pulseWave = null;
+          audio.narrowPulseWave = null;
+        }
+        audio.noiseBuffer = makeNoiseBuffer();
+      } catch (err) {
+        console.warn("8-Bit Satoshi: audio could not start.", err);
+        return false;
+      }
     }
 
-    if (audio.ctx.state === "suspended") {
-      audio.ctx.resume().catch(() => {});
+    audio.unlocked = audio.ctx.state === "running";
+    syncSoundButton();
+    return true;
+  }
+
+  function runWhenAudioReady(callback) {
+    if (!ensureAudio()) return false;
+    if (audio.ctx.state === "running") {
+      audio.unlocked = true;
+      syncSoundButton();
+      callback();
+      return true;
     }
+
+    if (!audio.resumePromise) {
+      audio.resumePromise = audio.ctx.resume()
+        .then(() => {
+          audio.unlocked = audio.ctx.state === "running";
+          audio.resumePromise = null;
+          if (audio.unlocked && audio.musicActive) {
+            audio.nextStepTime = audio.ctx.currentTime + 0.035;
+          }
+          syncSoundButton();
+        })
+        .catch((err) => {
+          audio.resumePromise = null;
+          console.warn("8-Bit Satoshi: audio unlock was blocked.", err);
+          syncSoundButton();
+        });
+    }
+
+    audio.resumePromise.then(() => {
+      if (audio.ctx && audio.ctx.state === "running") callback();
+    });
     return true;
   }
 
   function syncSoundButton() {
     if (!soundButton) return;
-    soundButton.textContent = audio.enabled ? "SOUND ON" : "SOUND OFF";
+    soundButton.textContent = audio.enabled ? (audio.unlocked ? "MUTE" : "TAP FOR SOUND") : "SOUND OFF";
     soundButton.setAttribute("aria-pressed", audio.enabled ? "true" : "false");
   }
 
@@ -982,11 +1025,15 @@
       stopMusic();
       return;
     }
-    if (audio.sfxGain) audio.sfxGain.gain.value = 0.48;
+    if (audio.sfxGain) audio.sfxGain.gain.value = 0.72;
     if (state.phase === "playing" && !state.paused) startMusic(false);
   }
 
   function toggleSound() {
+    if (audio.enabled && !audio.unlocked) {
+      playSfx("toggle");
+      return;
+    }
     setSoundEnabled(!audio.enabled);
     if (audio.enabled) playSfx("toggle");
   }
@@ -1006,8 +1053,10 @@
       audio.songId = songId;
     }
     audio.musicActive = true;
-    audio.nextStepTime = audio.ctx.currentTime + 0.045;
-    fadeMusic(1, 0.018);
+    runWhenAudioReady(() => {
+      audio.nextStepTime = audio.ctx.currentTime + 0.045;
+      fadeMusic(1, 0.018);
+    });
   }
 
   function stopMusic() {
@@ -1024,6 +1073,9 @@
     const song = getCurrentSong();
     const stepTime = 60 / song.bpm / 4;
     const leadLength = song.lead.length;
+    if (audio.nextStepTime < audio.ctx.currentTime - 0.05) {
+      audio.nextStepTime = audio.ctx.currentTime + 0.02;
+    }
     while (audio.nextStepTime < audio.ctx.currentTime + 0.14) {
       playMusicStep(song, audio.musicStep % leadLength, audio.nextStepTime, stepTime);
       audio.musicStep = (audio.musicStep + 1) % leadLength;
@@ -1115,7 +1167,10 @@
   }
 
   function playSfx(name) {
-    if (!ensureAudio()) return;
+    runWhenAudioReady(() => scheduleSfx(name));
+  }
+
+  function scheduleSfx(name) {
     const t = audio.ctx.currentTime + 0.008;
     const dest = audio.sfxGain;
 
