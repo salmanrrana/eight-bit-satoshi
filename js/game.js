@@ -17,6 +17,10 @@
   const JUMP_PER_BTC = 1.2;
   const MAX_BTC_JUMP_BOOST = 72;
   const STOMP = -280;
+  // Launch impulse from a CROWD SURGE pad (Level 3's signature platform kind).
+  // Stronger than any coin-boosted jump (max -468) so the pads open routes a
+  // plain jump never can, but still deterministic — no randomness, ANY% safe.
+  const CROWD_BOUNCE = -520;
   const COYOTE = 0.085;
   const JUMP_BUFFER = 0.11;
   const TILE = 16;
@@ -111,14 +115,20 @@
   // onto the same engine behaviors (patrol + stompable) with new identities.
   // The `shape` field is the fallback art; Level-2 types additionally have
   // bespoke sprites (drawFud/drawChargeback/drawExploit, ticket 60f350ff) so the
-  // legacy-system threats read distinctly from Level 1's enemies.
+  // legacy-system threats read distinctly from Level 1's enemies. Level 3's
+  // suit/agent/wiretap follow the same pattern (drawSuit/drawAgent/drawWiretap):
+  // the forces that pushed back on early adoption — bank lobbyists, three-letter
+  // agents, and the surveillance bug you stomp to sweep.
   const ENEMY_TYPES = {
     banker: { speed: 28, score: 200, shape: "patroller", spark: palette.red, stompToast: "Threat cleared." },
     printer: { speed: 28, score: 200, shape: "machine", spark: palette.red, stompToast: "Printer jammed." },
     miner: { speed: 36, score: 350, shape: "critter", spark: palette.green, stompToast: "Threat cleared." },
     fud: { speed: 30, score: 200, shape: "patroller", spark: palette.red, stompToast: "FUD debunked." },
     chargeback: { speed: 26, score: 200, shape: "machine", spark: palette.violet, stompToast: "Reversal blocked." },
-    exploit: { speed: 40, score: 350, shape: "critter", spark: palette.green, stompToast: "Exploit patched." }
+    exploit: { speed: 40, score: 350, shape: "critter", spark: palette.green, stompToast: "Exploit patched." },
+    suit: { speed: 30, score: 200, shape: "patroller", spark: palette.red, stompToast: "Lobbyist bounced." },
+    agent: { speed: 26, score: 200, shape: "machine", spark: palette.blue, stompToast: "Tail shaken." },
+    wiretap: { speed: 44, score: 350, shape: "critter", spark: palette.violet, stompToast: "Wiretap crushed." }
   };
 
   // Resolve an enemy type to its tuning row, falling back to a patroller so a
@@ -341,6 +351,129 @@
           { kind: "nodes", x: 4930, y: 184, triggerX: 4880, name: "EARLY BUILDERS", line: "Early builders: more nodes online." }
         ]
       }
+    },
+    {
+      // Level 3 — "THE INTERNET OF MONEY". The evangelist era: taking the word
+      // on tour, Andreas Antonopoulos-style — conference stages in big cities,
+      // the Mallers' living-room meetup in Chicago, sats collected talk by talk,
+      // while bank lobbyists and three-letter agencies try to shut it down and
+      // fail, because the network is too big to stop. Distinct mechanic =
+      // CROWD SURGE pads (the "crowd" platform kind): rows of supporters that
+      // launch you far higher than any jump — the people literally carry you.
+      // Like Confirmation Blocks, the pads are fully deterministic (a fixed
+      // impulse, no randomness), so timed attempts stay fair.
+      id: "internet-of-money",
+      title: "THE INTERNET OF MONEY",
+      description: "Take the word on tour — talks, meetups, and sats from Chicago to the world.",
+      // "tour" theme: a world-tour dusk that warms zone by zone into sunrise —
+      // landmark skylines in the far parallax, and a near-layer crowd whose
+      // heads light up orange as adoption spreads. SATS/TALK collectibles,
+      // megaphone tour-stop checkpoints, and a globe goal.
+      theme: "tour",
+      worldW: 6000,
+      goal: { x: 5902, y: 128, w: 22, h: 48 },
+      labels: { coin: "SATS", pageStat: "TALKS", pageNote: "Talk" },
+      zones: [
+        { x: 0, name: "FIRST TALK", sky: "#3a2f4e", sky2: "#1c1530", ground: "#3e3450", accent: "#f7931a", text: "2013: one talk turns a room of skeptics curious." },
+        { x: 820, name: "WORLD TOUR", sky: "#4e3358", sky2: "#251536", ground: "#45374f", accent: "#ffd166", text: "City to city, the same question: what is money?" },
+        { x: 1700, name: "THE LIVING ROOM", sky: "#5c3a50", sky2: "#2b1830", ground: "#4a3a44", accent: "#36bd63", text: "Chicago: a living-room meetup. Bring folding chairs." },
+        { x: 2600, name: "BANKER PUSHBACK", sky: "#6b4448", sky2: "#331f26", ground: "#54423c", accent: "#d64533", text: "The banks push back. The message keeps moving." },
+        { x: 3500, name: "THE CRACKDOWN", sky: "#75504a", sky2: "#3a2521", ground: "#5a463a", accent: "#8d6de8", text: "Three-letter agencies watch. Nodes keep syncing." },
+        { x: 4400, name: "NO OFF SWITCH", sky: "#8a6a4e", sky2: "#45301f", ground: "#2f8d50", accent: "#36bd63", text: "Too many nodes, too many minds. No off switch." },
+        { x: 5300, name: "INTERNET OF MONEY", sky: "#e08a4a", sky2: "#7a3d2a", ground: "#2f8d50", accent: "#f7931a", text: "Not just money — the internet of money." }
+      ],
+      layout: {
+        // Ground segments with 80px pits, except the 180px gap at 4020–4200:
+        // too wide for any jump and bridged only by the CROWD SURGE pad floating
+        // mid-gap — Level 3's signature crossing (crowd-surf it or fall).
+        ground: [
+          [0, 700], [780, 500], [1360, 480], [1920, 560], [2560, 520],
+          [3160, 500], [3740, 280], [4200, 420], [4700, 540], [5320, 680]
+        ],
+        platforms: [
+          [260, 152, 72, 14, "ledger"], [400, 126, 56, 14, "question"],
+          // Teaching pad: on safe ground under a high sat arc, so the first
+          // crowd surge is a reward, never a requirement.
+          [560, 164, 40, 10, "crowd"],
+          [880, 150, 70, 14, "ledger"], [1050, 128, 56, 14, "question"],
+          [1200, 148, 64, 14, "ledger"],
+          // Bonus pad guarding a high TALK — optional, the route never needs it.
+          [1480, 164, 44, 10, "crowd"],
+          [1780, 146, 70, 14, "ledger"], [1960, 130, 56, 14, "question"],
+          [2160, 150, 74, 14, "ledger"], [2360, 126, 60, 14, "ledger"],
+          [2680, 148, 76, 14, "question"], [2860, 124, 62, 14, "ledger"],
+          [3080, 150, 72, 14, "ledger"], [3280, 130, 64, 14, "question"],
+          [3580, 146, 70, 14, "ledger"], [3800, 128, 60, 14, "question"],
+          // The signature crossing: the only foothold in the 180px gap. Landing
+          // on it auto-launches (CROWD_BOUNCE), carrying you to the far edge;
+          // missing it drops you into the pit. Bouncing straight up lands you
+          // back on the pad, so a hesitant crossing is retryable, not fatal.
+          [4080, 166, 48, 10, "crowd"],
+          [4480, 148, 72, 14, "ledger"], [4660, 124, 58, 14, "question"],
+          // Second bonus pad under the level's highest TALK.
+          [4840, 162, 44, 10, "crowd"],
+          [5000, 148, 70, 14, "ledger"], [5160, 128, 60, 14, "question"],
+          [5420, 150, 74, 14, "ledger"], [5600, 128, 62, 14, "question"],
+          [5760, 150, 66, 14, "ledger"]
+        ],
+        blockStacks: [
+          [640, 2], [1240, 2], [2440, 2], [3560, 2], [4940, 3], [5700, 2]
+        ],
+        // SATS — tips tossed to the speaker, scattered along the route plus
+        // high arcs above each crowd pad so surges pay out.
+        coinArcs: [
+          [170, 128, 5], [560, 96, 5], [900, 122, 6], [1230, 108, 5],
+          [1500, 92, 5], [1820, 118, 6], [2200, 112, 5], [2700, 120, 6],
+          [3120, 112, 5], [3600, 118, 5], [4084, 128, 5], [4520, 120, 6],
+          [4856, 88, 5], [5440, 122, 5], [5780, 110, 6]
+        ],
+        // TALKS — nine microphones, roughly one stage per stop; the high ones
+        // (x1495, x4850) are crowd-surge bonuses and the x4104 one is grabbed
+        // mid-flight while crossing the signature gap.
+        pages: [
+          [500, 150], [1495, 100], [1990, 116], [2390, 112], [2890, 110],
+          [3830, 114], [4104, 118], [4850, 84], [5560, 130]
+        ],
+        // suit/agent patrol the pushback; wiretap is the fast, higher-value
+        // stompable threat and only appears from THE CRACKDOWN on. Zone 3 (the
+        // living room) is deliberately light — meetups are friendly territory.
+        // The 4200–4270 band after the signature gap is kept enemy-free so a
+        // clean crowd-surf crossing is always bankable (Level 2 playtest rule).
+        enemies: [
+          [430, 178, 380, 540, "suit"], [1000, 178, 940, 1120, "agent"],
+          [1880, 178, 1800, 2080, "suit"], [2760, 178, 2660, 2960, "suit"],
+          [3300, 178, 3220, 3440, "agent"], [3800, 178, 3750, 3980, "wiretap"],
+          [4310, 178, 4270, 4560, "suit"], [4720, 178, 4640, 4980, "wiretap"],
+          [5480, 178, 5400, 5680, "suit"], [5780, 178, 5730, 5880, "agent"]
+        ],
+        // Red-tape barriers — the paperwork walls thrown in the messenger's way.
+        // Same engine hazard as L1 spikes; placed clear of every patrol range.
+        hazards: [
+          [660, 190, 36, 15], [1150, 190, 40, 15], [2110, 190, 42, 15],
+          [3020, 190, 42, 15], [3470, 190, 38, 15], [5060, 190, 42, 15]
+        ],
+        // Six tour stops opening zones 2–7 (zone 1 is the spawn) — back to
+        // Level 1's six-split shape but over a longer world.
+        checkpoints: [
+          { x: 860, y: 172, index: 1, name: "WORLD TOUR" },
+          { x: 1740, y: 172, index: 2, name: "THE LIVING ROOM" },
+          { x: 2640, y: 172, index: 3, name: "BANKER PUSHBACK" },
+          { x: 3540, y: 172, index: 4, name: "THE CRACKDOWN" },
+          { x: 4440, y: 172, index: 5, name: "NO OFF SWITCH" },
+          { x: 5340, y: 172, index: 6, name: "INTERNET OF MONEY" }
+        ],
+        allies: [
+          // Zone 3 THE LIVING ROOM — Jack & Bill Mallers hosting the Chicago
+          // meetup on their couch. x:2120 sits clear of the zone-3 suit patrol
+          // (maxX 2080) and under no platform; trigger offset from the zone
+          // (1700) and checkpoint (1740/2640) boundaries.
+          { kind: "mallers", x: 2120, y: 182, w: 26, h: 22, triggerX: 2070, name: "JACK & BILL MALLERS", line: "Jack & Bill Mallers: meetup's in our living room." },
+          // Zone 6 NO OFF SWITCH — the crowd itself, keys in hand. On ground
+          // segment [4700,540] past the wiretap patrol (maxX 4980) and the
+          // red-tape hazard (5060–5102); trigger clear of zone 7 (5300).
+          { kind: "crowd", x: 5150, y: 182, w: 32, h: 22, triggerX: 5115, name: "THE CROWD", line: "The crowd: we hold our own keys now." }
+        ]
+      }
     }
   ];
 
@@ -365,6 +498,9 @@
     toast: "",
     toastTime: 0,
     shake: 0,
+    // One-shot per full run: the first CROWD SURGE launch shows a teaching
+    // toast so the mechanic explains itself without a modal. Reset in resetRun.
+    crowdSurfed: false,
     completionTime: 0,
     deaths: 0,
     splits: [],
@@ -448,6 +584,33 @@
         C3 . G2 . C3 . G2 . B2 . F#2 . B2 . F#2 .
         E2 . B2 . E3 . B2 . D3 . A2 . D3 . A2 .
         C3 . G2 . A2 . E2 . F2 . C3 . E2 . A2 .
+      `)
+    },
+    // Level 3 "world tour" anthem: brighter and faster than the network-night
+    // song — a travelling major-key lead that keeps landing back on C, like a
+    // tour that keeps coming home to the same message. Original melody.
+    tour: {
+      bpm: 150,
+      leadGain: 0.072,
+      harmonyGain: 0.04,
+      bassGain: 0.086,
+      lead: noteRow(`
+        C5 . E5 . G5 . A5 G5 E5 . C5 . D5 . E5 .
+        F5 . A5 . C6 . A5 F5 G5 . E5 . C5 . D5 .
+        E5 . G5 . B5 . C6 B5 G5 . E5 . D5 . E5 G5
+        A5 . G5 E5 F5 . E5 D5 C5 . D5 . C5 . . .
+      `),
+      harmony: noteRow(`
+        . . C5 . . . E5 . . . G4 . . . B4 .
+        . . A4 . . . C5 . . . B4 . . . G4 .
+        . . C5 . . . E5 . . . G5 . . . B4 .
+        . . F5 . . . D5 . . . B4 . C5 . . .
+      `),
+      bass: noteRow(`
+        C3 . G2 . C3 . E3 . F2 . C3 . F2 . G2 .
+        F2 . C3 . F2 . A2 . G2 . D3 . G2 . B2 .
+        C3 . G2 . E3 . C3 . A2 . E2 . A2 . E3 .
+        F2 . C3 . D3 . A2 . G2 . D3 . C3 . G2 .
       `)
     }
   };
@@ -1213,6 +1376,12 @@
       playNoise(t, 0.12, 0.038, 900, dest);
       return;
     }
+    if (name === "crowd") {
+      // Rising whoop for a crowd-surge launch — reads as lift, not a jump.
+      playTone("C5", t, 0.06, 0.055, { wave: audio.narrowPulseWave, slideTo: "G5", destination: dest });
+      playTone("E6", t + 0.055, 0.06, 0.045, { wave: audio.narrowPulseWave, destination: dest });
+      return;
+    }
     if (name === "checkpoint") {
       ["G4", "C5", "E5"].forEach((note, index) => {
         playTone(note, t + index * 0.055, 0.075, 0.05, { wave: audio.narrowPulseWave, destination: dest });
@@ -1252,6 +1421,7 @@
       state.time = 0;
       state.completionTime = 0;
       state.deaths = 0;
+      state.crowdSurfed = false;
       state.splits.length = 0;
       state.bestSplits = loadBestSplitMap(getCurrentLevel().id);
       initLevel();
@@ -1793,13 +1963,13 @@
     // Generic fallback shown whenever we can't say anything player-specific: no
     // `you` at all, or a `you` without actionable detail (a correct combinedProgress
     // never produces the latter, but guard against a malformed one anyway).
-    const generic = "The combined board ranks your total time across both levels — post a time on each to appear here.";
+    const generic = "The combined board ranks your total time across all levels — post a time on each to appear here.";
     if (!you) return leaderboardHint(generic);
     if (you.qualified) {
       // time is always set when qualified; guard the display so a corrupt value
       // degrades to a neutral mark instead of "NaN:NaN.NaN".
       const total = typeof you.time === "number" ? formatTime(you.time) : "—";
-      return leaderboardHint("You qualify! Your combined total is " + total + " across both levels.");
+      return leaderboardHint("You qualify! Your combined total is " + total + " across all levels.");
     }
     const missing = Array.isArray(you.missing) ? you.missing : [];
     if (missing.length === 0) return leaderboardHint(generic);
@@ -1869,7 +2039,7 @@
     wrap.className = "leaderboard-message is-empty";
     const message = document.createElement("p");
     message.className = "leaderboard-message-text";
-    message.textContent = "No combined times yet. Post a time on both levels to be the first!";
+    message.textContent = "No combined times yet. Post a time on every level to be the first!";
     wrap.append(message);
     const hint = buildCombinedHint(you);
     if (hint) wrap.append(hint);
@@ -2070,8 +2240,22 @@
         body.vx = 0;
       } else if (dy > 0) {
         body.y = solid.y - body.h;
-        body.vy = 0;
-        body.onGround = true;
+        if (solid.kind === "crowd") {
+          // CROWD SURGE pad: landing launches you instead of settling. onGround
+          // stays false so this is a bounce, not a platform — you ride the
+          // crowd, you don't stand on it. Only the player ever runs moveAxis.
+          body.vy = CROWD_BOUNCE;
+          burst(body.x + body.w * 0.5, solid.y, palette.orange, 8);
+          playSfx("crowd");
+          if (!state.crowdSurfed) {
+            state.crowdSurfed = true;
+            state.toast = "Crowd surge! The people carry you.";
+            state.toastTime = 1.8;
+          }
+        } else {
+          body.vy = 0;
+          body.onGround = true;
+        }
       } else if (dy < 0) {
         body.y = solid.y + solid.h;
         body.vy = 20;
@@ -2278,8 +2462,13 @@
 
     drawSunMoon(cam, zone);
 
-    if (getTheme() === "network") {
+    const theme = getTheme();
+    if (theme === "network") {
       drawNetworkBackdrop(cam);
+      return;
+    }
+    if (theme === "tour") {
+      drawTourBackdrop(cam);
       return;
     }
 
@@ -2370,8 +2559,88 @@
     }
   }
 
+  // Level 3 "world tour" parallax backdrop. Far layer: world-landmark
+  // silhouettes (lattice tower / domed hall / twin blocks) cycling as the tour
+  // moves city to city. Near layer: the crowd itself — rows of figures whose
+  // heads light up orange as you get deeper into the run (adoption spreading),
+  // mirroring the network theme's "nodes come online" but as people. Everything
+  // is keyed off world x and the integer run-clock tick, so it is pixel-stable
+  // and deterministic on every timed attempt; colors stay dark against the
+  // dusk skies so the foreground keeps full readability.
+  function drawTourBackdrop(cam) {
+    const far = mod(-Math.floor(cam * 0.22), 170);
+    for (let sx = far - 170; sx < VIEW_W + 170; sx += 170) {
+      drawLandmark(sx, mod(Math.floor((sx + Math.floor(cam * 0.22)) / 170), 3));
+    }
+
+    // Near layer: the crowd. More lit (orange-pilled) heads per group the
+    // further the tour has reached (currentZone 0..6 → 1..7 of 8 lit).
+    const litThreshold = 1 + state.currentZone;
+    const near = mod(-Math.floor(cam * 0.5), 96);
+    for (let nx = near - 96; nx < VIEW_W + 96; nx += 96) {
+      for (let i = 0; i < 6; i += 1) {
+        const hx = nx + 3 + i * 15;
+        const lit = mod(i * 3 + Math.floor(nx / 96), 8) < litThreshold;
+        ctx.fillStyle = "#2b1d3a";
+        rect(hx, 190, 8, 14);
+        ctx.fillStyle = lit ? palette.orange : "#4a3556";
+        rect(hx + 2, 184, 5, 5);
+      }
+    }
+  }
+
+  // One far-layer landmark silhouette per 170px tile, cycling three shapes so
+  // the skyline reads as different cities without any per-city assets.
+  function drawLandmark(x, kind) {
+    ctx.fillStyle = "#231a36";
+    if (kind === 0) {
+      // Lattice tower: tapering mast on splayed legs.
+      rect(x + 26, 92, 4, 26);
+      rect(x + 22, 118, 12, 10);
+      rect(x + 18, 128, 20, 34);
+      rect(x + 12, 162, 10, 42);
+      rect(x + 34, 162, 10, 42);
+      ctx.fillStyle = "#3a2b52";
+      rect(x + 27, 86, 2, 6);
+    } else if (kind === 1) {
+      // Domed hall over a long portico.
+      rect(x + 8, 142, 46, 62);
+      rect(x + 20, 126, 22, 16);
+      rect(x + 26, 116, 10, 10);
+      rect(x + 30, 108, 3, 8);
+      ctx.fillStyle = "#171028";
+      for (let c = 0; c < 4; c += 1) rect(x + 13 + c * 10, 152, 4, 52);
+    } else {
+      // Twin towers with a few late-night windows still lit.
+      rect(x + 8, 112, 20, 92);
+      rect(x + 34, 130, 18, 74);
+      ctx.fillStyle = "#6b4a3a";
+      rect(x + 12, 124, 3, 4);
+      rect(x + 20, 148, 3, 4);
+      rect(x + 38, 142, 3, 4);
+      rect(x + 44, 170, 3, 4);
+    }
+  }
+
   function drawSunMoon(cam, zone) {
     const x = 196 - Math.floor(cam * 0.03) % 80;
+    if (getTheme() === "tour") {
+      // The globe the tour is crossing — landmasses plus two adoption beacons
+      // blinking across continents.
+      ctx.fillStyle = "#1c355c";
+      rect(x - 1, 29, 22, 22);
+      ctx.fillStyle = palette.blue2;
+      rect(x, 30, 20, 20);
+      ctx.fillStyle = palette.green2;
+      rect(x + 3, 33, 6, 5);
+      rect(x + 11, 36, 6, 4);
+      rect(x + 5, 43, 5, 4);
+      ctx.fillStyle = palette.orange;
+      const blink = Math.floor(state.time * 2) % 2;
+      rect(x + 5 + blink * 8, 35, 2, 2);
+      rect(x + 13 - blink * 6, 44, 2, 2);
+      return;
+    }
     if (getTheme() === "network") {
       // A pale moon over the network-at-night sky, with two craters for texture.
       ctx.fillStyle = "#2a3350";
@@ -2399,14 +2668,29 @@
         ctx.fillStyle = zone.ground;
         rect(x, solid.y, solid.w, solid.h);
         // Top edge + vertical seams. The network theme uses a terminal-green
-        // "circuit floor" trim throughout; the city theme keeps its grey →
-        // green-grass transition keyed off the zone progression.
-        const network = getTheme() === "network";
-        ctx.fillStyle = network ? "#3ad17a" : state.currentZone < 3 ? "#70745f" : "#54c35d";
-        rect(x, solid.y, solid.w, network ? 2 : 4);
-        ctx.fillStyle = network ? "#143a28" : state.currentZone < 3 ? "#262929" : "#225f35";
+        // "circuit floor" trim, the tour theme a gold "tour route" trim, and
+        // the city theme keeps its grey → green-grass zone transition.
+        const theme = getTheme();
+        ctx.fillStyle = theme === "network" ? "#3ad17a" : theme === "tour" ? "#ffd166" : state.currentZone < 3 ? "#70745f" : "#54c35d";
+        rect(x, solid.y, solid.w, theme === "network" ? 2 : theme === "tour" ? 3 : 4);
+        ctx.fillStyle = theme === "network" ? "#143a28" : theme === "tour" ? "#5a3110" : state.currentZone < 3 ? "#262929" : "#225f35";
         for (let tx = x - mod(x, TILE); tx < x + solid.w; tx += TILE) {
           rect(tx, solid.y + 16, 1, solid.h - 16);
+        }
+      } else if (solid.kind === "crowd") {
+        // CROWD SURGE pad: a row of supporters with arms pumping on a two-frame
+        // cycle so the pad reads as alive (and bouncy) before you commit to it.
+        const lift = Math.floor(state.time * 4) % 2;
+        const shirts = [palette.orange, palette.blue, palette.violet];
+        for (let i = 0; i + 8 <= solid.w + 3; i += 11) {
+          const px = x + i + 1;
+          ctx.fillStyle = palette.paper2;
+          rect(px, solid.y + 2 - lift, 2, 3);
+          rect(px + 6, solid.y + 2 - lift, 2, 3);
+          ctx.fillStyle = palette.paper;
+          rect(px + 2, solid.y - lift, 4, 4);
+          ctx.fillStyle = shirts[mod(i / 11, 3)];
+          rect(px + 1, solid.y + 4, 6, solid.h - 4);
         }
       } else if (solid.kind === "question") {
         ctx.fillStyle = solid.hit ? palette.gray : palette.yellow;
@@ -2471,12 +2755,26 @@
   }
 
   function drawCoins(cam) {
-    const network = getTheme() === "network";
+    const theme = getTheme();
+    const network = theme === "network";
     const pulse = Math.floor(state.time * 8) % 2;
     for (const coin of coins) {
       if (coin.taken) continue;
       const x = Math.round(coin.x - cam);
       if (x < -8 || x > VIEW_W + 8) continue;
+      if (theme === "tour") {
+        // SATS tips: an orange sat with a lightning glint — value tossed from
+        // the crowd to the stage. Distinct from L1's plain gold coin and L2's
+        // green-ringed token.
+        ctx.fillStyle = palette.orange2;
+        rect(x + 1 + pulse, coin.y, 6 - pulse * 2, 8);
+        ctx.fillStyle = palette.orange;
+        rect(x + 2 + pulse, coin.y + 1, 4 - pulse * 2, 6);
+        ctx.fillStyle = palette.yellow;
+        rect(x + 4, coin.y + 2, 1, 2);
+        rect(x + 3, coin.y + 4, 1, 2);
+        continue;
+      }
       if (network) {
         // SATS: a tiny satoshi token — orange core inside a terminal-green ring,
         // with a bright spark pixel. Reads as a digital coin, not L1's gold coin.
@@ -2496,12 +2794,27 @@
   }
 
   function drawPages(cam) {
-    const network = getTheme() === "network";
+    const theme = getTheme();
+    const network = theme === "network";
     for (const page of pages) {
       if (page.taken) continue;
       const x = Math.round(page.x - cam);
       if (x < -12 || x > VIEW_W + 12) continue;
       const bob = Math.round(Math.sin(state.time * 5 + page.x) * 2);
+      if (theme === "tour") {
+        // TALK: a stage microphone — silver grille head, dark stem, orange
+        // base LED. The L3 milestone collectible (TALKS given on tour).
+        ctx.fillStyle = palette.gray;
+        rect(x + 2, page.y + bob, 7, 6);
+        ctx.fillStyle = palette.white;
+        rect(x + 3, page.y + 1 + bob, 5, 1);
+        rect(x + 3, page.y + 3 + bob, 5, 1);
+        ctx.fillStyle = palette.ink2;
+        rect(x + 4, page.y + 6 + bob, 3, 6);
+        ctx.fillStyle = palette.orange;
+        rect(x + 3, page.y + 12 + bob, 5, 2);
+        continue;
+      }
       if (network) {
         // PATCH: a signed code-diff note — a dark terminal card with green "+"
         // added lines and a gold signature seal. The L2 milestone collectible
@@ -2537,8 +2850,72 @@
       const x = Math.round(ally.x - cam);
       if (x + ally.w < -8 || x > VIEW_W + 8) continue;
       if (ally.kind === "nodes") drawNodeCluster(x, ally.y);
+      else if (ally.kind === "mallers") drawMallers(x, ally.y);
+      else if (ally.kind === "crowd") drawCrowdCameo(x, ally.y);
       else drawHal(x, ally.y);
     }
+  }
+
+  // Jack & Bill Mallers hosting the Chicago living-room meetup: a couch, Jack
+  // in his trademark white cap and hoodie, Bill in a blazer with grey hair.
+  // Purely decorative like every cameo. `y` is the sprite top.
+  function drawMallers(x, y) {
+    ctx.fillStyle = palette.brown2;
+    rect(x - 4, y + 10, 34, 12);
+    ctx.fillStyle = palette.brown;
+    rect(x - 4, y + 8, 34, 3);
+    rect(x - 4, y + 8, 3, 14);
+    rect(x + 27, y + 8, 3, 14);
+    // Jack — white cap + hoodie.
+    ctx.fillStyle = palette.white;
+    rect(x + 2, y, 7, 3);
+    ctx.fillStyle = palette.paper;
+    rect(x + 2, y + 3, 7, 5);
+    ctx.fillStyle = palette.green2;
+    rect(x + 1, y + 8, 9, 9);
+    ctx.fillStyle = palette.ink;
+    rect(x + 4, y + 5, 1, 2);
+    rect(x + 7, y + 5, 1, 2);
+    // Bill — grey hair + blazer.
+    ctx.fillStyle = palette.gray;
+    rect(x + 15, y + 1, 7, 3);
+    ctx.fillStyle = palette.paper;
+    rect(x + 15, y + 4, 7, 5);
+    ctx.fillStyle = palette.blue2;
+    rect(x + 14, y + 9, 9, 8);
+    ctx.fillStyle = palette.ink;
+    rect(x + 17, y + 6, 1, 2);
+    rect(x + 20, y + 6, 1, 2);
+    // Legs.
+    ctx.fillStyle = palette.ink2;
+    rect(x + 2, y + 17, 3, 5);
+    rect(x + 6, y + 17, 3, 5);
+    rect(x + 15, y + 17, 3, 5);
+    rect(x + 19, y + 17, 3, 5);
+  }
+
+  // The crowd cameo: three supporters (the middle one bouncing) and a raised
+  // Bitcoin placard — the network that no longer needs the messenger.
+  function drawCrowdCameo(x, y) {
+    const wave = Math.floor(state.time * 3) % 2;
+    const shirts = [palette.orange, palette.violet, palette.blue];
+    for (let i = 0; i < 3; i += 1) {
+      const px = x + i * 10;
+      const hop = i === 1 ? -wave : 0;
+      ctx.fillStyle = palette.paper;
+      rect(px + 2, y + 4 + hop, 5, 5);
+      ctx.fillStyle = shirts[i];
+      rect(px + 1, y + 9, 7, 8);
+      ctx.fillStyle = palette.ink2;
+      rect(px + 2, y + 17, 2, 5);
+      rect(px + 5, y + 17, 2, 5);
+    }
+    ctx.fillStyle = palette.gray;
+    rect(x + 26, y - 2, 2, 7);
+    ctx.fillStyle = palette.paper;
+    rect(x + 22, y - 8, 10, 8);
+    ctx.fillStyle = palette.orange;
+    text("B", x + 25, y - 1, 7);
   }
 
   // Hal Finney: a small node operator standing beside his terminal. Distinct from
@@ -2602,10 +2979,24 @@
   }
 
   function drawCheckpoints(cam) {
-    const network = getTheme() === "network";
+    const theme = getTheme();
+    const network = theme === "network";
     for (const checkpoint of checkpoints) {
       const x = Math.round(checkpoint.x - cam);
       if (x < -20 || x > VIEW_W + 20) continue;
+      if (theme === "tour") {
+        // Tour stop: a mast topped with a megaphone that blinks until the stop
+        // is played, then locks solid orange — the word got out here.
+        ctx.fillStyle = checkpoint.taken ? palette.orange2 : palette.gray2;
+        rect(x, checkpoint.y - 26, 3, 30);
+        const on = checkpoint.taken || Math.floor(state.time * 3) % 2 === 0;
+        ctx.fillStyle = checkpoint.taken ? palette.orange : on ? palette.yellow : palette.gray;
+        rect(x + 3, checkpoint.y - 27, 4, 5);
+        rect(x + 7, checkpoint.y - 30, 6, 11);
+        ctx.fillStyle = palette.ink;
+        rect(x + 9, checkpoint.y - 27, 2, 5);
+        continue;
+      }
       if (network) {
         // Node beacon: a mast topped with a signal lamp that goes solid green
         // once synced (taken). Reads as bringing a node online vs. L1's "B" flag.
@@ -2631,6 +3022,26 @@
   function drawGoal(cam) {
     const x = Math.round(goal.x - cam);
     if (x < -40 || x > VIEW_W + 40) return;
+    if (getTheme() === "tour") {
+      // INTERNET OF MONEY finish: the globe itself on a stage pedestal, every
+      // continent carrying a lit adoption node — the tour worked.
+      ctx.fillStyle = palette.ink2;
+      rect(x + 7, goal.y + 26, 10, goal.h - 30);
+      rect(x + 2, goal.y + 44, 20, 4);
+      ctx.fillStyle = "#1c355c";
+      rect(x - 3, goal.y - 1, 28, 28);
+      ctx.fillStyle = palette.blue2;
+      rect(x - 1, goal.y + 1, 24, 24);
+      ctx.fillStyle = palette.green2;
+      rect(x + 2, goal.y + 5, 8, 6);
+      rect(x + 13, goal.y + 8, 7, 5);
+      rect(x + 5, goal.y + 16, 6, 5);
+      ctx.fillStyle = Math.floor(state.time * 4) % 2 ? palette.yellow : palette.orange;
+      rect(x + 4, goal.y + 7, 2, 2);
+      rect(x + 16, goal.y + 10, 2, 2);
+      rect(x + 8, goal.y + 18, 2, 2);
+      return;
+    }
     if (getTheme() === "network") {
       // THE NETWORK finish: a small server rack with a grid of green node lights
       // and a blinking uplink lamp — the live network you hand the work off to.
@@ -2678,6 +3089,9 @@
       if (enemy.type === "fud") { drawFud(x, enemy.y, enemy.w, enemy.h); continue; }
       if (enemy.type === "chargeback") { drawChargeback(x, enemy.y, enemy.w, enemy.h); continue; }
       if (enemy.type === "exploit") { drawExploit(x, enemy.y, enemy.w, enemy.h); continue; }
+      if (enemy.type === "suit") { drawSuit(x, enemy.y); continue; }
+      if (enemy.type === "agent") { drawAgent(x, enemy.y); continue; }
+      if (enemy.type === "wiretap") { drawWiretap(x, enemy.y); continue; }
 
       const shape = enemyConfig(enemy.type).shape;
       if (shape === "machine") {
@@ -2765,6 +3179,79 @@
     ctx.fillStyle = palette.green2;
     rect(x + 1, y + h - 3, 2, 3);
     rect(x + w - 3, y + h - 3, 2, 3);
+  }
+
+  // SUIT — a bank lobbyist: pinstripe grey suit, red power tie, slicked hair,
+  // and a briefcase with a gold latch. The pushback in person; distinct from
+  // L1's abstract red banker goon.
+  function drawSuit(x, y) {
+    ctx.fillStyle = palette.ink;
+    rect(x + 3, y + 14, 3, 4);
+    rect(x + 8, y + 14, 3, 4);
+    ctx.fillStyle = palette.gray2;
+    rect(x + 1, y + 6, 12, 9);
+    ctx.fillStyle = palette.gray;
+    rect(x + 3, y + 6, 1, 9);
+    rect(x + 6, y + 6, 1, 9);
+    rect(x + 9, y + 6, 1, 9);
+    ctx.fillStyle = palette.white;
+    rect(x + 6, y + 7, 3, 2);
+    ctx.fillStyle = palette.red;
+    rect(x + 7, y + 8, 2, 4);
+    ctx.fillStyle = palette.paper;
+    rect(x + 4, y + 1, 7, 6);
+    ctx.fillStyle = palette.ink;
+    rect(x + 4, y, 7, 2);
+    rect(x + 5, y + 3, 1, 2);
+    rect(x + 8, y + 3, 1, 2);
+    ctx.fillStyle = palette.brown2;
+    rect(x + 12, y + 10, 4, 6);
+    ctx.fillStyle = palette.yellow;
+    rect(x + 13, y + 12, 2, 1);
+  }
+
+  // AGENT — a three-letter tail: black suit, shades band across the eyes, and
+  // a blue earpiece with a wire. Watches the messenger; can't stop the message.
+  function drawAgent(x, y) {
+    ctx.fillStyle = palette.ink;
+    rect(x + 4, y + 14, 3, 4);
+    rect(x + 9, y + 14, 3, 4);
+    ctx.fillStyle = palette.ink2;
+    rect(x + 2, y + 6, 12, 9);
+    ctx.fillStyle = palette.ink;
+    rect(x + 2, y + 6, 3, 9);
+    rect(x + 11, y + 6, 3, 9);
+    ctx.fillStyle = palette.white;
+    rect(x + 7, y + 7, 2, 3);
+    ctx.fillStyle = palette.paper;
+    rect(x + 4, y + 1, 8, 6);
+    ctx.fillStyle = palette.ink;
+    rect(x + 4, y, 8, 2);
+    rect(x + 4, y + 3, 8, 2);
+    ctx.fillStyle = palette.blue;
+    rect(x + 12, y + 4, 2, 2);
+    rect(x + 13, y + 6, 1, 3);
+  }
+
+  // WIRETAP — a listening bug on legs: grey shell, violet cap, dark mic grille,
+  // and a record lamp blinking on its antenna. The squashable L3 threat — stomp
+  // it to sweep the room.
+  function drawWiretap(x, y) {
+    ctx.fillStyle = palette.gray;
+    rect(x + 7, y + 1, 2, 3);
+    ctx.fillStyle = Math.floor(state.time * 4) % 2 === 0 ? palette.red : palette.red2;
+    rect(x + 6, y, 4, 2);
+    ctx.fillStyle = palette.gray2;
+    rect(x + 2, y + 4, 12, 11);
+    ctx.fillStyle = palette.violet;
+    rect(x + 2, y + 4, 12, 2);
+    ctx.fillStyle = palette.ink;
+    rect(x + 4, y + 8, 2, 4);
+    rect(x + 7, y + 8, 2, 4);
+    rect(x + 10, y + 8, 2, 4);
+    ctx.fillStyle = palette.gray2;
+    rect(x + 1, y + 15, 3, 3);
+    rect(x + 12, y + 15, 3, 3);
   }
 
   function drawParticles(cam) {

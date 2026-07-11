@@ -27,7 +27,8 @@
   // combineEntries) and is never submitted directly.
   const SUBMITTABLE_LEVELS = {
     "whitepaper-run": "THE WHITEPAPER RUN",
-    "running-bitcoin": "RUNNING BITCOIN"
+    "running-bitcoin": "RUNNING BITCOIN",
+    "internet-of-money": "THE INTERNET OF MONEY"
   };
 
   // The virtual combined board's levelId. It is never submitted; it is derived on
@@ -158,14 +159,14 @@
 
   // Normalized player identity. The game has no accounts, so a "player" on the
   // combined board is just a display name compared case-insensitively after
-  // trimming, so "Sat" and "SAT" are one person across both levels.
+  // trimming, so "Sat" and "SAT" are one person across all levels.
   function playerKey(name) {
     return typeof name === "string" ? name.trim().toLowerCase() : "";
   }
 
   // Group raw level entries into each player's BEST entry per level, restricted to
   // a single board tuple's category/gameVersion/rulesVersion (the combined board
-  // never mixes builds or rulesets). Only the two submittable levels contribute.
+  // never mixes builds or rulesets). Only the submittable levels contribute.
   // Returns a Map(playerKey -> { displayName, levels }) where `levels[levelId]` is
   // that player's fastest entry for the level. "Best" means lowest time, earliest
   // serverTimestamp breaking a tie — so the combined total automatically improves
@@ -209,9 +210,9 @@
     return players;
   }
 
-  // Build the combined board: for every player who has an entry on BOTH levels, sum
-  // their best level times into a single virtual entry. Players missing either level
-  // are excluded. Returned entries are NOT yet ranked; pass them through
+  // Build the combined board: for every player who has an entry on EVERY submittable
+  // level, sum their best level times into a single virtual entry. Players missing
+  // any level are excluded. Returned entries are NOT yet ranked; pass them through
   // rankEntries() to stamp `rank`. Each entry carries a `levels` breakdown so the UI
   // can show the contributing level times alongside the total.
   function combineEntries(entries, opts) {
