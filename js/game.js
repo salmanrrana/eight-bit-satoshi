@@ -24,6 +24,12 @@
   const COYOTE = 0.085;
   const JUMP_BUFFER = 0.11;
   const TILE = 16;
+  // Overworld (Level 4) walking speed and player collision box. Tuned so
+  // crossing the city reads brisk but tile corridors stay easy to thread —
+  // the box is smaller than a tile so doorways never snag.
+  const OW_SPEED = 92;
+  const OW_PW = 10;
+  const OW_PH = 12;
   const SOUND_KEY = "8bit-satoshi:sound:v1";
 
   // Single source of truth for how the timed category works. Every surface that
@@ -51,6 +57,13 @@
   // never silently ranked against a different game. Keep this in sync with the
   // "version" field in package.json on any release that changes timed play.
   const GAME_VERSION = "1.0.0";
+
+  // Local/dev detection. When the game is served from a loopback host (npm
+  // start) or opened straight from disk, every level is playable so any level
+  // can be tested directly. A real deployment (any non-loopback host) keeps
+  // the normal clear-the-previous-level progression.
+  const IS_DEV = location.protocol === "file:" ||
+    ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
 
   const canvas = document.getElementById("game-canvas");
   const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
@@ -128,8 +141,25 @@
     exploit: { speed: 40, score: 350, shape: "critter", spark: palette.green, stompToast: "Exploit patched." },
     suit: { speed: 30, score: 200, shape: "patroller", spark: palette.red, stompToast: "Lobbyist bounced." },
     agent: { speed: 26, score: 200, shape: "machine", spark: palette.blue, stompToast: "Tail shaken." },
-    wiretap: { speed: 44, score: 350, shape: "critter", spark: palette.violet, stompToast: "Wiretap crushed." }
+    wiretap: { speed: 44, score: 350, shape: "critter", spark: palette.violet, stompToast: "Wiretap crushed." },
+    // Level 4's venue threats — the 2019-2022 mania crews (drawShiller/
+    // drawRugpull/drawDegen): the token shiller working the room, the rug-pull
+    // machine winding up exit liquidity, and the overleveraged degen.
+    shiller: { speed: 32, score: 200, shape: "patroller", spark: palette.violet, stompToast: "Shill silenced." },
+    rugpull: { speed: 26, score: 200, shape: "machine", spark: palette.red, stompToast: "Rug pinned down." },
+    degen: { speed: 42, score: 350, shape: "critter", spark: palette.yellow, stompToast: "Position liquidated." },
+    // Stationary turret that lobs shitcoins at the player (see updateEnemies).
+    // speed 0 = it never patrols; still stompable, and the sat cannon kills it.
+    shitgun: { speed: 0, score: 400, shape: "machine", spark: palette.brown, stompToast: "Shooter scrapped." }
   };
+
+  // Projectile tuning. Both pools are deterministic (fixed timers, fixed
+  // speeds — no randomness) so timed runs stay fair.
+  const SHITGUN_RANGE = 210;      // turret opens fire inside this distance
+  const SHITGUN_PERIOD = 1.7;     // seconds between shots
+  const SHITCOIN_SPEED = 120;     // enemy shot px/s
+  const SAT_SHOT_SPEED = 300;     // player shot px/s
+  const FIRE_COOLDOWN = 0.35;     // player refire delay
 
   // Resolve an enemy type to its tuning row, falling back to a patroller so a
   // typo in a level definition renders and behaves sanely instead of throwing.
@@ -474,6 +504,202 @@
           { kind: "crowd", x: 5150, y: 182, w: 32, h: 22, triggerX: 5115, name: "THE CROWD", line: "The crowd: we hold our own keys now." }
         ]
       }
+    },
+    {
+      // Level 4 — "SHITCOIN CITY". The 2019-2022 mania: LUNA, FTX, 100x
+      // leverage, a token for everything — and one everyday person walking
+      // through it all, unbothered, stacking sats. This level introduces
+      // mode: "overworld": a top-down tile city (Zelda / NES-TMNT overworld
+      // view) where you walk in four directions, pass the era's loudest
+      // voices (proximity dialog, never blocking), and collect sats — then
+      // step through venue doors into side-view beat-em-up interiors that run
+      // on the existing platformer engine. Clear every venue (stomp all the
+      // shills inside) to open the COLD STORAGE vault, the level's exit.
+      // Timer/splits/deaths follow the normal rules; each venue clear records
+      // a split, so the ANY% category stays coherent.
+      id: "shitcoin-city",
+      title: "SHITCOIN CITY",
+      description: "2021 mania: a shill on every corner. Stay focused, stack sats, clear the venues.",
+      theme: "mania",
+      mode: "overworld",
+      labels: { coin: "SATS", pageStat: "STASHES", pageNote: "Stash" },
+      // worldW/goal are unused in the overworld itself (the tile map defines
+      // its own bounds; each venue interior carries its own exit box), but the
+      // fields stay present so generic readers never see undefined.
+      worldW: 512,
+      goal: { x: 0, y: 0, w: 0, h: 0 },
+      // Single HUD/scenery zone for the overworld; venue interiors swap in
+      // their own zone while you are inside.
+      zone: { name: "SHITCOIN CITY", sky: "#2a2438", sky2: "#141020", ground: "#565d63", accent: "#8d6de8", text: "2021: a shill on every corner. Stack sats. Clear the venues." },
+      spawn: { tx: 8, ty: 12 },
+      // Tile legend: '#' building (solid; south faces render as walls),
+      // '~' water (solid), '.' street, 'o' manhole (decor), 'c' sat pickup,
+      // '1'-'4' venue doors (walk in to enter), 'X' the exit vault (opens
+      // once every venue is cleared). Rows are validated for equal length on
+      // load so a map typo fails loudly instead of rendering garbage.
+      map: [
+        "################################",
+        "#..............................#",
+        "#.#####...c...#####...c..#####.#",
+        "#.#####.......#####......#####.#",
+        "#.##1##.......##2##......##3##.#",
+        "#.....c...o..............c.....#",
+        "#..............................#",
+        "#...####.......#####......c....#",
+        "#...####...c...#####...####....#",
+        "#...####.......##4##...####....#",
+        "#..........................o...#",
+        "#..o.....c.....................#",
+        "#..............................#",
+        "#~~~~~....#####....c....####...#",
+        "#~~~~~....#####.........####...#",
+        "#~~~~~....#####.........####...#",
+        "#~~~~~.c..........o.......c....#",
+        "#~~~~~~..............c.........#",
+        "#~~~~~~....###............###..#",
+        "#~~~~~~....###.....c......#X#..#",
+        "#~~~~~~~.......................#",
+        "#~~~~~~~~..c......o......c.....#",
+        "#~~~~~~~~......................#",
+        "################################"
+      ],
+      // Era voices. Proximity-triggered ambient dialog only — the lines queue
+      // through the existing non-blocking toast, fire once per run, and never
+      // lock input or pause the timer, so the player literally walks past the
+      // noise. Every exchange ends with the player refocusing on sats.
+      npcs: [
+        { kind: "dokwon", tx: 3, ty: 5, name: "DO KWON", lines: ["Do Kwon: LUNA never goes down. 20% yield, forever.", "You: cool story. Stacking sats."] },
+        { kind: "sbf", tx: 18, ty: 5, name: "SBF", lines: ["SBF: FTX is fine. The funds are... around.", "You: not your keys, not your coins."] },
+        { kind: "vitalik", tx: 12, ty: 11, name: "VITALIK", lines: ["Vitalik: Ethereum scales right after the merge.", "You: neat. Still stacking sats."] },
+        { kind: "influencer", tx: 21, ty: 10, name: "INFLUENCER", lines: ["Influencer: my new token is a guaranteed 100x, ser.", "You: hard pass. Sats only."] },
+        { kind: "maxi", tx: 10, ty: 17, name: "MAXI", lines: ["Maxi: tick tock, next block. Stay humble.", "You: tick tock."] },
+        // The warner outside FTX ARENA (door 2) — flags the shitcoin shooters
+        // before the first room that has them.
+        { kind: "warner", tx: 14, ty: 5, name: "SHAKEN TRADER", lines: ["Trader: careful in there — turrets shoot shitcoins!", "Trader: jump the coins, stomp the guns.", "You: noted. Sats don't flinch."] }
+      ],
+      // Venue interiors, keyed by their door tile. Each is a short side-view
+      // room on the shared platformer engine: enter left, fight across, grab
+      // the WHALE STASH, leave through the right EXIT. A venue counts as
+      // cleared when every enemy in it is stomped; leaving early is allowed
+      // but resets the room's enemies for the next entry.
+      venues: {
+        "1": {
+          key: "1", index: 1, name: "LUNA LOUNGE", worldW: 880, spawnX: 22,
+          zone: { name: "LUNA LOUNGE", sky: "#1d3a38", sky2: "#0b191c", ground: "#25443c", accent: "#36bd63", text: "Do Kwon's lounge: 20% yield forever, they say. Clear it." },
+          goal: { x: 842, y: 140, w: 20, h: 64 },
+          // The teaching room: longer floor, one pit to jump, one spike strip,
+          // patrol enemies only — no shooters yet (the warner outside door 2
+          // flags where those start).
+          layout: {
+            ground: [[0, 340], [420, 460]],
+            platforms: [
+              [170, 150, 64, 14, "ledger"], [300, 128, 56, 14, "question"],
+              // Bridge pad over the 80px pit at 340-420.
+              [352, 158, 56, 14, "ledger"],
+              [470, 148, 66, 14, "ledger"], [620, 126, 56, 14, "question"],
+              [740, 150, 62, 14, "ledger"]
+            ],
+            coinArcs: [[100, 126, 4], [300, 108, 5], [360, 132, 3], [600, 110, 5]],
+            pages: [[770, 126]],
+            enemies: [
+              [130, 178, 90, 240, "shiller"], [280, 178, 250, 335, "shiller"],
+              [500, 178, 440, 610, "degen"], [700, 178, 650, 820, "shiller"]
+            ],
+            hazards: [[560, 190, 40, 15]]
+          }
+        },
+        "2": {
+          key: "2", index: 2, name: "FTX ARENA", worldW: 960, spawnX: 22,
+          zone: { name: "FTX ARENA", sky: "#16204a", sky2: "#0a0f26", ground: "#232c4e", accent: "#4aa8f0", text: "Watch the shitcoin shooters — hop the coins, stomp the guns." },
+          goal: { x: 922, y: 140, w: 20, h: 64 },
+          // First shooter room: two shitgun turrets cover the long stretches;
+          // their coins fly at chest height so a jump clears them. Two pits.
+          layout: {
+            ground: [[0, 300], [380, 320], [780, 180]],
+            platforms: [
+              [150, 150, 60, 14, "ledger"], [250, 128, 56, 14, "question"],
+              [312, 158, 56, 14, "ledger"],
+              [440, 148, 68, 14, "ledger"], [560, 126, 58, 14, "question"],
+              [706, 156, 62, 14, "ledger"],
+              [820, 148, 60, 14, "ledger"]
+            ],
+            coinArcs: [[110, 128, 4], [330, 134, 3], [460, 120, 5], [700, 128, 4], [850, 118, 4]],
+            pages: [[886, 124]],
+            enemies: [
+              [140, 178, 100, 250, "rugpull"],
+              // Turret on the mid stretch, then a patroller pushing you into
+              // its firing line, then a second turret guarding the exit.
+              [600, 178, 600, 600, "shitgun"],
+              [460, 178, 400, 560, "shiller"],
+              [900, 178, 900, 900, "shitgun"],
+              [820, 178, 790, 880, "degen"]
+            ],
+            hazards: [[520, 190, 38, 15]]
+          }
+        },
+        "3": {
+          key: "3", index: 3, name: "LEVERAGE CASINO", worldW: 1040, spawnX: 22,
+          zone: { name: "LEVERAGE CASINO", sky: "#3a2b18", sky2: "#1c1408", ground: "#4a3a22", accent: "#ffd166", text: "100x or nothing — and the house shoots back. Clear the floor." },
+          goal: { x: 1002, y: 140, w: 20, h: 64 },
+          // The platforming gauntlet: three pits, high question blocks, fast
+          // degens, and a turret covering the last approach.
+          layout: {
+            ground: [[0, 260], [340, 280], [700, 140], [920, 120]],
+            platforms: [
+              [160, 150, 62, 14, "ledger"], [272, 156, 58, 14, "ledger"],
+              [380, 128, 56, 14, "question"], [520, 148, 66, 14, "ledger"],
+              [630, 158, 60, 14, "ledger"],
+              [760, 126, 56, 14, "question"], [848, 154, 62, 14, "ledger"],
+              [940, 128, 56, 14, "question"]
+            ],
+            coinArcs: [[120, 126, 4], [290, 132, 3], [420, 108, 5], [650, 132, 3], [770, 104, 4], [950, 110, 4]],
+            pages: [[964, 106]],
+            enemies: [
+              [150, 178, 110, 250, "degen"], [420, 178, 350, 560, "degen"],
+              [560, 178, 500, 610, "shiller"],
+              [730, 178, 710, 830, "degen"],
+              [960, 178, 960, 960, "shitgun"]
+            ],
+            hazards: [[470, 190, 38, 15], [745, 190, 40, 15]]
+          }
+        },
+        "4": {
+          key: "4", index: 4, name: "ICO TOWER", worldW: 1120, spawnX: 22,
+          zone: { name: "ICO TOWER", sky: "#33204a", sky2: "#170e24", ground: "#3c2a52", accent: "#8d6de8", text: "Grab the SAT CANNON — blast the token walls and clear the tower." },
+          goal: { x: 1082, y: 140, w: 20, h: 64 },
+          // The cannon room: you carry the SAT CANNON here (X or F fires).
+          // Token barricades wall off the route and only shots break them;
+          // turrets trade fire with you across each barricade.
+          weapon: "satcannon",
+          layout: {
+            ground: [[0, 480], [560, 560]],
+            platforms: [
+              [150, 150, 60, 14, "ledger"], [280, 130, 58, 14, "question"],
+              [430, 148, 62, 14, "ledger"], [492, 158, 56, 14, "ledger"],
+              [650, 128, 56, 14, "question"], [790, 150, 62, 14, "ledger"],
+              [950, 128, 56, 14, "question"]
+            ],
+            coinArcs: [[110, 128, 4], [350, 118, 5], [610, 112, 4], [830, 120, 4], [1000, 112, 4]],
+            pages: [[1036, 106]],
+            enemies: [
+              [140, 178, 100, 230, "shiller"],
+              [330, 178, 330, 330, "shitgun"],
+              [410, 178, 375, 445, "rugpull"],
+              [740, 178, 740, 740, "shitgun"],
+              [800, 178, 780, 900, "degen"],
+              [1010, 178, 1010, 1010, "shitgun"],
+              [980, 178, 960, 1050, "shiller"]
+            ],
+            hazards: [[600, 190, 40, 15]],
+            // Destructible token walls: [x, height-in-blocks]. 4 blocks tall so
+            // a plain jump can't clear one — the cannon is the way through (3
+            // hits each). Each wall has a shitgun dug in behind it; enemy shots
+            // die on solids, so the trade-fire starts the moment a wall drops.
+            // Placed clear of every patrol and pit so enemies never clip in.
+            barricades: [[250, 4], [712, 4], [925, 4]]
+          }
+        }
+      }
     }
   ];
 
@@ -485,7 +711,20 @@
     phase: "title",
     paused: false,
     levelIndex: 0,
+    // Overworld (Level 4) play state. subMode is "side" for classic levels and
+    // flips between "overworld" (top-down city) and "venue" (side-view interior)
+    // on an overworld level. venuesCleared/stashesTaken persist for the run so
+    // re-entering a venue can reset its enemies without double-counting rewards.
+    subMode: "side",
+    venueKey: null,
+    venuesCleared: [],
+    stashesTaken: [],
+    owReturn: null,
+    // Ambient dialog queue: extra toast lines shown one after another as the
+    // current toast expires (used for NPC exchanges). Never blocks input.
+    toastQueue: [],
     cameraX: 0,
+    cameraY: 0,
     time: 0,
     accumulator: 0,
     lastNow: 0,
@@ -611,6 +850,33 @@
         F2 . C3 . F2 . A2 . G2 . D3 . G2 . B2 .
         C3 . G2 . E3 . C3 . A2 . E2 . A2 . E3 .
         F2 . C3 . D3 . A2 . G2 . D3 . C3 . G2 .
+      `)
+    },
+    // Level 4 "mania" groove: a restless minor vamp with chromatic slips — the
+    // casino-city buzz of 2021 — that keeps resolving back to a steady A minor
+    // walk, the focused player moving through the noise. Original melody.
+    mania: {
+      bpm: 144,
+      leadGain: 0.07,
+      harmonyGain: 0.036,
+      bassGain: 0.09,
+      lead: noteRow(`
+        A4 . C5 . E5 . D#5 E5 G5 . E5 . C5 . B4 .
+        A4 . C5 . E5 . G5 A5 G5 . E5 . D5 . C5 .
+        F5 . E5 . D#5 . E5 . C5 . A4 . B4 . C5 .
+        D5 . B4 . E5 . C5 . A4 . B4 . A4 . . .
+      `),
+      harmony: noteRow(`
+        . . A4 . . . C5 . . . B4 . . . E4 .
+        . . A4 . . . C5 . . . D5 . . . G4 .
+        . . D5 . . . C5 . . . A4 . . . E4 .
+        . . B4 . . . C5 . . . E4 . A4 . . .
+      `),
+      bass: noteRow(`
+        A2 . E2 . A2 . E2 . F2 . C3 . E2 . E2 .
+        A2 . E2 . A2 . E2 . G2 . D3 . G2 . G2 .
+        D3 . A2 . D3 . A2 . F2 . C3 . E2 . E2 .
+        E2 . B2 . E3 . B2 . A2 . E2 . A2 . E2 .
       `)
     }
   };
@@ -748,7 +1014,7 @@
       // "All Pages" without hard-coding each level's page count.
       coins: state.coins,
       pages: state.pages,
-      pagesTotal: level.layout.pages.length,
+      pagesTotal: levelPageTotal(level),
       lives: state.lives,
       isNewBest,
       splits: state.splits.map((entry) => ({
@@ -800,14 +1066,72 @@
     gameVersion: GAME_VERSION
   });
 
+  // Dev-only test seam (loopback/file origins only — see IS_DEV): lets local
+  // playtests read and place the overworld walker deterministically instead of
+  // relying on timed key holds. Never present in production, and placement is
+  // refused mid-venue so it cannot skip a fight.
+  if (IS_DEV) {
+    window.eightBitSatoshi.dev = {
+      getState: () => ({
+        subMode: state.subMode,
+        venueKey: state.venueKey,
+        venuesCleared: state.venuesCleared.slice(),
+        coins: state.coins,
+        pages: state.pages,
+        owTile: state.subMode === "overworld"
+          ? { tx: Math.floor((owPlayer.x + owPlayer.w / 2) / TILE), ty: Math.floor((owPlayer.y + owPlayer.h / 2) / TILE) }
+          : null,
+        playerX: player.x,
+        enemiesAlive: enemies.filter((e) => e.alive).length,
+        enemiesTotal: enemies.length,
+        shotsLive: shots.filter((s) => s.alive).length,
+        satShotsLive: satShots.filter((s) => s.alive).length,
+        barricadesLeft: barricades.length,
+        barricadeHp: barricades.map((b) => `${b.x}:${b.hp}`),
+        lives: state.lives
+      }),
+      placeWalker: (tx, ty) => {
+        if (state.subMode !== "overworld" || owSolidAt(tx, ty)) return false;
+        owPlayer.x = tx * TILE + (TILE - OW_PW) / 2;
+        owPlayer.y = ty * TILE + (TILE - OW_PH) / 2;
+        return true;
+      },
+      // Teleport the side-view player within the current venue (test aid for
+      // skipping pits the scripted driver can't time; humans just jump them).
+      placePlayer: (x) => {
+        if (state.subMode !== "venue") return false;
+        player.x = x;
+        player.y = 150;
+        player.vy = 0;
+        return true;
+      },
+      // Kill every enemy in the current venue, as if each was stomped. Lets a
+      // local playtest exercise the clear → split → vault chain without
+      // scripting frame-perfect combat.
+      stompAll: () => {
+        if (state.subMode !== "venue") return false;
+        for (const enemy of enemies) {
+          if (enemy.alive) {
+            enemy.alive = false;
+            enemy.squashed = 0.3;
+          }
+        }
+        return true;
+      }
+    };
+  }
+
   // Level unlock rule: Level 1 is always available, and each later level unlocks
   // once the previous level has been completed. Completion is tracked by the
   // persisted, rules-version-independent `cleared` flag (isLevelCleared) so the
   // unlock survives reloads — and a TIMING_RULES.version bump — without extra
   // storage.
   function isLevelUnlocked(index) {
-    if (index <= 0) return true;
-    if (index >= LEVELS.length) return false;
+    if (index < 0 || index >= LEVELS.length) return false;
+    // Local development: every level is open so any of them can be launched
+    // directly. Production keeps the sequential unlock.
+    if (IS_DEV) return true;
+    if (index === 0) return true;
     return isLevelCleared(LEVELS[index - 1].id);
   }
 
@@ -917,9 +1241,16 @@
   const input = {
     left: false,
     right: false,
+    // Up/down are only used by the overworld walk; in side-view "up" is
+    // handled by the jump action, so these stay false there.
+    up: false,
+    down: false,
     jump: false,
     jumpPressed: false,
-    jumpReleased: false
+    jumpReleased: false,
+    // Fire is only live in a venue that grants the sat cannon.
+    fire: false,
+    firePressed: false
   };
 
   const player = {
@@ -934,7 +1265,8 @@
     coyote: 0,
     jumpBuffer: 0,
     invincible: 0,
-    deadTimer: 0
+    deadTimer: 0,
+    fireCooldown: 0
   };
 
   const solids = [];
@@ -949,10 +1281,115 @@
   // line shown via the existing non-blocking toast when the player first passes
   // its trigger. Optional per level — Level 1 has none.
   const allies = [];
+  // Enemy shitcoin shots and player sat-cannon shots. Fixed-size pools like
+  // particles, so a busy room never allocates mid-frame.
+  const shots = new Array(12).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0 }));
+  const satShots = new Array(6).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0 }));
+  // Destructible barricades (ICO TOWER): solid stacks of shit-tokens the sat
+  // cannon breaks. Also in `solids` while intact; killing one removes it there.
+  const barricades = [];
   const particles = new Array(48).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, color: palette.orange }));
   // Finish marker box. Position and size are loaded from the active level's
   // definition in initLevel so the goal can sit anywhere per level.
   const goal = { x: 0, y: 0, w: 0, h: 0 };
+
+  // ----- Overworld (top-down) state ------------------------------------------
+  // Built by initOverworld from the level's ASCII map. Lives beside the
+  // side-view collections; only one of the two is active at a time (subMode).
+  const ow = {
+    grid: [],          // rows of tile chars
+    cols: 0,
+    rows: 0,
+    coins: [],         // { tx, ty, taken }
+    doors: [],         // { tx, ty, key }
+    exit: null,        // { tx, ty }
+    npcs: []           // { kind, tx, ty, name, lines, greeted }
+  };
+
+  // Top-down walker. Position is in world pixels (tile * TILE); w/h are the
+  // collision box (smaller than a tile so corridors never snag).
+  const owPlayer = { x: 0, y: 0, w: OW_PW, h: OW_PH, facing: "down", moving: false };
+
+  function isOverworldLevel() {
+    return getCurrentLevel().mode === "overworld";
+  }
+
+  // Tiles that block walking. Doors and the exit are deliberately walkable —
+  // stepping onto them is how you enter a venue / finish the level.
+  function owSolidAt(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= ow.cols || ty >= ow.rows) return true;
+    const t = ow.grid[ty][tx];
+    return t === "#" || t === "~";
+  }
+
+  // Build the overworld collections from the level definition. Coins, doors,
+  // the exit, and NPCs are pulled out of the ASCII map / npc list into live
+  // per-run objects; the map rows themselves stay immutable.
+  function initOverworld(level) {
+    if (!Array.isArray(level.map) || level.map.length === 0) {
+      throw new Error(`Level "${level.id}" is mode:"overworld" but has no map.`);
+    }
+    const width = level.map[0].length;
+    for (const row of level.map) {
+      if (row.length !== width) {
+        throw new Error(`Level "${level.id}" map rows must all be ${width} chars.`);
+      }
+    }
+    ow.grid = level.map;
+    ow.cols = width;
+    ow.rows = level.map.length;
+    ow.coins.length = 0;
+    ow.doors.length = 0;
+    ow.exit = null;
+    ow.npcs.length = 0;
+
+    for (let ty = 0; ty < ow.rows; ty += 1) {
+      for (let tx = 0; tx < ow.cols; tx += 1) {
+        const t = ow.grid[ty][tx];
+        if (t === "c") ow.coins.push({ tx, ty, taken: false });
+        else if (t >= "1" && t <= "9") {
+          if (!level.venues || !level.venues[t]) {
+            throw new Error(`Level "${level.id}" map has door "${t}" with no matching venue.`);
+          }
+          ow.doors.push({ tx, ty, key: t });
+        } else if (t === "X") ow.exit = { tx, ty };
+      }
+    }
+    if (!ow.exit) throw new Error(`Level "${level.id}" map has no exit tile "X".`);
+
+    for (const npc of level.npcs || []) {
+      ow.npcs.push({ ...npc, greeted: false });
+    }
+
+    owPlayer.x = level.spawn.tx * TILE + (TILE - OW_PW) / 2;
+    owPlayer.y = level.spawn.ty * TILE + (TILE - OW_PH) / 2;
+    owPlayer.facing = "down";
+    owPlayer.moving = false;
+    // Aim the camera at the spawn immediately so the title-screen preview and
+    // the first played frame are already centered on the walker.
+    state.cameraX = clamp(owPlayer.x - VIEW_W / 2, 0, Math.max(0, ow.cols * TILE - VIEW_W));
+    state.cameraY = clamp(owPlayer.y - VIEW_H / 2, 0, Math.max(0, ow.rows * TILE - VIEW_H));
+  }
+
+  // The zone descriptor render/HUD should use right now. Overworld levels have
+  // one city zone plus a per-venue zone (cloned on entry so the lazy gradient
+  // cache never mutates the immutable definitions); classic levels use the
+  // zones array as before.
+  let venueZone = null;
+  function activeZone() {
+    if (state.subMode === "venue" && venueZone) return venueZone;
+    if (isOverworldLevel()) return zones[0];
+    return zones[state.currentZone];
+  }
+
+  // Total milestone collectibles for a level. Classic levels read their layout;
+  // an overworld level's stashes live inside its venue layouts.
+  function levelPageTotal(level) {
+    if (level.mode === "overworld") {
+      return Object.values(level.venues).reduce((sum, venue) => sum + (venue.layout.pages || []).length, 0);
+    }
+    return level.layout.pages.length;
+  }
 
   // Load the active level: pull its metadata (world width, scenery zones, goal
   // box) into the live game state, then rebuild every collection from the level's
@@ -965,6 +1402,34 @@
 
   function initLevel() {
     const level = getCurrentLevel();
+
+    // Overworld levels build the tile city instead of the side-view course.
+    // The side-view collections are cleared so nothing stale renders, and the
+    // per-run venue progress resets with the level.
+    if (level.mode === "overworld") {
+      state.subMode = "overworld";
+      state.venueKey = null;
+      state.venuesCleared = [];
+      state.stashesTaken = [];
+      state.owReturn = null;
+      state.toastQueue = [];
+      WORLD_W = level.worldW;
+      zones = [{ ...level.zone }];
+      Object.assign(goal, { x: -100, y: -100, w: 0, h: 0 });
+      solids.length = 0;
+      coins.length = 0;
+      pages.length = 0;
+      enemies.length = 0;
+      hazards.length = 0;
+      checkpoints.length = 0;
+      allies.length = 0;
+      barricades.length = 0;
+      clearProjectiles();
+      initOverworld(level);
+      return;
+    }
+
+    state.subMode = "side";
     const layout = level.layout || {};
     for (const key of LAYOUT_KEYS) {
       if (!Array.isArray(layout[key])) {
@@ -985,6 +1450,8 @@
     hazards.length = 0;
     checkpoints.length = 0;
     allies.length = 0;
+    barricades.length = 0;
+    clearProjectiles();
 
     for (const [x, w] of layout.ground) addGround(x, w);
     for (const [x, y, w, h, kind, cycle] of layout.platforms) addPlatform(x, y, w, h, kind, cycle);
@@ -1001,6 +1468,113 @@
     // (only on a full reset, not on checkpoint respawn) so a respawn does not
     // replay lines the player already saw — keeping them unobtrusive on retry.
     for (const ally of layout.allies || []) addAlly(ally);
+  }
+
+  // Load a venue interior into the side-view collections and drop the player at
+  // its left edge. Venue layouts omit blockStacks/checkpoints (short rooms need
+  // neither) so only the collections they declare are built. Enemies rebuild on
+  // every entry: leaving early resets the room, but a cleared venue stays
+  // cleared and its stash never respawns once taken.
+  function enterVenue(key) {
+    const level = getCurrentLevel();
+    const venue = level.venues[key];
+    if (!venue) return;
+
+    state.subMode = "venue";
+    state.venueKey = key;
+    venueZone = { ...venue.zone };
+    // Where to put the walker when they come back out: just south of the door.
+    const door = ow.doors.find((d) => d.key === key);
+    if (door) state.owReturn = { tx: door.tx, ty: door.ty + 1 };
+
+    WORLD_W = venue.worldW;
+    Object.assign(goal, venue.goal);
+    solids.length = 0;
+    coins.length = 0;
+    pages.length = 0;
+    enemies.length = 0;
+    hazards.length = 0;
+
+    barricades.length = 0;
+    clearProjectiles();
+    player.fireCooldown = 0;
+
+    const layout = venue.layout;
+    for (const [x, w] of layout.ground) addGround(x, w);
+    for (const [x, y, w, h, kind, cycle] of layout.platforms || []) addPlatform(x, y, w, h, kind, cycle);
+    // Barricades persist for the room visit only — a re-entry rebuilds them
+    // even in a cleared venue, but by then the cannon is still granted, so the
+    // route stays open.
+    for (const [x, count] of layout.barricades || []) addBarricade(x, count);
+    for (const [x, y, count] of layout.coinArcs || []) addCoinArc(x, y, count);
+    if (!state.stashesTaken.includes(key)) {
+      for (const [x, y] of layout.pages || []) addPage(x, y);
+    }
+    if (!state.venuesCleared.includes(key)) {
+      for (const [x, y, minX, maxX, type] of layout.enemies || []) addEnemy(x, y, minX, maxX, type);
+    }
+    for (const [x, y, w, h] of layout.hazards || []) addHazard(x, y, w, h);
+
+    player.x = venue.spawnX;
+    player.y = 150;
+    player.vx = 0;
+    player.vy = 0;
+    player.facing = 1;
+    player.onGround = false;
+    player.coyote = 0;
+    player.jumpBuffer = 0;
+    player.invincible = 1.1;
+    state.cameraX = 0;
+    state.toast = venue.weapon === "satcannon"
+      ? "SAT CANNON armed! X/F shoots. Break the token walls."
+      : `${venue.name} — clear the room.`;
+    state.toastTime = 2.4;
+    playSfx("start");
+    syncHud(true);
+  }
+
+  // Return from a venue interior to the city. Records the clear (and its
+  // split) when every enemy in the room was stomped; the vault opens once all
+  // venues are cleared.
+  function exitVenue() {
+    const level = getCurrentLevel();
+    const key = state.venueKey;
+    const venue = level.venues[key];
+    // An already-cleared venue rebuilds no enemies, so "cleared now" only
+    // applies on the visit that actually emptied the room.
+    const alreadyCleared = state.venuesCleared.includes(key);
+    const clearedNow = !alreadyCleared && enemies.length > 0 && enemies.every((e) => !e.alive);
+    if (clearedNow) {
+      state.venuesCleared.push(key);
+      recordSplit({ index: venue.index, name: venue.name });
+      const total = Object.keys(level.venues).length;
+      state.toast = state.venuesCleared.length >= total
+        ? "All venues cleared! The vault is open."
+        : `${venue.name} cleared. ${state.venuesCleared.length}/${total} venues.`;
+      state.toastTime = 2.6;
+    } else {
+      state.toast = alreadyCleared ? "Back to the streets." : "Shills remain — come back to clear it.";
+      state.toastTime = 2.2;
+    }
+
+    state.subMode = "overworld";
+    state.venueKey = null;
+    venueZone = null;
+    solids.length = 0;
+    coins.length = 0;
+    pages.length = 0;
+    enemies.length = 0;
+    hazards.length = 0;
+    barricades.length = 0;
+    clearProjectiles();
+
+    if (state.owReturn) {
+      owPlayer.x = state.owReturn.tx * TILE + (TILE - OW_PW) / 2;
+      owPlayer.y = state.owReturn.ty * TILE + (TILE - OW_PH) / 2;
+    }
+    owPlayer.facing = "down";
+    playSfx("checkpoint");
+    syncHud(true);
   }
 
   function addGround(x, w) {
@@ -1031,11 +1605,28 @@
   }
 
   function addEnemy(x, y, minX, maxX, type) {
-    enemies.push({ x, y, w: 16, h: 18, vx: enemyConfig(type).speed, minX, maxX, type, alive: true, squashed: 0 });
+    // fireTimer staggers turrets by position (deterministic — no randomness)
+    // so two shitguns on screen never fire in lockstep.
+    enemies.push({ x, y, w: 16, h: 18, vx: enemyConfig(type).speed, minX, maxX, type, alive: true, squashed: 0, fireTimer: (x % 100) / 100 * SHITGUN_PERIOD });
   }
 
   function addHazard(x, y, w, h) {
     hazards.push({ x, y, w, h });
+  }
+
+  // A destructible token wall: `count` stacked 16px blocks rising from the
+  // ground line. One object in `barricades` (with hp) plus one solid slab in
+  // `solids`; breaking it removes the slab so collision and rendering agree.
+  function addBarricade(x, count) {
+    const h = count * TILE;
+    const solid = { x, y: 204 - h, w: TILE, h, kind: "barricade", hit: false };
+    solids.push(solid);
+    barricades.push({ x, y: 204 - h, w: TILE, h, hp: 3, solid });
+  }
+
+  function clearProjectiles() {
+    for (const s of shots) s.alive = false;
+    for (const s of satShots) s.alive = false;
   }
 
   // Build a decorative ally cameo. `triggerX` defaults to the sprite's x so a
@@ -1382,6 +1973,22 @@
       playTone("E6", t + 0.055, 0.06, 0.045, { wave: audio.narrowPulseWave, destination: dest });
       return;
     }
+    if (name === "shitshot") {
+      // Low, wet plop — junk leaving the hopper.
+      playTone("G3", t, 0.07, 0.05, { wave: audio.pulseWave, slideTo: "C3", destination: dest });
+      return;
+    }
+    if (name === "satshot") {
+      // Quick bright zap for the sat cannon.
+      playTone("A5", t, 0.05, 0.05, { wave: audio.narrowPulseWave, slideTo: "E6", destination: dest });
+      return;
+    }
+    if (name === "blockhit") {
+      // Dull crack — a barricade taking damage but holding.
+      playTone("D4", t, 0.05, 0.05, { wave: audio.pulseWave, slideTo: "A3", destination: dest });
+      playNoise(t, 0.04, 0.03, 2400, dest);
+      return;
+    }
     if (name === "checkpoint") {
       ["G4", "C5", "E5"].forEach((note, index) => {
         playTone(note, t + index * 0.055, 0.075, 0.05, { wave: audio.narrowPulseWave, destination: dest });
@@ -1407,9 +2014,13 @@
   function resetRun(full = true) {
     input.left = false;
     input.right = false;
+    input.up = false;
+    input.down = false;
     input.jump = false;
     input.jumpPressed = false;
     input.jumpReleased = false;
+    input.fire = false;
+    input.firePressed = false;
 
     if (full) {
       state.coins = 0;
@@ -1427,6 +2038,9 @@
       initLevel();
     }
 
+    // On an overworld level a full reset already placed the walker and camera
+    // (initLevel → initOverworld); a checkpoint respawn only happens inside a
+    // venue, where the side-view fields below are the ones that matter.
     player.x = state.checkpointX;
     player.y = 150;
     player.vx = 0;
@@ -1437,8 +2051,13 @@
     player.jumpBuffer = 0;
     player.invincible = 1.1;
     player.deadTimer = 0;
-    state.cameraX = Math.max(0, player.x - 80);
-    state.toast = full ? `Run, jump, collect ${levelLabel("coin", "BTC")}.` : "Back to checkpoint.";
+    if (state.subMode !== "overworld") state.cameraX = Math.max(0, player.x - 80);
+    if (full) state.toastQueue = [];
+    state.toast = full
+      ? (isOverworldLevel()
+        ? "Walk the city. Enter every venue. Ignore the shills."
+        : `Run, jump, collect ${levelLabel("coin", "BTC")}.`)
+      : "Back to checkpoint.";
     state.toastTime = 2.2;
     state.shake = full ? 0 : 0.22;
     syncHud(true);
@@ -1586,7 +2205,7 @@
     const stats = [
       ["LEVEL", level.title],
       [levelLabel("coin", "BTC"), pad2(state.coins)],
-      [levelLabel("pageStat", "PAGES"), `${state.pages}/${level.layout.pages.length}`],
+      [levelLabel("pageStat", "PAGES"), `${state.pages}/${levelPageTotal(level)}`],
       ["DEATHS", String(state.deaths)],
       ["LIVES", String(state.lives)]
     ];
@@ -2121,25 +2740,150 @@
 
     state.time += dt;
     state.toastTime = Math.max(0, state.toastTime - dt);
+    // Queued ambient lines (NPC exchanges) play out one at a time as the
+    // current toast expires, so a two-line exchange reads naturally without
+    // ever blocking input or the timer.
+    if (state.toastTime <= 0 && state.toastQueue.length > 0) {
+      state.toast = state.toastQueue.shift();
+      state.toastTime = 2.4;
+    }
     state.shake = Math.max(0, state.shake - dt);
     player.invincible = Math.max(0, player.invincible - dt);
+
+    if (state.subMode === "overworld") {
+      updateOverworld(dt);
+      updateParticles(dt);
+      input.jumpPressed = false;
+      input.jumpReleased = false;
+      input.firePressed = false;
+      return;
+    }
 
     updateZone();
     updatePlayer(dt);
     updateEnemies(dt);
+    updateShots(dt);
     updateCollectibles();
     updateCheckpoints();
     updateAllies();
     updateParticles(dt);
 
-    if (overlap(player, goal)) completeGame();
+    if (overlap(player, goal)) {
+      // A venue's exit door returns to the city; only a level's own goal
+      // finishes the run. Return right away after an exit so the side-view
+      // camera clamp below can't clobber the overworld camera for a frame.
+      if (state.subMode === "venue") {
+        exitVenue();
+        input.jumpPressed = false;
+        input.jumpReleased = false;
+        input.firePressed = false;
+        return;
+      }
+      completeGame();
+    }
 
     state.cameraX = clamp(player.x - 94, 0, WORLD_W - VIEW_W);
     input.jumpPressed = false;
     input.jumpReleased = false;
+    input.firePressed = false;
+  }
+
+  // ----- Overworld update -----------------------------------------------------
+
+  // Axis-separated tile collision for the top-down walker: move on one axis,
+  // then push out of any solid tile the box now overlaps.
+  function owMoveAxis(dx, dy) {
+    owPlayer.x += dx;
+    owPlayer.y += dy;
+    const minTx = Math.floor(owPlayer.x / TILE);
+    const maxTx = Math.floor((owPlayer.x + owPlayer.w - 1) / TILE);
+    const minTy = Math.floor(owPlayer.y / TILE);
+    const maxTy = Math.floor((owPlayer.y + owPlayer.h - 1) / TILE);
+    for (let ty = minTy; ty <= maxTy; ty += 1) {
+      for (let tx = minTx; tx <= maxTx; tx += 1) {
+        if (!owSolidAt(tx, ty)) continue;
+        if (dx > 0) owPlayer.x = tx * TILE - owPlayer.w;
+        else if (dx < 0) owPlayer.x = (tx + 1) * TILE;
+        else if (dy > 0) owPlayer.y = ty * TILE - owPlayer.h;
+        else if (dy < 0) owPlayer.y = (ty + 1) * TILE;
+      }
+    }
+  }
+
+  function updateOverworld(dt) {
+    const level = getCurrentLevel();
+    const mx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+    const my = (input.down ? 1 : 0) - (input.up ? 1 : 0);
+    // Normalize diagonals so walking diagonally is never faster.
+    const len = Math.hypot(mx, my) || 1;
+    if (mx !== 0) owMoveAxis((mx / len) * OW_SPEED * dt, 0);
+    if (my !== 0) owMoveAxis(0, (my / len) * OW_SPEED * dt);
+    owPlayer.moving = mx !== 0 || my !== 0;
+    if (mx < 0) owPlayer.facing = "left";
+    else if (mx > 0) owPlayer.facing = "right";
+    else if (my < 0) owPlayer.facing = "up";
+    else if (my > 0) owPlayer.facing = "down";
+
+    const cx = owPlayer.x + owPlayer.w / 2;
+    const cy = owPlayer.y + owPlayer.h / 2;
+    const ptx = Math.floor(cx / TILE);
+    const pty = Math.floor(cy / TILE);
+
+    // Sat pickups.
+    for (const coin of ow.coins) {
+      if (coin.taken || coin.tx !== ptx || coin.ty !== pty) continue;
+      coin.taken = true;
+      state.coins += 1;
+      state.score += 50;
+      burst(cx, cy, palette.orange, 5);
+      playSfx("coin");
+      syncHud();
+    }
+
+    // NPC ambient exchanges: fire once per run when the walker gets close.
+    for (const npc of ow.npcs) {
+      if (npc.greeted) continue;
+      const nx = npc.tx * TILE + TILE / 2;
+      const ny = npc.ty * TILE + TILE / 2;
+      if (Math.abs(nx - cx) < 22 && Math.abs(ny - cy) < 22) {
+        npc.greeted = true;
+        const [first, ...rest] = npc.lines;
+        state.toast = first;
+        state.toastTime = 2.4;
+        state.toastQueue.push(...rest);
+      }
+    }
+
+    // Venue doors: stepping onto the door tile walks you inside.
+    for (const door of ow.doors) {
+      if (door.tx === ptx && door.ty === pty) {
+        enterVenue(door.key);
+        return;
+      }
+    }
+
+    // The vault: locked until every venue is cleared, then it ends the run.
+    if (ow.exit && ow.exit.tx === ptx && ow.exit.ty === pty) {
+      const total = Object.keys(level.venues).length;
+      if (state.venuesCleared.length >= total) {
+        completeGame();
+      } else if (state.toastTime <= 0) {
+        state.toast = `Vault locked — clear ${total - state.venuesCleared.length} more venue${total - state.venuesCleared.length === 1 ? "" : "s"}.`;
+        state.toastTime = 2;
+      }
+    }
+
+    // Camera follows the walker on both axes, clamped to the map.
+    const mapW = ow.cols * TILE;
+    const mapH = ow.rows * TILE;
+    state.cameraX = clamp(cx - VIEW_W / 2, 0, Math.max(0, mapW - VIEW_W));
+    state.cameraY = clamp(cy - VIEW_H / 2, 0, Math.max(0, mapH - VIEW_H));
   }
 
   function updateZone() {
+    // Venue interiors have a single fixed zone (venueZone); the zones array
+    // belongs to the enclosing level, so scanning it here would be meaningless.
+    if (state.subMode === "venue") return;
     let zoneIndex = 0;
     for (let i = zones.length - 1; i >= 0; i -= 1) {
       if (player.x >= zones[i].x) {
@@ -2187,6 +2931,14 @@
 
     if (input.jumpReleased && player.vy < -120) {
       player.vy *= 0.58;
+    }
+
+    // Sat cannon (venues that grant it only): fire on press, with a short
+    // refire cooldown. firePressed is consumed here; held fire does nothing.
+    player.fireCooldown = Math.max(0, player.fireCooldown - dt);
+    if (input.firePressed && hasSatCannon() && player.fireCooldown <= 0) {
+      player.fireCooldown = FIRE_COOLDOWN;
+      spawnSatShot();
     }
 
     player.vy = Math.min(player.vy + GRAVITY * dt, 560);
@@ -2285,10 +3037,21 @@
         continue;
       }
 
-      enemy.x += enemy.vx * dt;
-      if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
-        enemy.vx *= -1;
-        enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX - enemy.w);
+      // Shitgun turrets are stationary: instead of patrolling they lob a
+      // shitcoin at the player on a fixed cadence whenever they are in range.
+      if (enemy.type === "shitgun") {
+        enemy.fireTimer -= dt;
+        const dx = (player.x + player.w / 2) - (enemy.x + enemy.w / 2);
+        if (enemy.fireTimer <= 0 && Math.abs(dx) < SHITGUN_RANGE && Math.abs(dx) > 18) {
+          enemy.fireTimer = SHITGUN_PERIOD;
+          spawnShot(enemy.x + (dx > 0 ? enemy.w : -6), enemy.y + 5, Math.sign(dx) * SHITCOIN_SPEED);
+        }
+      } else {
+        enemy.x += enemy.vx * dt;
+        if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
+          enemy.vx *= -1;
+          enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX - enemy.w);
+        }
       }
 
       if (!overlap(player, enemy)) continue;
@@ -2311,6 +3074,116 @@
     }
   }
 
+  // ----- Projectiles ----------------------------------------------------------
+
+  function spawnShot(x, y, vx) {
+    for (const s of shots) {
+      if (s.alive) continue;
+      s.alive = true;
+      s.x = x;
+      s.y = y;
+      s.vx = vx;
+      playSfx("shitshot");
+      return;
+    }
+  }
+
+  function spawnSatShot() {
+    for (const s of satShots) {
+      if (s.alive) continue;
+      s.alive = true;
+      s.x = player.facing > 0 ? player.x + player.w : player.x - 6;
+      s.y = player.y + 9;
+      s.vx = player.facing * SAT_SHOT_SPEED;
+      playSfx("satshot");
+      return;
+    }
+  }
+
+  // Does the active venue arm the sat cannon?
+  function hasSatCannon() {
+    if (state.subMode !== "venue") return false;
+    const venue = getCurrentLevel().venues[state.venueKey];
+    return !!venue && venue.weapon === "satcannon";
+  }
+
+  // A moving shot box against the solids. Both projectile kinds die on walls
+  // (except sat shots, which damage barricades first — handled by the caller).
+  function shotHitsSolid(box) {
+    for (const solid of solids) {
+      if (!isConfirmed(solid)) continue;
+      if (overlap(box, solid)) return solid;
+    }
+    return null;
+  }
+
+  function updateShots(dt) {
+    // Enemy shitcoins: hurt on touch, die on any solid or off-world.
+    for (const s of shots) {
+      if (!s.alive) continue;
+      s.x += s.vx * dt;
+      const box = { x: s.x, y: s.y, w: 8, h: 8 };
+      if (s.x < -12 || s.x > WORLD_W + 12 || shotHitsSolid(box)) {
+        s.alive = false;
+        continue;
+      }
+      if (overlap(box, player)) {
+        s.alive = false;
+        hurtPlayer(false);
+      }
+    }
+
+    // Player sat shots: break barricades (3 hits), kill any enemy — including
+    // turrets — and die on other solids.
+    for (const s of satShots) {
+      if (!s.alive) continue;
+      s.x += s.vx * dt;
+      const box = { x: s.x, y: s.y, w: 6, h: 4 };
+      if (s.x < -12 || s.x > WORLD_W + 12) {
+        s.alive = false;
+        continue;
+      }
+      const solid = shotHitsSolid(box);
+      if (solid) {
+        s.alive = false;
+        if (solid.kind === "barricade") damageBarricade(solid);
+        continue;
+      }
+      for (const enemy of enemies) {
+        if (!enemy.alive || !overlap(box, enemy)) continue;
+        const cfg = enemyConfig(enemy.type);
+        s.alive = false;
+        enemy.alive = false;
+        enemy.squashed = 0.3;
+        state.score += cfg.score;
+        state.toast = cfg.stompToast;
+        state.toastTime = 1.1;
+        burst(enemy.x + enemy.w * 0.5, enemy.y + enemy.h * 0.5, cfg.spark, 8);
+        playSfx("stomp");
+        break;
+      }
+    }
+  }
+
+  function damageBarricade(solid) {
+    const barricade = barricades.find((b) => b.solid === solid);
+    if (!barricade) return;
+    barricade.hp -= 1;
+    burst(solid.x + solid.w / 2, solid.y + solid.h / 2, palette.brown, 6);
+    if (barricade.hp <= 0) {
+      const index = solids.indexOf(solid);
+      if (index >= 0) solids.splice(index, 1);
+      barricades.splice(barricades.indexOf(barricade), 1);
+      state.score += 150;
+      state.toast = "Token wall down!";
+      state.toastTime = 1.2;
+      burst(solid.x + solid.w / 2, solid.y + solid.h / 2, palette.violet, 12);
+      playSfx("block");
+    } else {
+      playSfx("blockhit");
+    }
+  }
+
   function updateCollectibles() {
     for (const coin of coins) {
       if (!coin.taken && overlap(player, coin)) {
@@ -2326,9 +3199,14 @@
     for (const page of pages) {
       if (!page.taken && overlap(player, page)) {
         page.taken = true;
+        // Venue stashes are one-shot for the whole run: remember the venue so
+        // re-entering it never rebuilds (and double-counts) its stash.
+        if (state.subMode === "venue" && !state.stashesTaken.includes(state.venueKey)) {
+          state.stashesTaken.push(state.venueKey);
+        }
         state.pages += 1;
         state.score += 250;
-        state.toast = `${levelLabel("pageNote", "Whitepaper page")} ${state.pages}/${getCurrentLevel().layout.pages.length}`;
+        state.toast = `${levelLabel("pageNote", "Whitepaper page")} ${state.pages}/${levelPageTotal(getCurrentLevel())}`;
         state.toastTime = 1.7;
         burst(page.x + 5, page.y + 7, palette.paper, 10);
         playSfx("page");
@@ -2435,9 +3313,14 @@
   }
 
   function render() {
+    if (state.subMode === "overworld") {
+      renderOverworld();
+      syncTimer();
+      return;
+    }
     const shakeX = state.shake > 0 ? Math.round(Math.sin(state.time * 92) * 2) : 0;
     const cam = Math.round(state.cameraX - shakeX);
-    const zone = zones[state.currentZone];
+    const zone = activeZone();
 
     drawBackground(cam, zone);
     drawSolids(cam, zone);
@@ -2448,12 +3331,230 @@
     drawCheckpoints(cam);
     drawGoal(cam);
     drawEnemies(cam);
+    drawShots(cam);
     drawParticles(cam);
     drawPlayer(cam);
     drawToast();
     drawVignette();
 
     syncTimer();
+  }
+
+  // ----- Overworld rendering --------------------------------------------------
+  // The top-down city: cobblestone streets, building blocks with lit windows
+  // and awnings, water, venue doors, the vault, NPCs, sats, and the walker.
+  // Camera scrolls on both axes; everything is culled to the visible tiles.
+  function renderOverworld() {
+    const camX = Math.round(state.cameraX);
+    const camY = Math.round(state.cameraY);
+    const minTx = Math.max(0, Math.floor(camX / TILE));
+    const maxTx = Math.min(ow.cols - 1, Math.floor((camX + VIEW_W) / TILE));
+    const minTy = Math.max(0, Math.floor(camY / TILE));
+    const maxTy = Math.min(ow.rows - 1, Math.floor((camY + VIEW_H) / TILE));
+
+    ctx.fillStyle = "#565d63";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    for (let ty = minTy; ty <= maxTy; ty += 1) {
+      for (let tx = minTx; tx <= maxTx; tx += 1) {
+        drawOwTile(ow.grid[ty][tx], tx, ty, tx * TILE - camX, ty * TILE - camY);
+      }
+    }
+
+    // Sats on the streets.
+    const pulse = Math.floor(state.time * 8) % 2;
+    for (const coin of ow.coins) {
+      if (coin.taken) continue;
+      const x = coin.tx * TILE - camX + 4;
+      const y = coin.ty * TILE - camY + 4;
+      if (x < -12 || x > VIEW_W + 12 || y < -12 || y > VIEW_H + 12) continue;
+      ctx.fillStyle = palette.orange2;
+      rect(x + 1 + pulse, y, 6 - pulse * 2, 8);
+      ctx.fillStyle = palette.orange;
+      rect(x + 2 + pulse, y + 1, 4 - pulse * 2, 6);
+      ctx.fillStyle = palette.yellow;
+      rect(x + 3, y + 2, 2, 2);
+    }
+
+    for (const npc of ow.npcs) {
+      const x = npc.tx * TILE - camX;
+      const y = npc.ty * TILE - camY;
+      if (x < -20 || x > VIEW_W + 20 || y < -24 || y > VIEW_H + 24) continue;
+      drawOwNpc(npc, x, y);
+    }
+
+    // Particles live in world space; the overworld camera scrolls both axes.
+    for (const p of particles) {
+      if (!p.alive) continue;
+      ctx.fillStyle = p.color;
+      rect(Math.round(p.x - camX), Math.round(p.y - camY), 2, 2);
+    }
+    drawOwWalker(Math.round(owPlayer.x - camX), Math.round(owPlayer.y - camY));
+    drawToast();
+    drawVignette();
+  }
+
+  // One city tile. `#` renders as a rooftop slab with a lit-window wall face on
+  // its south edge (rows with street below), so blocks read as buildings from
+  // the classic top-down 3/4 view; `~` is animated water; streets get sparse
+  // cobble specks keyed off the tile coords so the pattern is stable.
+  function drawOwTile(t, tx, ty, x, y) {
+    if (t === "#") {
+      const wallFace = !owSolidAt(tx, ty + 1);
+      ctx.fillStyle = "#3d434d";
+      rect(x, y, TILE, TILE);
+      ctx.fillStyle = "#4a515c";
+      rect(x + 1, y + 1, TILE - 2, TILE - 2);
+      if (wallFace) {
+        // South face: darker wall with two lit/unlit windows.
+        ctx.fillStyle = "#2a2f38";
+        rect(x, y + 6, TILE, TILE - 6);
+        const lit = mod(tx * 7 + ty * 13, 3) !== 0;
+        ctx.fillStyle = lit ? "#c9b458" : "#171b22";
+        rect(x + 3, y + 9, 4, 4);
+        rect(x + 9, y + 9, 4, 4);
+      } else {
+        // Rooftop texture speck.
+        ctx.fillStyle = "#333942";
+        rect(x + mod(tx * 5 + ty * 3, 10) + 2, y + mod(tx * 3 + ty * 7, 10) + 2, 2, 2);
+      }
+      return;
+    }
+    if (t === "~") {
+      const shift = Math.floor(state.time * 2 + tx + ty) % 2;
+      ctx.fillStyle = "#2459a8";
+      rect(x, y, TILE, TILE);
+      ctx.fillStyle = "#4aa8f0";
+      rect(x + 2 + shift * 4, y + 4, 6, 1);
+      rect(x + 6 - shift * 3, y + 11, 6, 1);
+      return;
+    }
+    // Street base (also under doors, manholes, sats, and the vault).
+    ctx.fillStyle = "#6b7178";
+    rect(x, y, TILE, TILE);
+    ctx.fillStyle = "#5d636a";
+    rect(x, y, TILE, 1);
+    rect(x, y, 1, TILE);
+    if (mod(tx * 11 + ty * 17, 5) === 0) {
+      ctx.fillStyle = "#767d84";
+      rect(x + mod(tx * 3, 8) + 3, y + mod(ty * 5, 8) + 3, 3, 2);
+    }
+
+    if (t === "o") {
+      ctx.fillStyle = palette.ink2;
+      rect(x + 3, y + 3, 10, 10);
+      ctx.fillStyle = palette.gray2;
+      rect(x + 4, y + 4, 8, 8);
+      ctx.fillStyle = palette.ink2;
+      rect(x + 6, y + 6, 4, 1);
+      rect(x + 6, y + 9, 4, 1);
+      return;
+    }
+    if (t >= "1" && t <= "9") {
+      // Venue door: a dark doorway with a neon sign; already-cleared venues
+      // dim their sign so remaining work reads at a glance.
+      const cleared = state.venuesCleared.includes(t);
+      const flash = !cleared && Math.floor(state.time * 3) % 2 === 0;
+      ctx.fillStyle = palette.ink;
+      rect(x + 2, y + 2, 12, 14);
+      ctx.fillStyle = palette.ink2;
+      rect(x + 4, y + 5, 8, 11);
+      ctx.fillStyle = cleared ? palette.green : flash ? palette.violet : "#5a3fb0";
+      rect(x + 3, y, 10, 4);
+      ctx.fillStyle = cleared ? palette.white : palette.yellow;
+      text(t, x + 6, y + 13, 7);
+      return;
+    }
+    if (t === "X") {
+      // The COLD STORAGE vault: grey door with an orange ₿ dial; pulses gold
+      // once every venue is cleared and it unlocks.
+      const total = Object.keys(getCurrentLevel().venues).length;
+      const open = state.venuesCleared.length >= total;
+      const glow = open && Math.floor(state.time * 4) % 2 === 0;
+      ctx.fillStyle = palette.gray2;
+      rect(x + 1, y + 1, 14, 14);
+      ctx.fillStyle = glow ? palette.yellow : palette.gray;
+      rect(x + 2, y + 2, 12, 12);
+      ctx.fillStyle = open ? palette.orange : palette.ink2;
+      rect(x + 5, y + 5, 6, 6);
+      ctx.fillStyle = open ? palette.ink : palette.gray;
+      text("B", x + 6, y + 11, 6);
+    }
+  }
+
+  // An era NPC on the street: a small figure with a kind-specific look and a
+  // bobbing speech bubble until they've been passed (greeted).
+  function drawOwNpc(npc, x, y) {
+    const bob = Math.floor(state.time * 2) % 2;
+    // Body.
+    const outfits = {
+      dokwon: { top: palette.ink2, head: palette.paper, hair: palette.ink },
+      sbf: { top: palette.gray, head: palette.paper, hair: palette.brown2 },
+      vitalik: { top: palette.violet, head: palette.paper, hair: palette.brown },
+      influencer: { top: palette.yellow, head: palette.paper, hair: palette.orange2 },
+      maxi: { top: palette.orange, head: palette.paper, hair: palette.brown2 },
+      warner: { top: palette.red, head: palette.paper, hair: palette.gray }
+    };
+    const look = outfits[npc.kind] || outfits.maxi;
+    ctx.fillStyle = look.hair;
+    rect(x + 4, y - 2, 8, 3);
+    ctx.fillStyle = look.head;
+    rect(x + 4, y + 1, 8, 5);
+    ctx.fillStyle = palette.ink;
+    rect(x + 6, y + 3, 1, 1);
+    rect(x + 9, y + 3, 1, 1);
+    ctx.fillStyle = look.top;
+    rect(x + 3, y + 6, 10, 7);
+    ctx.fillStyle = palette.ink2;
+    rect(x + 4, y + 13, 3, 3);
+    rect(x + 9, y + 13, 3, 3);
+    // Speech bubble while their line is still coming. The warner shows "!"
+    // (a warning, not a pitch); everyone else shows "$".
+    if (!npc.greeted) {
+      ctx.fillStyle = palette.paper;
+      rect(x + 11, y - 9 - bob, 9, 7);
+      rect(x + 12, y - 2 - bob, 2, 2);
+      ctx.fillStyle = npc.kind === "warner" ? palette.red : palette.ink;
+      text(npc.kind === "warner" ? "!" : "$", x + 14, y - 3 - bob, 6);
+    }
+  }
+
+  // The everyday sat-stacker from above: hood, backpack, simple two-frame walk.
+  // Same dark-hood + orange-accent identity as the side-view sprite so the two
+  // views read as one person.
+  function drawOwWalker(x, y) {
+    const step = owPlayer.moving ? Math.floor(state.time * 8) % 2 : 0;
+    const f = owPlayer.facing;
+    // Feet.
+    ctx.fillStyle = palette.brown;
+    if (f === "left" || f === "right") {
+      rect(x + 1, y + 10 + step, 3, 3);
+      rect(x + 6, y + 13 - step * 3, 3, 3);
+    } else {
+      rect(x + 1 - step, y + 11, 3, 3);
+      rect(x + 6 + step, y + 11, 3, 3);
+    }
+    // Body — hooded jacket.
+    ctx.fillStyle = "#222437";
+    rect(x, y + 4, 10, 8);
+    ctx.fillStyle = "#35374e";
+    rect(x + 1, y + 5, 8, 3);
+    // Head/hood.
+    ctx.fillStyle = palette.ink;
+    rect(x + 1, y - 2, 8, 7);
+    if (f !== "up") {
+      ctx.fillStyle = palette.paper2;
+      rect(x + 2, y, 6, 4);
+      ctx.fillStyle = palette.ink;
+      if (f === "left") { rect(x + 3, y + 1, 1, 2); }
+      else if (f === "right") { rect(x + 6, y + 1, 1, 2); }
+      else { rect(x + 3, y + 1, 1, 2); rect(x + 6, y + 1, 1, 2); }
+    }
+    // Orange visor accent.
+    ctx.fillStyle = palette.orange;
+    if (f === "right") rect(x + 8, y + 1, 2, 2);
+    else if (f === "left") rect(x, y + 1, 2, 2);
+    else if (f === "down") rect(x + 4, y + 5, 2, 2);
   }
 
   function drawBackground(cam, zone) {
@@ -2469,6 +3570,10 @@
     }
     if (theme === "tour") {
       drawTourBackdrop(cam);
+      return;
+    }
+    if (theme === "mania") {
+      drawManiaBackdrop(cam);
       return;
     }
 
@@ -2622,7 +3727,58 @@
     }
   }
 
+  // Level 4 venue interior backdrop — the beat-em-up wall (TMNT-arcade style):
+  // a brick wall with a baseboard, hype posters, and a price ticker whose
+  // candles are keyed off world x and the integer run tick, so the room is
+  // pixel-stable and deterministic on every attempt.
+  function drawManiaBackdrop(cam) {
+    // Brick wall.
+    const off = mod(-Math.floor(cam * 0.7), 24);
+    ctx.fillStyle = "#3a2b2b";
+    ctx.fillRect(0, 60, VIEW_W, 144);
+    ctx.fillStyle = "#2c2020";
+    for (let row = 0; row < 18; row += 1) {
+      const y = 60 + row * 8;
+      rect(0, y, VIEW_W, 1);
+      const stagger = (row % 2) * 12;
+      for (let x = off - 24 + stagger; x < VIEW_W + 24; x += 24) rect(x, y, 1, 8);
+    }
+    // Baseboard.
+    ctx.fillStyle = "#221818";
+    ctx.fillRect(0, 196, VIEW_W, 8);
+    // Ticker tape near the ceiling: green/red candles — mostly red, it's 2022.
+    const toff = mod(-Math.floor(cam * 0.85), 14);
+    ctx.fillStyle = "#151019";
+    ctx.fillRect(0, 64, VIEW_W, 14);
+    for (let x = toff - 14; x < VIEW_W + 14; x += 14) {
+      const k = mod(Math.floor((x + Math.floor(cam * 0.85)) / 14), 5);
+      const up = k === 1;
+      ctx.fillStyle = up ? palette.green : palette.red;
+      rect(x + 5, up ? 67 : 70, 4, up ? 8 : 5);
+      rect(x + 6, 65, 1, 12);
+    }
+    // Posters between bricks: "100x", a rocket, a dog coin.
+    const poff = mod(-Math.floor(cam * 0.7), 132);
+    for (let x = poff - 132; x < VIEW_W + 132; x += 132) {
+      ctx.fillStyle = palette.paper2;
+      rect(x + 8, 96, 26, 34);
+      ctx.fillStyle = palette.red;
+      text("100x", x + 11, 110, 8);
+      ctx.fillStyle = palette.ink2;
+      text("!!!", x + 14, 122, 7);
+      ctx.fillStyle = "#f2e2b8";
+      rect(x + 72, 104, 24, 26);
+      ctx.fillStyle = palette.orange2;
+      rect(x + 80, 108, 8, 8);
+      ctx.fillStyle = palette.ink;
+      rect(x + 82, 110, 2, 2);
+      ctx.fillStyle = palette.violet;
+      rect(x + 78, 118, 12, 3);
+    }
+  }
+
   function drawSunMoon(cam, zone) {
+    if (getTheme() === "mania") return; // venue interiors have no sky
     const x = 196 - Math.floor(cam * 0.03) % 80;
     if (getTheme() === "tour") {
       // The globe the tour is crossing — landmasses plus two adoption beacons
@@ -2671,9 +3827,9 @@
         // "circuit floor" trim, the tour theme a gold "tour route" trim, and
         // the city theme keeps its grey → green-grass zone transition.
         const theme = getTheme();
-        ctx.fillStyle = theme === "network" ? "#3ad17a" : theme === "tour" ? "#ffd166" : state.currentZone < 3 ? "#70745f" : "#54c35d";
-        rect(x, solid.y, solid.w, theme === "network" ? 2 : theme === "tour" ? 3 : 4);
-        ctx.fillStyle = theme === "network" ? "#143a28" : theme === "tour" ? "#5a3110" : state.currentZone < 3 ? "#262929" : "#225f35";
+        ctx.fillStyle = theme === "network" ? "#3ad17a" : theme === "tour" ? "#ffd166" : theme === "mania" ? "#8a6a4e" : state.currentZone < 3 ? "#70745f" : "#54c35d";
+        rect(x, solid.y, solid.w, theme === "network" ? 2 : theme === "tour" || theme === "mania" ? 3 : 4);
+        ctx.fillStyle = theme === "network" ? "#143a28" : theme === "tour" ? "#5a3110" : theme === "mania" ? "#221818" : state.currentZone < 3 ? "#262929" : "#225f35";
         for (let tx = x - mod(x, TILE); tx < x + solid.w; tx += TILE) {
           rect(tx, solid.y + 16, 1, solid.h - 16);
         }
@@ -2732,6 +3888,27 @@
           rect(x, solid.y, 1, solid.h);
           rect(x + solid.w - 1, solid.y, 1, solid.h);
         }
+      } else if (solid.kind === "barricade") {
+        // Token wall: stacked shit-tokens with a crack overlay as hp drops.
+        const barricade = barricades.find((b) => b.solid === solid);
+        const hp = barricade ? barricade.hp : 3;
+        for (let i = 0; i < solid.h; i += TILE) {
+          const even = (i / TILE) % 2 === 0;
+          ctx.fillStyle = even ? palette.violet : palette.brown;
+          rect(x, solid.y + i, solid.w, TILE);
+          ctx.fillStyle = even ? "#5a3fb0" : palette.brown2;
+          rect(x + 2, solid.y + i + 2, solid.w - 4, TILE - 4);
+          ctx.fillStyle = even ? palette.yellow : palette.paper2;
+          text("$", x + 5, solid.y + i + 12, 8);
+        }
+        if (hp < 3) {
+          ctx.fillStyle = palette.ink;
+          rect(x + 3, solid.y + 4, 2, solid.h - 8);
+          if (hp < 2) {
+            rect(x + 9, solid.y + 8, 2, solid.h - 12);
+            rect(x + 5, solid.y + solid.h / 2, 7, 2);
+          }
+        }
       } else {
         ctx.fillStyle = palette.brown;
         rect(x, solid.y, solid.w, solid.h);
@@ -2762,7 +3939,7 @@
       if (coin.taken) continue;
       const x = Math.round(coin.x - cam);
       if (x < -8 || x > VIEW_W + 8) continue;
-      if (theme === "tour") {
+      if (theme === "tour" || theme === "mania") {
         // SATS tips: an orange sat with a lightning glint — value tossed from
         // the crowd to the stage. Distinct from L1's plain gold coin and L2's
         // green-ringed token.
@@ -2801,6 +3978,21 @@
       const x = Math.round(page.x - cam);
       if (x < -12 || x > VIEW_W + 12) continue;
       const bob = Math.round(Math.sin(state.time * 5 + page.x) * 2);
+      if (theme === "mania") {
+        // WHALE STASH: a small hardware-wallet case — grey shell, orange ₿
+        // clasp, a green status pip. The L4 milestone collectible.
+        ctx.fillStyle = palette.gray2;
+        rect(x, page.y + 2 + bob, page.w, page.h - 4);
+        ctx.fillStyle = palette.gray;
+        rect(x, page.y + 2 + bob, page.w, 3);
+        ctx.fillStyle = palette.orange;
+        rect(x + 3, page.y + 6 + bob, 5, 5);
+        ctx.fillStyle = palette.ink;
+        text("B", x + 4, page.y + 10 + bob, 5);
+        ctx.fillStyle = palette.green;
+        rect(x + page.w - 3, page.y + 3 + bob, 2, 2);
+        continue;
+      }
       if (theme === "tour") {
         // TALK: a stage microphone — silver grille head, dark stem, orange
         // base LED. The L3 milestone collectible (TALKS given on tour).
@@ -3022,6 +4214,25 @@
   function drawGoal(cam) {
     const x = Math.round(goal.x - cam);
     if (x < -40 || x > VIEW_W + 40) return;
+    if (getTheme() === "mania") {
+      // Venue EXIT: a lit door back to the street. Green when the room is
+      // cleared (this visit or a previous one — cleared venues rebuild no
+      // enemies), red while shills remain. Either way it works; clearing is
+      // what banks the split.
+      const cleared = state.venuesCleared.includes(state.venueKey) ||
+        (enemies.length > 0 && enemies.every((e) => !e.alive));
+      ctx.fillStyle = palette.ink;
+      rect(x - 2, goal.y - 2, goal.w + 6, goal.h + 4);
+      ctx.fillStyle = palette.ink2;
+      rect(x, goal.y, goal.w + 2, goal.h);
+      ctx.fillStyle = cleared ? palette.green : palette.red;
+      rect(x - 2, goal.y - 10, goal.w + 6, 7);
+      ctx.fillStyle = palette.white;
+      text("EXIT", x - 1, goal.y - 4, 6);
+      ctx.fillStyle = palette.yellow;
+      rect(x + goal.w - 4, goal.y + goal.h / 2, 2, 4);
+      return;
+    }
     if (getTheme() === "tour") {
       // INTERNET OF MONEY finish: the globe itself on a stage pedestal, every
       // continent carrying a lit adoption node — the tour worked.
@@ -3092,6 +4303,10 @@
       if (enemy.type === "suit") { drawSuit(x, enemy.y); continue; }
       if (enemy.type === "agent") { drawAgent(x, enemy.y); continue; }
       if (enemy.type === "wiretap") { drawWiretap(x, enemy.y); continue; }
+      if (enemy.type === "shiller") { drawShiller(x, enemy.y); continue; }
+      if (enemy.type === "rugpull") { drawRugpull(x, enemy.y); continue; }
+      if (enemy.type === "degen") { drawDegen(x, enemy.y); continue; }
+      if (enemy.type === "shitgun") { drawShitgun(x, enemy.y, enemy); continue; }
 
       const shape = enemyConfig(enemy.type).shape;
       if (shape === "machine") {
@@ -3254,6 +4469,128 @@
     rect(x + 12, y + 15, 3, 3);
   }
 
+  // SHILLER — the token pumper working the room: violet tracksuit, gold chain,
+  // and a raised "TO THE MOON" sign flipping on a two-frame wave.
+  function drawShiller(x, y) {
+    const wave = Math.floor(state.time * 3) % 2;
+    ctx.fillStyle = palette.ink2;
+    rect(x + 3, y + 14, 3, 4);
+    rect(x + 9, y + 14, 3, 4);
+    ctx.fillStyle = palette.violet;
+    rect(x + 2, y + 6, 11, 9);
+    ctx.fillStyle = palette.yellow;
+    rect(x + 4, y + 7, 7, 1);
+    ctx.fillStyle = palette.paper;
+    rect(x + 4, y + 1, 7, 6);
+    ctx.fillStyle = palette.ink;
+    rect(x + 5, y + 3, 1, 2);
+    rect(x + 8, y + 3, 1, 2);
+    // Sign arm.
+    ctx.fillStyle = palette.gray;
+    rect(x + 13, y + 2 - wave, 1, 6);
+    ctx.fillStyle = palette.paper2;
+    rect(x + 11, y - 4 - wave, 7, 6);
+    ctx.fillStyle = palette.red;
+    rect(x + 13, y - 3 - wave, 3, 2);
+    rect(x + 14, y - 4 - wave, 1, 4);
+  }
+
+  // RUGPULL — the exit-liquidity machine: a red carpet-roller that winds the
+  // rug in as it patrols; a gold coin sits on top as the bait.
+  function drawRugpull(x, y) {
+    const spin = Math.floor(state.time * 6) % 2;
+    ctx.fillStyle = palette.red2;
+    rect(x, y + 8, 16, 10);
+    ctx.fillStyle = palette.red;
+    rect(x + 1, y + 4, 14, 6);
+    ctx.fillStyle = palette.ink;
+    rect(x + 3 + spin * 4, y + 5, 2, 4);
+    rect(x + 9 + spin * 2, y + 5, 2, 4);
+    ctx.fillStyle = palette.yellow;
+    rect(x + 6, y, 4, 4);
+    ctx.fillStyle = palette.orange2;
+    rect(x + 7, y + 1, 2, 2);
+    ctx.fillStyle = palette.brown2;
+    rect(x, y + 16, 16, 2);
+  }
+
+  // DEGEN — the 100x-leverage gambler: green visor, wild hair, phone in hand
+  // with a red chart, jittering fast like the liquidation candle just printed.
+  function drawDegen(x, y) {
+    const jit = Math.floor(state.time * 10) % 2;
+    ctx.fillStyle = palette.ink2;
+    rect(x + 3, y + 14, 3, 4);
+    rect(x + 9, y + 14, 3, 4);
+    ctx.fillStyle = palette.green2;
+    rect(x + 2, y + 7, 11, 8);
+    ctx.fillStyle = palette.paper;
+    rect(x + 4, y + 2, 7, 6);
+    ctx.fillStyle = palette.brown2;
+    rect(x + 3, y + jit, 9, 2);
+    ctx.fillStyle = palette.green;
+    rect(x + 4, y + 3, 7, 2);
+    ctx.fillStyle = palette.ink;
+    rect(x + 5, y + 6, 1, 1);
+    rect(x + 8, y + 6, 1, 1);
+    // Phone with a red dumping chart.
+    ctx.fillStyle = palette.ink;
+    rect(x + 12, y + 8 - jit, 4, 6);
+    ctx.fillStyle = palette.red;
+    rect(x + 13, y + 9 - jit, 1, 1);
+    rect(x + 14, y + 11 - jit, 1, 2);
+  }
+
+  // SHITGUN — the shitcoin shooter: a coin-hopper turret on legs. Brown hopper
+  // full of tokens, a barrel aimed at the player, and a muzzle that glows just
+  // before it fires (fireTimer low) so the shot is readable and dodgeable.
+  function drawShitgun(x, y, enemy) {
+    const aim = player.x + player.w / 2 > enemy.x + enemy.w / 2 ? 1 : -1;
+    const winding = enemy.fireTimer < 0.4;
+    // Legs.
+    ctx.fillStyle = palette.gray2;
+    rect(x + 1, y + 14, 3, 4);
+    rect(x + 12, y + 14, 3, 4);
+    // Hopper body.
+    ctx.fillStyle = palette.brown2;
+    rect(x + 1, y + 5, 14, 10);
+    ctx.fillStyle = palette.brown;
+    rect(x + 2, y + 6, 12, 4);
+    // Tokens piled in the hopper.
+    ctx.fillStyle = palette.violet;
+    rect(x + 3, y + 3, 4, 3);
+    ctx.fillStyle = palette.yellow;
+    rect(x + 8, y + 2, 4, 4);
+    // Barrel, flipped toward the player; muzzle glows while winding up.
+    ctx.fillStyle = palette.gray2;
+    rect(aim > 0 ? x + 13 : x - 3, y + 8, 6, 4);
+    ctx.fillStyle = winding ? palette.red : palette.ink;
+    rect(aim > 0 ? x + 17 : x - 3, y + 9, 2, 2);
+  }
+
+  // Projectiles. Enemy shitcoins spin (two-frame squash) so they read as the
+  // junk tokens they are; sat shots are quick orange bolts.
+  function drawShots(cam) {
+    const spin = Math.floor(state.time * 10) % 2;
+    for (const s of shots) {
+      if (!s.alive) continue;
+      const x = Math.round(s.x - cam);
+      if (x < -10 || x > VIEW_W + 10) continue;
+      ctx.fillStyle = palette.brown;
+      rect(x + spin, Math.round(s.y), 8 - spin * 2, 8);
+      ctx.fillStyle = palette.violet;
+      rect(x + 2, Math.round(s.y) + 2, 4 - spin, 4);
+    }
+    for (const s of satShots) {
+      if (!s.alive) continue;
+      const x = Math.round(s.x - cam);
+      if (x < -8 || x > VIEW_W + 8) continue;
+      ctx.fillStyle = palette.orange;
+      rect(x, Math.round(s.y), 6, 4);
+      ctx.fillStyle = palette.yellow;
+      rect(x + (s.vx > 0 ? 4 : 0), Math.round(s.y) + 1, 2, 2);
+    }
+  }
+
   function drawParticles(cam) {
     for (const p of particles) {
       if (!p.alive) continue;
@@ -3305,6 +4642,17 @@
 
     ctx.fillStyle = palette.orange;
     rect(11, 8, 2, 2);
+
+    // The SAT CANNON, carried at hip height in venues that grant it. Drawn in
+    // local (already-flipped) space so it always points where you're facing.
+    if (hasSatCannon()) {
+      ctx.fillStyle = palette.gray2;
+      rect(9, 12, 8, 3);
+      ctx.fillStyle = palette.orange;
+      rect(15, 12, 2, 3);
+      ctx.fillStyle = palette.gray;
+      rect(9, 11, 3, 2);
+    }
     ctx.restore();
   }
 
@@ -3327,8 +4675,17 @@
     rect(VIEW_W - 3, 0, 3, VIEW_H);
   }
 
+  // Reflect the active movement mode onto <body> so CSS can swap the touch
+  // pad between the 2-button side-view layout and the 4-button overworld pad,
+  // and show the FIRE key only while the sat cannon is armed.
+  function syncControlMode() {
+    document.body.classList.toggle("overworld-mode", state.subMode === "overworld");
+    document.body.classList.toggle("cannon-mode", hasSatCannon());
+  }
+
   function syncHud(force = false) {
-    const zoneName = zones[state.currentZone]?.name || "BROKEN WORLD";
+    syncControlMode();
+    const zoneName = activeZone()?.name || "BROKEN WORLD";
     const coinLabel = levelLabel("coin", "BTC");
     const next = `${coinLabel}|${state.coins}|${state.lives}|${zoneName}|${state.pages}`;
     if (!force && next === state.hudCache) return;
@@ -3432,6 +4789,12 @@
   function setAction(action, active) {
     if (action === "left") input.left = active;
     if (action === "right") input.right = active;
+    if (action === "up") input.up = active;
+    if (action === "down") input.down = active;
+    if (action === "fire") {
+      if (active && !input.fire) input.firePressed = true;
+      input.fire = active;
+    }
     if (action === "jump") {
       if (active && !input.jump) input.jumpPressed = true;
       if (!active && input.jump) input.jumpReleased = true;
@@ -3467,7 +4830,7 @@
     if (state.phase === "title" && (event.target === leaderboardButton || event.target === soundButton)) return;
 
     const key = event.key.toLowerCase();
-    if (["arrowleft", "arrowright", "arrowup", " ", "a", "d", "w", "enter", "p", "r", "m"].includes(key)) {
+    if (["arrowleft", "arrowright", "arrowup", "arrowdown", " ", "a", "d", "w", "s", "x", "f", "enter", "p", "r", "m"].includes(key)) {
       event.preventDefault();
     }
 
@@ -3501,7 +4864,15 @@
 
     if (key === "a" || key === "arrowleft") setAction("left", true);
     if (key === "d" || key === "arrowright") setAction("right", true);
-    if (key === "w" || key === "arrowup" || key === " ") setAction("jump", true);
+    // Up doubles as jump: the side-view reads jump, the overworld walk reads
+    // up — the two are never active in the same subMode, so one mapping serves
+    // both without a mode check here.
+    if (key === "w" || key === "arrowup" || key === " ") {
+      setAction("jump", true);
+      setAction("up", true);
+    }
+    if (key === "s" || key === "arrowdown") setAction("down", true);
+    if (key === "x" || key === "f") setAction("fire", true);
   }
 
   function handleKeyUp(event) {
@@ -3509,7 +4880,12 @@
     const key = event.key.toLowerCase();
     if (key === "a" || key === "arrowleft") setAction("left", false);
     if (key === "d" || key === "arrowright") setAction("right", false);
-    if (key === "w" || key === "arrowup" || key === " ") setAction("jump", false);
+    if (key === "w" || key === "arrowup" || key === " ") {
+      setAction("jump", false);
+      setAction("up", false);
+    }
+    if (key === "s" || key === "arrowdown") setAction("down", false);
+    if (key === "x" || key === "f") setAction("fire", false);
   }
 
   function blockControlDefault(event) {
@@ -3534,7 +4910,9 @@
           // and avoiding carrying a stray jump input into the run.
           if (action === "left") moveSelection(-1);
           else if (action === "right") moveSelection(1);
-          else startGame();
+          // Up/down/fire do nothing on the title so a stray tap on a mode-only
+          // key can't accidentally launch a level; jump starts the game.
+          else if (action !== "up" && action !== "down" && action !== "fire") startGame();
           return;
         }
         button.classList.add("active");

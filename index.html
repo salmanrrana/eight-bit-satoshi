@@ -61,11 +61,22 @@
     </section>
 
     <div class="touch-controls" aria-label="Touch controls">
+      <!-- Up/down only render on overworld levels (body.overworld-mode, set by
+           the game); side-view levels keep the original two-button pad. -->
       <div class="direction-pad" aria-label="Move">
-        <button class="touch-button" type="button" data-action="left" aria-label="Move left">&larr;</button>
-        <button class="touch-button" type="button" data-action="right" aria-label="Move right">&rarr;</button>
+        <button class="touch-button vertical-button" type="button" data-action="up" aria-label="Move up">&uarr;</button>
+        <div class="direction-pad-row">
+          <button class="touch-button" type="button" data-action="left" aria-label="Move left">&larr;</button>
+          <button class="touch-button" type="button" data-action="right" aria-label="Move right">&rarr;</button>
+        </div>
+        <button class="touch-button vertical-button" type="button" data-action="down" aria-label="Move down">&darr;</button>
       </div>
-      <button class="touch-button jump-button" type="button" data-action="jump" aria-label="Jump">&uarr;</button>
+      <div class="action-cluster">
+        <!-- FIRE only renders in venues that arm the sat cannon
+             (body.cannon-mode, set by the game). -->
+        <button class="touch-button fire-button" type="button" data-action="fire" aria-label="Fire sat cannon">&#9679;</button>
+        <button class="touch-button jump-button" type="button" data-action="jump" aria-label="Jump">&uarr;</button>
+      </div>
     </div>
   </main>
 

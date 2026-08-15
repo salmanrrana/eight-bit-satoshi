@@ -2,6 +2,18 @@
 
 Playable static canvas game. No install step is required.
 
+## Levels & Local Development
+
+Levels normally unlock in order — clearing a level unlocks the next. When the
+game is served from a loopback host (`npm start` → `127.0.0.1`) or opened from
+disk, **every level is unlocked** so any of them can be played or tested
+directly; a real deployment keeps the normal progression. You can also
+deep-link a level with `?level=N` (e.g. `http://127.0.0.1:5000/?level=4`).
+
+Level 4 (**SHITCOIN CITY**) is a top-down overworld: walk with WASD/arrows,
+step onto a numbered doorway to enter that venue as a side-view brawl, clear
+every venue, then enter the vault to finish the run.
+
 ## Start
 
 ```bash
