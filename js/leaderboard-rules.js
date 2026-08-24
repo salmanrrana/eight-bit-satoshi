@@ -29,7 +29,8 @@
     "whitepaper-run": "THE WHITEPAPER RUN",
     "running-bitcoin": "RUNNING BITCOIN",
     "internet-of-money": "THE INTERNET OF MONEY",
-    "shitcoin-city": "SHITCOIN CITY"
+    "shitcoin-city": "SHITCOIN CITY",
+    "wall-street": "WALL STREET"
   };
 
   // The virtual combined board's levelId. It is never submitted; it is derived on

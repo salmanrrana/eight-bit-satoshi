@@ -56,7 +56,7 @@
   // leaderboard groups entries by gameVersion so a run set on an older build is
   // never silently ranked against a different game. Keep this in sync with the
   // "version" field in package.json on any release that changes timed play.
-  const GAME_VERSION = "1.0.0";
+  const GAME_VERSION = "1.1.0";
 
   // Local/dev detection. When the game is served from a loopback host (npm
   // start) or opened straight from disk, every level is playable so any level
@@ -131,7 +131,9 @@
   // legacy-system threats read distinctly from Level 1's enemies. Level 3's
   // suit/agent/wiretap follow the same pattern (drawSuit/drawAgent/drawWiretap):
   // the forces that pushed back on early adoption — bank lobbyists, three-letter
-  // agents, and the surveillance bug you stomp to sweep.
+  // agents, and the surveillance bug you stomp to sweep. Level 5's Wall Street
+  // interiors reuse those crews — agent (the Matrix-grade tail in shades),
+  // suit, degen, rugpull — plus the shitgun as vault-defense turrets.
   const ENEMY_TYPES = {
     banker: { speed: 28, score: 200, shape: "patroller", spark: palette.red, stompToast: "Threat cleared." },
     printer: { speed: 28, score: 200, shape: "machine", spark: palette.red, stompToast: "Printer jammed." },
@@ -160,6 +162,12 @@
   const SHITCOIN_SPEED = 120;     // enemy shot px/s
   const SAT_SHOT_SPEED = 300;     // player shot px/s
   const FIRE_COOLDOWN = 0.35;     // player refire delay
+  // Arcing shitcoin lobs (Level 5): agents hurl coins at the player. All
+  // values fixed - no randomness, ANY% safe.
+  const SHOT_GRAVITY = 760;       // downward pull on lobbed coins
+  const AGENT_THROW_RANGE = 165;  // an agent winds up inside this distance
+  const AGENT_THROW_PERIOD = 2.8; // seconds between agent throws
+  const AGENT_WINDUP = 0.35;      // raised-arm telegraph before the throw
 
   // Resolve an enemy type to its tuning row, falling back to a patroller so a
   // typo in a level definition renders and behaves sanely instead of throwing.
@@ -700,6 +708,388 @@
           }
         }
       }
+    },
+    {
+      // Level 5 — "WALL STREET". The institutional-adoption era: the same
+      // bankers who mocked Bitcoin now custody it, Saylor buys every dip,
+      // and Larry Fink files the ETF. This is Level 4's overworld formula
+      // scaled up into a New York style financial district — a bigger tile
+      // map with a park, crosswalks, steaming manholes, water towers, and
+      // deterministic taxi traffic that costs a life on contact. Inside the
+      // four buildings, though, the welcome is cold: MATRIX-STYLE AGENTS in
+      // suits and shades patrol marble lobbies trying to bounce you out.
+      // Each venue is a MULTI-FLOOR building (venue.floors): stairwell goals
+      // chain floors together, so you climb UP to a roof exit or descend DOWN
+      // to a vault exit. A venue clears only when every agent across ALL
+      // floors was stomped in one visit (state.visitKills); leaving resets
+      // the building. Clear all four to wake the CHARGING BULL and finish.
+      id: "wall-street",
+      title: "WALL STREET",
+      description: "2024: institutions pile in. Clear four towers, dodge taxis, wake the Bull.",
+      theme: "wallstreet",
+      mode: "overworld",
+      labels: { coin: "SATS", pageStat: "KEYS", pageNote: "Key" },
+      worldW: 512,
+      goal: { x: 0, y: 0, w: 0, h: 0 },
+      zone: { name: "WALL STREET", sky: "#3a4356", sky2: "#1c2130", ground: "#565d63", accent: "#f7931a", text: "2024: Wall Street piles in. The agents want you out." },
+      spawn: { tx: 8, ty: 20 },
+      // Tile legend (extends Level 4's): '#' building, '~' water (both solid),
+      // 'g' park grass (walkable), 't' tree (solid), 'z' crosswalk (decor),
+      // '.' street, 'o' steaming manhole, 'c' sat pickup, '1'-'4' venue doors,
+      // 'X' the Charging Bull exit. Rows validated for equal length on load.
+      map: [
+        "~######################################~",
+        "~##..####..#####..#####..#####..####...~",
+        "~##..####..#####..#####..#####..####...~",
+        "~##..####..#####..#####..#####..####...~",
+        "~##..####..#####..##1##..#####..####...~",
+        "~.c....c..o..c..........o..c......c....~",
+        "~.........o.........c...o..............~",
+        "~##..####..tgggt..#####..#####..####...~",
+        "~##..####..gcggg..#####..#####..####...~",
+        "~##..####..gg~~g..#####..#####..####...~",
+        "~##..####..tggcg..#####..#####..####...~",
+        "~##..####..ggggg..##4##..#####..####...~",
+        "~..zz.c..zz..c..zz.....zz..c..zz..c.zzz~",
+        "~...o............c.....o.......o.......~",
+        "~##..####..#####..#####..#####..####...~",
+        "~##..####..#####..#####..#####..#..#...~",
+        "~##..####..#####..#####..#####..#.X#...~",
+        "~##..####..#####..#####..#####..#..#...~",
+        "~##..#2##..#####..#####..#####..#.##...~",
+        "~.c.....c.............................o~",
+        "~..zz....zz.....zz..c..zz....czz....zzz~",
+        "~##..####..#####..#####..tgggt..####...~",
+        "~##..####..#####..#####..gcggg..####...~",
+        "~##..####..#####..#####..gg~gg..####...~",
+        "~##..####..#####..#####..gggcg..####...~",
+        "~##..####..##3##..#####..ggggt..####...~",
+        "~.....c..........o..c......c...........~",
+        "~........o...c...................c.....~",
+        "~....c...............c...............c.~",
+        "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+      ],
+      // Adoption-era voices on the street. Proximity ambient dialog only —
+      // never blocks input or the timer. Ends on the player stacking sats.
+      npcs: [
+        { kind: "fink", tx: 18, ty: 6, name: "LARRY FINK", lines: ["Larry Fink: Bitcoin is here to stay. Our clients asked.", "You: welcome to the network."] },
+        { kind: "saylor", tx: 21, ty: 6, name: "MICHAEL SAYLOR", lines: ["Saylor: we bought more. Then more. There is no top.", "You: conviction noted."] },
+        // The warner outside BLACKROCK TOWER (door 1) flags the agents inside.
+        { kind: "warner", tx: 22, ty: 5, name: "TOWER GUARD", lines: ["Guard: suits inside keep tossing visitors out.", "Guard: stomp their heads. Watch for shooters.", "You: they cannot eject the network."] },
+        { kind: "vendor", tx: 12, ty: 6, name: "VENDOR", lines: ["Vendor: hot dogs now cost 2,000 sats. Progress.", "You: cheap at twice the price."] },
+        { kind: "banker", tx: 19, ty: 13, name: "BANKER", lines: ["Banker: we mocked it in 2013. Now we custody it.", "You: funny how that works."] },
+        { kind: "analyst", tx: 22, ty: 13, name: "ANALYST", lines: ["Analyst: ETFs approved, supply halved. Do the math.", "You: the math was always there."] },
+        { kind: "cabbie", tx: 6, ty: 20, name: "CABBIE", lines: ["Cabbie: Wall Street? Everybody asks for Bitcoin now.", "You: then drive fast."] },
+        { kind: "maxi", tx: 33, ty: 20, name: "MAXI", lines: ["Maxi: they finally came to us. Stay humble.", "You: tick tock."] }
+      ],
+      // Taxi routes over the avenues/streets. Ping-pong on a fixed clock —
+      // no randomness, ANY% safe. Touching a cab costs a life and respawns
+      // you at the spawn curb. Routes avoid the spawn tile by a safe margin.
+      taxis: [
+        { axis: "v", lane: 3, from: 5, to: 27, speed: 64, phase: 0 },
+        { axis: "v", lane: 31, from: 5, to: 27, speed: 76, phase: 260 },
+        { axis: "h", row: 12, from: 3, to: 38, speed: 88, phase: 140 }
+      ],
+      // Multi-floor venues. Each floor carries its own zone, layout, and a
+      // goal that is either a stairwell ({kind: up|down, goalTo}) or the
+      // final EXIT. Floors list top-to-bottom as played; the last floor of
+      // every venue holds the VAULT KEY stash and the exit.
+      venues: {
+        "1": {
+          key: "1", index: 1, name: "BLACKROCK TOWER",
+          // The UP climb: lobby → trading floor → boardroom roof exit.
+          floors: [
+            {
+              name: "LOBBY", worldW: 800, spawnX: 22,
+              zone: { name: "BLACKROCK · LOBBY", sky: "#a89c82", sky2: "#6a6250", ground: "#5c5248", accent: "#f7931a", text: "The lobby of adoption. The agents didn't get the memo." },
+              goal: { x: 742, y: 140, w: 30, h: 64, kind: "up" }, goalTo: 1,
+              hint: "Take the stairs up.",
+              layout: {
+                ground: [[0, 800]],
+                platforms: [
+                  [180, 158, 64, 14, "ledger"], [330, 136, 56, 14, "question"],
+                  [480, 152, 66, 14, "ledger"], [640, 130, 54, 14, "ledger"]
+                ],
+                coinArcs: [[120, 128, 4], [340, 112, 5], [500, 116, 4], [650, 106, 4]],
+                pages: [],
+                enemies: [
+                  [150, 178, 110, 260, "agent"], [300, 178, 270, 430, "suit"],
+                  [520, 178, 470, 640, "agent"], [680, 178, 630, 726, "agent"]
+                ],
+                hazards: []
+              }
+            },
+            {
+              name: "TRADING FLOOR", worldW: 920, spawnX: 22,
+              zone: { name: "BLACKROCK · TRADING FLOOR", sky: "#a89c82", sky2: "#6a6250", ground: "#5c5248", accent: "#f7931a", text: "Traders, terminals, tails. Elevator shafts are open." },
+              goal: { x: 852, y: 140, w: 30, h: 64, kind: "up" }, goalTo: 2,
+              hint: "One floor up. Mind the shafts.",
+              layout: {
+                ground: [[0, 380], [460, 460]],
+                platforms: [
+                  [160, 150, 62, 14, "ledger"], [300, 128, 56, 14, "question"],
+                  [392, 158, 56, 14, "ledger"],
+                  [520, 146, 68, 14, "ledger"], [660, 124, 58, 14, "question"],
+                  [800, 150, 62, 14, "ledger"]
+                ],
+                coinArcs: [[130, 126, 4], [310, 108, 5], [420, 132, 3], [540, 120, 5], [680, 102, 4]],
+                pages: [],
+                enemies: [
+                  [200, 178, 140, 320, "agent"], [350, 178, 300, 450, "suit"],
+                  [560, 178, 500, 680, "agent"], [750, 178, 700, 836, "suit"]
+                ],
+                hazards: [[600, 190, 38, 15]]
+              }
+            },
+            {
+              name: "BOARDROOM", worldW: 860, spawnX: 22,
+              zone: { name: "BLACKROCK · BOARDROOM", sky: "#a89c82", sky2: "#6a6250", ground: "#5c5248", accent: "#f7931a", text: "The boardroom. Even here, they want you out." },
+              goal: { x: 792, y: 140, w: 30, h: 64, kind: "exit" },
+              hint: "Top floor. Roof door is the way out.",
+              layout: {
+                ground: [[0, 360], [440, 420]],
+                platforms: [
+                  [170, 148, 64, 14, "ledger"], [280, 126, 56, 14, "question"],
+                  [372, 156, 56, 14, "ledger"],
+                  [452, 144, 66, 14, "ledger"], [600, 122, 56, 14, "question"],
+                  [730, 148, 62, 14, "ledger"]
+                ],
+                coinArcs: [[140, 124, 4], [300, 106, 5], [470, 118, 5], [620, 98, 4]],
+                pages: [[760, 124]],
+                enemies: [
+                  [190, 178, 130, 300, "suit"], [400, 178, 360, 520, "agent"],
+                  [560, 178, 530, 660, "agent"], [700, 178, 660, 770, "suit"]
+                ],
+                hazards: [[500, 190, 36, 15]]
+              }
+            }
+          ]
+        },
+        "2": {
+          key: "2", index: 2, name: "FIAT NATIONAL BANK",
+          // The DOWN dive: marble hall → security corridor → the vault.
+          floors: [
+            {
+              name: "MARBLE HALL", worldW: 880, spawnX: 22,
+              zone: { name: "FIAT NATIONAL · MARBLE HALL", sky: "#9aa0ac", sky2: "#5a6070", ground: "#4e545c", accent: "#f7931a", text: "Marble halls, reversible promises. Head down." },
+              goal: { x: 822, y: 140, w: 30, h: 64, kind: "down" }, goalTo: 1,
+              hint: "The stairs go DOWN here.",
+              layout: {
+                ground: [[0, 400], [480, 400]],
+                platforms: [
+                  [180, 152, 64, 14, "ledger"], [320, 130, 56, 14, "question"],
+                  [392, 158, 56, 14, "ledger"],
+                  [540, 148, 66, 14, "ledger"], [690, 126, 56, 14, "question"],
+                  [800, 150, 60, 14, "ledger"]
+                ],
+                coinArcs: [[130, 128, 4], [330, 110, 5], [410, 132, 3], [560, 120, 5], [700, 104, 4]],
+                pages: [],
+                enemies: [
+                  [160, 178, 110, 290, "suit"], [360, 178, 300, 460, "suit"],
+                  [580, 178, 520, 700, "agent"], [740, 178, 700, 806, "suit"]
+                ],
+                hazards: []
+              }
+            },
+            {
+              name: "SECURITY CORRIDOR", worldW: 960, spawnX: 22,
+              zone: { name: "FIAT NATIONAL · SECURITY", sky: "#9aa0ac", sky2: "#5a6070", ground: "#4e545c", accent: "#f7931a", text: "Vault defense: turrets and suits. Hop the shots." },
+              goal: { x: 882, y: 140, w: 30, h: 64, kind: "down" }, goalTo: 2,
+              hint: "Deeper. Watch the guns.",
+              layout: {
+                ground: [[0, 340], [420, 300], [800, 160]],
+                platforms: [
+                  [150, 150, 60, 14, "ledger"], [262, 156, 58, 14, "ledger"],
+                  [352, 158, 56, 14, "ledger"],
+                  [470, 146, 66, 14, "ledger"], [600, 124, 56, 14, "question"],
+                  [722, 158, 56, 14, "ledger"]
+                ],
+                coinArcs: [[120, 126, 4], [370, 134, 3], [480, 120, 5], [610, 102, 4], [830, 116, 4]],
+                pages: [],
+                enemies: [
+                  [140, 178, 100, 250, "agent"], [430, 178, 390, 560, "suit"],
+                  [600, 178, 600, 600, "shitgun"], [700, 178, 650, 760, "suit"],
+                  [880, 178, 880, 880, "shitgun"]
+                ],
+                hazards: [[540, 190, 40, 15]]
+              }
+            },
+            {
+              name: "THE VAULT", worldW: 840, spawnX: 22,
+              zone: { name: "FIAT NATIONAL · THE VAULT", sky: "#9aa0ac", sky2: "#5a6070", ground: "#4e545c", accent: "#f7931a", text: "They kept gold here once. Take the key instead." },
+              goal: { x: 774, y: 140, w: 30, h: 64, kind: "exit" },
+              hint: "Grab the key. Get out.",
+              layout: {
+                ground: [[0, 840]],
+                platforms: [
+                  [170, 150, 62, 14, "ledger"], [300, 128, 56, 14, "question"],
+                  [450, 146, 66, 14, "ledger"], [590, 124, 56, 14, "ledger"],
+                  [720, 150, 60, 14, "ledger"]
+                ],
+                coinArcs: [[120, 126, 4], [320, 108, 5], [470, 120, 5], [610, 102, 4]],
+                pages: [[600, 100]],
+                enemies: [
+                  [180, 178, 120, 280, "shitgun"], [320, 178, 290, 430, "agent"],
+                  [500, 178, 460, 620, "suit"], [660, 178, 630, 750, "agent"],
+                  [700, 178, 690, 740, "shitgun"]
+                ],
+                hazards: []
+              }
+            }
+          ]
+        },
+        "3": {
+          key: "3", index: 3, name: "LEGACY MEDIA HOUSE",
+          // The paywall climb: the SAT CANNON room. Token barricades are
+          // literal paywalls; only shots break them (3 hits each).
+          weapon: "satcannon",
+          floors: [
+            {
+              name: "LOBBY", worldW: 860, spawnX: 22,
+              zone: { name: "LEGACY MEDIA · LOBBY", sky: "#a89a82", sky2: "#6a5e4c", ground: "#5a5044", accent: "#f7931a", text: "Paywalls everywhere. The SAT CANNON opens them." },
+              goal: { x: 792, y: 140, w: 30, h: 64, kind: "up" }, goalTo: 1,
+              hint: "Blast the paywalls — X/F fires.",
+              layout: {
+                ground: [[0, 860]],
+                platforms: [
+                  [170, 150, 60, 14, "ledger"], [310, 128, 56, 14, "question"],
+                  [470, 148, 64, 14, "ledger"], [620, 126, 56, 14, "question"],
+                  [760, 150, 60, 14, "ledger"]
+                ],
+                coinArcs: [[120, 126, 4], [330, 108, 5], [490, 122, 5], [640, 102, 4]],
+                pages: [],
+                enemies: [
+                  [150, 178, 100, 230, "agent"], [400, 178, 360, 520, "rugpull"],
+                  [700, 178, 660, 760, "agent"]
+                ],
+                hazards: []
+              },
+              barricades: [[250, 4], [560, 4]]
+            },
+            {
+              name: "NEWSROOM", worldW: 1040, spawnX: 22,
+              zone: { name: "LEGACY MEDIA · NEWSROOM", sky: "#a89a82", sky2: "#6a5e4c", ground: "#5a5044", accent: "#f7931a", text: "They print FUD. The turrets print back." },
+              goal: { x: 972, y: 140, w: 30, h: 64, kind: "up" }, goalTo: 2,
+              hint: "Upstairs. Mind the turrets.",
+              layout: {
+                ground: [[0, 460], [540, 500]],
+                platforms: [
+                  [160, 150, 62, 14, "ledger"], [290, 128, 56, 14, "question"],
+                  [472, 158, 56, 14, "ledger"],
+                  [600, 146, 68, 14, "ledger"], [740, 124, 58, 14, "question"],
+                  [880, 150, 62, 14, "ledger"]
+                ],
+                coinArcs: [[130, 126, 4], [310, 108, 5], [490, 134, 3], [620, 120, 5], [760, 100, 4]],
+                pages: [],
+                enemies: [
+                  [180, 178, 120, 300, "agent"], [380, 178, 330, 520, "rugpull"],
+                  [560, 178, 560, 560, "shitgun"], [760, 178, 720, 880, "agent"],
+                  [950, 178, 950, 950, "shitgun"], [900, 178, 880, 940, "suit"]
+                ],
+                hazards: [[640, 190, 38, 15]]
+              },
+              barricades: [[680, 4]]
+            },
+            {
+              name: "ROOFTOP STUDIO", worldW: 900, spawnX: 22,
+              zone: { name: "LEGACY MEDIA · ROOFTOP", sky: "#a89a82", sky2: "#6a5e4c", ground: "#5a5044", accent: "#f7931a", text: "Broadcast from the roof — then take the exit." },
+              goal: { x: 832, y: 140, w: 30, h: 64, kind: "exit" },
+              hint: "Roof door. Go.",
+              layout: {
+                ground: [[0, 380], [460, 440]],
+                platforms: [
+                  [170, 148, 64, 14, "ledger"], [300, 126, 56, 14, "question"],
+                  [392, 158, 56, 14, "ledger"],
+                  [520, 146, 66, 14, "ledger"], [660, 122, 56, 14, "question"],
+                  [790, 150, 60, 14, "ledger"]
+                ],
+                coinArcs: [[130, 124, 4], [320, 106, 5], [410, 132, 3], [540, 120, 5], [680, 98, 4]],
+                pages: [[820, 126]],
+                enemies: [
+                  [200, 178, 140, 320, "agent"], [420, 178, 380, 520, "rugpull"],
+                  [580, 178, 540, 680, "agent"], [720, 178, 690, 810, "suit"]
+                ],
+                hazards: [[500, 190, 36, 15]]
+              }
+            }
+          ]
+        },
+        "4": {
+          key: "4", index: 4, name: "THE EXCHANGE",
+          // The mixed climb: up to the gallery, then back DOWN to the members'
+          // lounge exit. Longest building — the finale before the Bull.
+          floors: [
+            {
+              name: "TRADING FLOOR", worldW: 1120, spawnX: 22,
+              zone: { name: "THE EXCHANGE · FLOOR", sky: "#98a4b4", sky2: "#5a6474", ground: "#505a64", accent: "#f7931a", text: "Open outcry, closed minds. Gallery is upstairs." },
+              goal: { x: 1052, y: 140, w: 30, h: 64, kind: "up" }, goalTo: 1,
+              hint: "Gallery stairs, far side.",
+              layout: {
+                ground: [[0, 480], [560, 560]],
+                platforms: [
+                  [160, 150, 62, 14, "ledger"], [290, 128, 56, 14, "question"],
+                  [492, 158, 56, 14, "ledger"],
+                  [620, 146, 68, 14, "ledger"], [760, 124, 58, 14, "question"],
+                  [900, 150, 62, 14, "ledger"], [1010, 128, 56, 14, "question"]
+                ],
+                coinArcs: [[120, 126, 4], [310, 108, 5], [510, 134, 3], [640, 120, 5], [780, 100, 5], [1030, 112, 4]],
+                pages: [],
+                enemies: [
+                  [170, 178, 120, 300, "degen"], [400, 178, 350, 540, "agent"],
+                  [600, 178, 570, 720, "degen"], [820, 178, 780, 940, "agent"],
+                  [980, 178, 950, 1030, "suit"], [930, 178, 920, 960, "shitgun"]
+                ],
+                hazards: [[680, 190, 40, 15]]
+              }
+            },
+            {
+              name: "GALLERY", worldW: 1000, spawnX: 22,
+              zone: { name: "THE EXCHANGE · GALLERY", sky: "#98a4b4", sky2: "#5a6474", ground: "#505a64", accent: "#f7931a", text: "Watch the floor from the gallery. Then descend." },
+              goal: { x: 932, y: 140, w: 30, h: 64, kind: "down" }, goalTo: 2,
+              hint: "Lounge is one flight down.",
+              layout: {
+                ground: [[0, 380], [460, 540]],
+                platforms: [
+                  [150, 146, 62, 14, "ledger"], [280, 124, 56, 14, "question"],
+                  [372, 158, 56, 14, "ledger"],
+                  [500, 144, 66, 14, "ledger"], [640, 122, 56, 14, "question"],
+                  [770, 148, 62, 14, "ledger"], [890, 126, 56, 14, "question"]
+                ],
+                coinArcs: [[120, 122, 4], [300, 104, 5], [390, 132, 3], [520, 118, 5], [660, 98, 4]],
+                pages: [],
+                enemies: [
+                  [160, 178, 110, 270, "agent"], [340, 178, 300, 470, "suit"],
+                  [550, 178, 510, 700, "agent"], [720, 178, 690, 850, "suit"],
+                  [860, 178, 850, 890, "shitgun"]
+                ],
+                hazards: [[600, 190, 38, 15]]
+              }
+            },
+            {
+              name: "MEMBERS LOUNGE", worldW: 940, spawnX: 22,
+              zone: { name: "THE EXCHANGE · LOUNGE", sky: "#98a4b4", sky2: "#5a6474", ground: "#505a64", accent: "#f7931a", text: "Leather chairs, leather lungs. Take the exit." },
+              goal: { x: 862, y: 140, w: 30, h: 64, kind: "exit" },
+              hint: "Last door. End the run.",
+              layout: {
+                ground: [[0, 940]],
+                platforms: [
+                  [180, 152, 64, 14, "ledger"], [320, 130, 56, 14, "question"],
+                  [470, 148, 66, 14, "ledger"], [620, 126, 56, 14, "question"],
+                  [770, 150, 60, 14, "ledger"]
+                ],
+                coinArcs: [[140, 128, 4], [340, 110, 5], [490, 122, 5], [640, 104, 4]],
+                pages: [[790, 126]],
+                enemies: [
+                  [200, 178, 140, 320, "suit"], [400, 178, 360, 520, "agent"],
+                  [600, 178, 570, 700, "suit"], [780, 178, 750, 830, "agent"],
+                  [480, 178, 470, 510, "shitgun"]
+                ],
+                hazards: []
+              }
+            }
+          ]
+        }
+      }
     }
   ];
 
@@ -720,6 +1110,11 @@
     venuesCleared: [],
     stashesTaken: [],
     owReturn: null,
+    // Multi-floor venues (Level 5): which floor of the venue is loaded, and how
+    // many enemies were stomped across all floors of the current visit. A venue
+    // clears only when visitKills reaches the venue's total enemy count.
+    floorIndex: 0,
+    visitKills: 0,
     // Ambient dialog queue: extra toast lines shown one after another as the
     // current toast expires (used for NPC exchanges). Never blocks input.
     toastQueue: [],
@@ -855,6 +1250,9 @@
     // Level 4 "mania" groove: a restless minor vamp with chromatic slips — the
     // casino-city buzz of 2021 — that keeps resolving back to a steady A minor
     // walk, the focused player moving through the noise. Original melody.
+    // Level 4 "mania" groove: a restless minor vamp with chromatic slips — the
+    // casino-city buzz of 2021 — that keeps resolving back to a steady A minor
+    // walk, the focused player moving through the noise. Original melody.
     mania: {
       bpm: 144,
       leadGain: 0.07,
@@ -877,6 +1275,34 @@
         A2 . E2 . A2 . E2 . G2 . D3 . G2 . G2 .
         D3 . A2 . D3 . A2 . F2 . C3 . E2 . E2 .
         E2 . B2 . E3 . B2 . A2 . E2 . A2 . E2 .
+      `)
+    },
+    // Level 5 "wall street" strut: a bright, confident major-key walk with
+    // brass-y pulse stabs — the institutional era arriving with briefcases.
+    // It keeps circling home to C, like price and adoption both do now.
+    // Original melody.
+    wallstreet: {
+      bpm: 148,
+      leadGain: 0.072,
+      harmonyGain: 0.04,
+      bassGain: 0.088,
+      lead: noteRow(`
+        C5 . E5 G5 . G5 E5 C5 D5 . F5 A5 . A5 F5 D5
+        E5 . G5 B5 . B5 G5 E5 F5 . A5 C6 . C6 A5 F5
+        G5 . E5 C5 . D5 E5 F5 E5 . D5 C5 . B4 C5 D5
+        E5 . C5 . G4 . C5 . . .
+      `),
+      harmony: noteRow(`
+        . . E5 . . . G5 . . . F5 . . . A5 .
+        . . G5 . . . B5 . . . A5 . . . C6 .
+        . . E5 . . . G5 . . . F5 . . . D5 .
+        . . C5 . . . E5 . . . D5 . C5 . . .
+      `),
+      bass: noteRow(`
+        C3 . G2 . C3 . E3 . F2 . C3 . F2 . G2 .
+        A2 . E3 . A2 . E3 . F2 . C3 . G2 . G2 .
+        C3 . G2 . C3 . E3 . D3 . A2 . D3 . F3 .
+        E3 . B2 . C3 . G2 . C3 . G2 . C3 . . .
       `)
     }
   };
@@ -1076,6 +1502,8 @@
         subMode: state.subMode,
         venueKey: state.venueKey,
         venuesCleared: state.venuesCleared.slice(),
+        floorIndex: state.floorIndex,
+        visitKills: state.visitKills,
         coins: state.coins,
         pages: state.pages,
         owTile: state.subMode === "overworld"
@@ -1088,7 +1516,8 @@
         satShotsLive: satShots.filter((s) => s.alive).length,
         barricadesLeft: barricades.length,
         barricadeHp: barricades.map((b) => `${b.x}:${b.hp}`),
-        lives: state.lives
+        lives: state.lives,
+        deaths: state.deaths
       }),
       placeWalker: (tx, ty) => {
         if (state.subMode !== "overworld" || owSolidAt(tx, ty)) return false;
@@ -1105,17 +1534,21 @@
         player.vy = 0;
         return true;
       },
-      // Kill every enemy in the current venue, as if each was stomped. Lets a
-      // local playtest exercise the clear → split → vault chain without
-      // scripting frame-perfect combat.
+      // Kill every enemy in the current venue floor, as if each was stomped.
+      // Tallies visitKills too, so the multi-floor clear check treats this
+      // exactly like real stomps. Lets a local playtest exercise the
+      // clear → split → exit chain without scripting frame-perfect combat.
       stompAll: () => {
         if (state.subMode !== "venue") return false;
+        let killed = 0;
         for (const enemy of enemies) {
           if (enemy.alive) {
             enemy.alive = false;
             enemy.squashed = 0.3;
+            killed += 1;
           }
         }
+        state.visitKills += killed;
         return true;
       }
     };
@@ -1266,7 +1699,8 @@
     jumpBuffer: 0,
     invincible: 0,
     deadTimer: 0,
-    fireCooldown: 0
+    fireCooldown: 0,
+    dustT: 0
   };
 
   const solids = [];
@@ -1283,7 +1717,7 @@
   const allies = [];
   // Enemy shitcoin shots and player sat-cannon shots. Fixed-size pools like
   // particles, so a busy room never allocates mid-frame.
-  const shots = new Array(12).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0 }));
+  const shots = new Array(12).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0, vy: 0, lob: false }));
   const satShots = new Array(6).fill(null).map(() => ({ alive: false, x: 0, y: 0, vx: 0 }));
   // Destructible barricades (ICO TOWER): solid stacks of shit-tokens the sat
   // cannon breaks. Also in `solids` while intact; killing one removes it there.
@@ -1303,12 +1737,14 @@
     coins: [],         // { tx, ty, taken }
     doors: [],         // { tx, ty, key }
     exit: null,        // { tx, ty }
-    npcs: []           // { kind, tx, ty, name, lines, greeted }
+    npcs: [],          // { kind, tx, ty, name, lines, greeted }
+    taxis: []          // { axis, lane|row, from, to, speed, phase, box, dir }
   };
 
   // Top-down walker. Position is in world pixels (tile * TILE); w/h are the
-  // collision box (smaller than a tile so corridors never snag).
-  const owPlayer = { x: 0, y: 0, w: OW_PW, h: OW_PH, facing: "down", moving: false };
+  // collision box (smaller than a tile so corridors never snag). invincible
+  // grants a grace window after a traffic hit (overworld-only field).
+  const owPlayer = { x: 0, y: 0, w: OW_PW, h: OW_PH, facing: "down", moving: false, invincible: 0 };
 
   function isOverworldLevel() {
     return getCurrentLevel().mode === "overworld";
@@ -1319,7 +1755,8 @@
   function owSolidAt(tx, ty) {
     if (tx < 0 || ty < 0 || tx >= ow.cols || ty >= ow.rows) return true;
     const t = ow.grid[ty][tx];
-    return t === "#" || t === "~";
+    // Trees are the park's solid props; buildings and water stay solid.
+    return t === "#" || t === "~" || t === "t";
   }
 
   // Build the overworld collections from the level definition. Coins, doors,
@@ -1361,10 +1798,17 @@
       ow.npcs.push({ ...npc, greeted: false });
     }
 
+    // Traffic routes (Level 5): cloned with runtime fields for the computed
+    // collision box and travel direction each frame.
+    ow.taxis = (level.taxis || [])
+      .filter((t) => t.axis === "h" || t.axis === "v")
+      .map((t) => ({ ...t, box: null, dir: 1 }));
+
     owPlayer.x = level.spawn.tx * TILE + (TILE - OW_PW) / 2;
     owPlayer.y = level.spawn.ty * TILE + (TILE - OW_PH) / 2;
     owPlayer.facing = "down";
     owPlayer.moving = false;
+    owPlayer.invincible = 0;
     // Aim the camera at the spawn immediately so the title-screen preview and
     // the first played frame are already centered on the walker.
     state.cameraX = clamp(owPlayer.x - VIEW_W / 2, 0, Math.max(0, ow.cols * TILE - VIEW_W));
@@ -1383,10 +1827,14 @@
   }
 
   // Total milestone collectibles for a level. Classic levels read their layout;
-  // an overworld level's stashes live inside its venue layouts.
+  // an overworld level's stashes live inside its venue layouts (multi-floor
+  // venues sum their floors).
   function levelPageTotal(level) {
     if (level.mode === "overworld") {
-      return Object.values(level.venues).reduce((sum, venue) => sum + (venue.layout.pages || []).length, 0);
+      return Object.values(level.venues).reduce((sum, venue) => {
+        const layouts = venue.floors ? venue.floors.map((f) => f.layout) : [venue.layout];
+        return sum + layouts.reduce((n, layout) => n + ((layout.pages || []).length), 0);
+      }, 0);
     }
     return level.layout.pages.length;
   }
@@ -1412,6 +1860,8 @@
       state.venuesCleared = [];
       state.stashesTaken = [];
       state.owReturn = null;
+      state.floorIndex = 0;
+      state.visitKills = 0;
       state.toastQueue = [];
       WORLD_W = level.worldW;
       zones = [{ ...level.zone }];
@@ -1470,36 +1920,31 @@
     for (const ally of layout.allies || []) addAlly(ally);
   }
 
-  // Load a venue interior into the side-view collections and drop the player at
-  // its left edge. Venue layouts omit blockStacks/checkpoints (short rooms need
-  // neither) so only the collections they declare are built. Enemies rebuild on
-  // every entry: leaving early resets the room, but a cleared venue stays
-  // cleared and its stash never respawns once taken.
-  function enterVenue(key) {
-    const level = getCurrentLevel();
-    const venue = level.venues[key];
-    if (!venue) return;
+  // Build one floor of a venue into the side-view collections and drop the
+  // player at its left edge. Works for both shapes: single-layout venues
+  // (Level 4) pass floorIndex 0 and read venue.layout directly; multi-floor
+  // venues (Level 5) read venue.floors[i]. Enemies rebuild on every floor load
+  // when the venue is uncleared; a cleared venue stays empty. The floor spawn
+  // doubles as the respawn checkpoint while inside.
+  function loadVenueLayout(venue, floorIndex) {
+    const floor = venue.floors ? venue.floors[floorIndex] : null;
+    const layout = floor ? floor.layout : venue.layout;
+    const key = state.venueKey;
 
-    state.subMode = "venue";
-    state.venueKey = key;
-    venueZone = { ...venue.zone };
-    // Where to put the walker when they come back out: just south of the door.
-    const door = ow.doors.find((d) => d.key === key);
-    if (door) state.owReturn = { tx: door.tx, ty: door.ty + 1 };
+    state.floorIndex = floorIndex;
+    venueZone = { ...(floor ? floor.zone : venue.zone) };
+    WORLD_W = floor ? floor.worldW : venue.worldW;
+    Object.assign(goal, floor ? floor.goal : venue.goal);
 
-    WORLD_W = venue.worldW;
-    Object.assign(goal, venue.goal);
     solids.length = 0;
     coins.length = 0;
     pages.length = 0;
     enemies.length = 0;
     hazards.length = 0;
-
     barricades.length = 0;
     clearProjectiles();
     player.fireCooldown = 0;
 
-    const layout = venue.layout;
     for (const [x, w] of layout.ground) addGround(x, w);
     for (const [x, y, w, h, kind, cycle] of layout.platforms || []) addPlatform(x, y, w, h, kind, cycle);
     // Barricades persist for the room visit only — a re-entry rebuilds them
@@ -1515,7 +1960,7 @@
     }
     for (const [x, y, w, h] of layout.hazards || []) addHazard(x, y, w, h);
 
-    player.x = venue.spawnX;
+    player.x = floor ? floor.spawnX : venue.spawnX;
     player.y = 150;
     player.vx = 0;
     player.vy = 0;
@@ -1524,36 +1969,77 @@
     player.coyote = 0;
     player.jumpBuffer = 0;
     player.invincible = 1.1;
+    state.checkpointX = player.x;
     state.cameraX = 0;
-    state.toast = venue.weapon === "satcannon"
-      ? "SAT CANNON armed! X/F shoots. Break the token walls."
-      : `${venue.name} — clear the room.`;
+    if (venue.floors) {
+      state.toast = venue.weapon === "satcannon" && floorIndex === 0
+        ? "SAT CANNON armed! X/F shoots. Break the paywalls."
+        : `${venue.name} · ${floor.name} — ${floor.hint}`;
+    } else {
+      state.toast = venue.weapon === "satcannon"
+        ? "SAT CANNON armed! X/F shoots. Break the token walls."
+        : `${venue.name} — clear the room.`;
+    }
     state.toastTime = 2.4;
     playSfx("start");
     syncHud(true);
   }
 
+  // Enter a venue: remember where to put the walker on exit, reset per-visit
+  // progress (floors climbed, enemies stomped this visit), then build floor 0.
+  function enterVenue(key) {
+    const level = getCurrentLevel();
+    const venue = level.venues[key];
+    if (!venue) return;
+
+    state.subMode = "venue";
+    state.venueKey = key;
+    // Where to put the walker when they come back out: just south of the door.
+    const door = ow.doors.find((d) => d.key === key);
+    if (door) state.owReturn = { tx: door.tx, ty: door.ty + 1 };
+
+    state.visitKills = 0;
+    loadVenueLayout(venue, 0);
+  }
+
+  // Enemy totals for the active venue visit. Single-layout venues read the live
+  // room; multi-floor venues compare this visit's stomp tally against every
+  // floor's roster (floors behind you stay counted via visitKills).
+  function venueEnemyTotals() {
+    const level = getCurrentLevel();
+    const venue = level.venues[state.venueKey];
+    if (venue && venue.floors) {
+      const total = venue.floors.reduce((sum, f) => sum + ((f.layout.enemies || []).length), 0);
+      return { total, killed: Math.min(state.visitKills, total) };
+    }
+    const total = venue ? (venue.layout.enemies || []).length : 0;
+    return { total, killed: enemies.filter((e) => !e.alive).length };
+  }
+
   // Return from a venue interior to the city. Records the clear (and its
-  // split) when every enemy in the room was stomped; the vault opens once all
-  // venues are cleared.
+  // split) when every enemy in the building was stomped this visit; the level
+  // exit opens once all venues are cleared.
   function exitVenue() {
     const level = getCurrentLevel();
     const key = state.venueKey;
     const venue = level.venues[key];
     // An already-cleared venue rebuilds no enemies, so "cleared now" only
-    // applies on the visit that actually emptied the room.
+    // applies on the visit that actually emptied the building.
     const alreadyCleared = state.venuesCleared.includes(key);
-    const clearedNow = !alreadyCleared && enemies.length > 0 && enemies.every((e) => !e.alive);
+    const totals = venueEnemyTotals();
+    const clearedNow = !alreadyCleared && totals.total > 0 && totals.killed >= totals.total;
     if (clearedNow) {
       state.venuesCleared.push(key);
       recordSplit({ index: venue.index, name: venue.name });
       const total = Object.keys(level.venues).length;
       state.toast = state.venuesCleared.length >= total
-        ? "All venues cleared! The vault is open."
+        ? "All venues cleared! The Bull is awake."
         : `${venue.name} cleared. ${state.venuesCleared.length}/${total} venues.`;
       state.toastTime = 2.6;
     } else {
-      state.toast = alreadyCleared ? "Back to the streets." : "Shills remain — come back to clear it.";
+      state.toast = alreadyCleared ? "Back to the streets."
+        : venue && venue.floors ? "Agents remain — the visit resets."
+        : "Shills remain — come back to clear it.";
       state.toastTime = 2.2;
     }
 
@@ -1606,8 +2092,17 @@
 
   function addEnemy(x, y, minX, maxX, type) {
     // fireTimer staggers turrets by position (deterministic — no randomness)
-    // so two shitguns on screen never fire in lockstep.
-    enemies.push({ x, y, w: 16, h: 18, vx: enemyConfig(type).speed, minX, maxX, type, alive: true, squashed: 0, fireTimer: (x % 100) / 100 * SHITGUN_PERIOD });
+    // so two shitguns on screen never fire in lockstep. Agents get a
+    // similarly staggered coin-throw clock; windup holds the telegraph.
+    enemies.push({
+      x, y, w: 16, h: 18,
+      vx: enemyConfig(type).speed,
+      minX, maxX, type,
+      alive: true, squashed: 0,
+      fireTimer: (x % 100) / 100 * SHITGUN_PERIOD,
+      throwTimer: type === "agent" ? 0.9 + (x % 131) / 131 * AGENT_THROW_PERIOD : AGENT_THROW_PERIOD,
+      windup: 0
+    });
   }
 
   function addHazard(x, y, w, h) {
@@ -2773,6 +3268,16 @@
       // finishes the run. Return right away after an exit so the side-view
       // camera clamp below can't clobber the overworld camera for a frame.
       if (state.subMode === "venue") {
+        const venue = getCurrentLevel().venues[state.venueKey];
+        const floor = venue && venue.floors ? venue.floors[state.floorIndex] : null;
+        // Stairwell goal: load the connected floor instead of leaving.
+        if (floor && floor.goalTo != null) {
+          loadVenueLayout(venue, floor.goalTo);
+          input.jumpPressed = false;
+          input.jumpReleased = false;
+          input.firePressed = false;
+          return;
+        }
         exitVenue();
         input.jumpPressed = false;
         input.jumpReleased = false;
@@ -2829,6 +3334,28 @@
     const ptx = Math.floor(cx / TILE);
     const pty = Math.floor(cy / TILE);
 
+    // Traffic grace window ticks down even while standing still.
+    owPlayer.invincible = Math.max(0, owPlayer.invincible - dt);
+
+    // Taxis cruise fixed routes on a deterministic ping-pong clock — same
+    // pattern every attempt, ANY% safe. Touching one sends you back to the
+    // spawn curb at the cost of a life.
+    for (const taxi of ow.taxis) {
+      const span = Math.max(1, (taxi.to - taxi.from) * TILE);
+      const m = mod(state.time * (taxi.speed || 60) + (taxi.phase || 0), span * 2);
+      const p = m < span ? m : span * 2 - m;
+      taxi.dir = m < span ? 1 : -1;
+      if (taxi.axis === "h") {
+        taxi.box = { x: taxi.from * TILE + p - 7, y: taxi.row * TILE + 4, w: 14, h: 8 };
+      } else {
+        taxi.box = { x: taxi.lane * TILE + 3, y: taxi.from * TILE + p - 7, w: 10, h: 14 };
+      }
+      if (owPlayer.invincible <= 0 && overlap(owPlayer, taxi.box)) {
+        owHurt();
+        return;
+      }
+    }
+
     // Sat pickups.
     for (const coin of ow.coins) {
       if (coin.taken || coin.tx !== ptx || coin.ty !== pty) continue;
@@ -2862,13 +3389,14 @@
       }
     }
 
-    // The vault: locked until every venue is cleared, then it ends the run.
+    // The Bull: locked until every venue is cleared, then it ends the run.
     if (ow.exit && ow.exit.tx === ptx && ow.exit.ty === pty) {
       const total = Object.keys(level.venues).length;
       if (state.venuesCleared.length >= total) {
         completeGame();
       } else if (state.toastTime <= 0) {
-        state.toast = `Vault locked — clear ${total - state.venuesCleared.length} more venue${total - state.venuesCleared.length === 1 ? "" : "s"}.`;
+        const left = total - state.venuesCleared.length;
+        state.toast = `Still locked — clear ${left} more venue${left === 1 ? "" : "s"}.`;
         state.toastTime = 2;
       }
     }
@@ -2878,6 +3406,29 @@
     const mapH = ow.rows * TILE;
     state.cameraX = clamp(cx - VIEW_W / 2, 0, Math.max(0, mapW - VIEW_W));
     state.cameraY = clamp(cy - VIEW_H / 2, 0, Math.max(0, mapH - VIEW_H));
+  }
+
+  // Traffic hit in the overworld: costs a life and puts the walker back on
+  // the spawn curb. Mirrors hurtPlayer but only touches overworld state — the
+  // side-view fields (checkpointX, camera) belong to venue interiors.
+  function owHurt() {
+    if (owPlayer.invincible > 0) return;
+    const level = getCurrentLevel();
+    state.lives -= 1;
+    state.deaths += 1;
+    syncHud(true);
+    if (state.lives <= 0) {
+      gameOver();
+      return;
+    }
+    burst(owPlayer.x + owPlayer.w / 2, owPlayer.y + owPlayer.h / 2, palette.yellow, 12);
+    playSfx("hurt");
+    owPlayer.x = level.spawn.tx * TILE + (TILE - OW_PW) / 2;
+    owPlayer.y = level.spawn.ty * TILE + (TILE - OW_PH) / 2;
+    owPlayer.facing = "down";
+    owPlayer.invincible = 1.6;
+    state.toast = "Traffic! Back on the curb.";
+    state.toastTime = 1.6;
   }
 
   function updateZone() {
@@ -2945,6 +3496,13 @@
     moveAxis(player, player.vx * dt, 0);
     player.onGround = false;
     moveAxis(player, 0, player.vy * dt);
+
+    // Kick up small dust puffs while sprinting on the ground.
+    player.dustT = Math.max(0, player.dustT - dt);
+    if (player.onGround && Math.abs(player.vx) > 100 && player.dustT === 0) {
+      player.dustT = 0.14;
+      burst(player.x + player.w / 2 - player.facing * 5, player.y + player.h - 1, "#9a938a", 2);
+    }
 
     if (player.y > VIEW_H + 40) hurtPlayer(true);
 
@@ -3046,6 +3604,28 @@
           enemy.fireTimer = SHITGUN_PERIOD;
           spawnShot(enemy.x + (dx > 0 ? enemy.w : -6), enemy.y + 5, Math.sign(dx) * SHITCOIN_SPEED);
         }
+      } else if (enemy.type === "agent") {
+        // Wall Street agents hold their ground, telegraph with a raised arm,
+        // then hurl an arcing shitcoin at the intruder. Fully deterministic.
+        if (enemy.windup > 0) {
+          enemy.windup -= dt;
+          if (enemy.windup <= 0) {
+            const dx = (player.x + player.w / 2) - (enemy.x + enemy.w / 2);
+            spawnShot(enemy.x + enemy.w / 2 - 3, enemy.y - 2, (dx >= 0 ? 1 : -1) * 92, -238);
+          }
+        } else {
+          enemy.x += enemy.vx * dt;
+          if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
+            enemy.vx *= -1;
+            enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX - enemy.w);
+          }
+          enemy.throwTimer -= dt;
+          const dx = Math.abs((player.x + player.w / 2) - (enemy.x + enemy.w / 2));
+          if (enemy.throwTimer <= 0 && dx < AGENT_THROW_RANGE) {
+            enemy.throwTimer = AGENT_THROW_PERIOD;
+            enemy.windup = AGENT_WINDUP;
+          }
+        }
       } else {
         enemy.x += enemy.vx * dt;
         if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
@@ -3053,7 +3633,6 @@
           enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX - enemy.w);
         }
       }
-
       if (!overlap(player, enemy)) continue;
 
       const playerBottom = player.y + player.h;
@@ -3064,6 +3643,7 @@
         enemy.squashed = 0.3;
         player.vy = STOMP;
         state.score += cfg.score;
+        if (state.subMode === "venue") state.visitKills += 1;
         state.toast = cfg.stompToast;
         state.toastTime = 1.1;
         burst(enemy.x + enemy.w * 0.5, enemy.y + enemy.h * 0.5, cfg.spark, 8);
@@ -3076,13 +3656,15 @@
 
   // ----- Projectiles ----------------------------------------------------------
 
-  function spawnShot(x, y, vx) {
+  function spawnShot(x, y, vx, lobVy) {
     for (const s of shots) {
       if (s.alive) continue;
       s.alive = true;
       s.x = x;
       s.y = y;
       s.vx = vx;
+      s.vy = lobVy || 0;
+      s.lob = !!lobVy;
       playSfx("shitshot");
       return;
     }
@@ -3118,12 +3700,15 @@
   }
 
   function updateShots(dt) {
-    // Enemy shitcoins: hurt on touch, die on any solid or off-world.
+    // Enemy shitcoins: hurt on touch, die on any solid or off-world. Lobbed
+    // coins additionally fall under SHOT_GRAVITY until they hit something.
     for (const s of shots) {
       if (!s.alive) continue;
+      if (s.lob) s.vy += SHOT_GRAVITY * dt;
+      s.y += s.vy * dt;
       s.x += s.vx * dt;
       const box = { x: s.x, y: s.y, w: 8, h: 8 };
-      if (s.x < -12 || s.x > WORLD_W + 12 || shotHitsSolid(box)) {
+      if (s.x < -12 || s.x > WORLD_W + 12 || s.y > VIEW_H + 12 || shotHitsSolid(box)) {
         s.alive = false;
         continue;
       }
@@ -3156,6 +3741,7 @@
         enemy.alive = false;
         enemy.squashed = 0.3;
         state.score += cfg.score;
+        if (state.subMode === "venue") state.visitKills += 1;
         state.toast = cfg.stompToast;
         state.toastTime = 1.1;
         burst(enemy.x + enemy.w * 0.5, enemy.y + enemy.h * 0.5, cfg.spark, 8);
@@ -3323,6 +3909,8 @@
     const zone = activeZone();
 
     drawBackground(cam, zone);
+    // Lobby sparrows flit along the upper wall, behind the furniture.
+    if (getTheme() === "wallstreet") drawLobbyBirds(cam);
     drawSolids(cam, zone);
     drawHazards(cam);
     drawCoins(cam);
@@ -3383,6 +3971,18 @@
       drawOwNpc(npc, x, y);
     }
 
+    // Taxis above street furniture, below the walker.
+    for (const taxi of ow.taxis) {
+      if (!taxi.box) continue;
+      const x = Math.round(taxi.box.x - camX);
+      const y = Math.round(taxi.box.y - camY);
+      if (x < -20 || x > VIEW_W + 20 || y < -20 || y > VIEW_H + 20) continue;
+      drawOwTaxi(x, y, taxi.axis, taxi.dir);
+    }
+
+    // A flock crossing the district overhead.
+    drawOverworldBirds(camX, camY);
+
     // Particles live in world space; the overworld camera scrolls both axes.
     for (const p of particles) {
       if (!p.alive) continue;
@@ -3394,52 +3994,81 @@
     drawVignette();
   }
 
-  // One city tile. `#` renders as a rooftop slab with a lit-window wall face on
-  // its south edge (rows with street below), so blocks read as buildings from
-  // the classic top-down 3/4 view; `~` is animated water; streets get sparse
-  // cobble specks keyed off the tile coords so the pattern is stable.
+  // One city tile. Dispatches to themed helpers: '#' renders as a per-block
+  // styled building (brick / slate / sandstone / glass tower / concrete) with
+  // street-level facades and rooftop props; '~' is animated water; 'g'/'t' are
+  // park grass and trees; streets get cobble specks plus crosswalk stripes,
+  // steaming manholes, venue doors, and the level exit.
   function drawOwTile(t, tx, ty, x, y) {
     if (t === "#") {
-      const wallFace = !owSolidAt(tx, ty + 1);
-      ctx.fillStyle = "#3d434d";
-      rect(x, y, TILE, TILE);
-      ctx.fillStyle = "#4a515c";
-      rect(x + 1, y + 1, TILE - 2, TILE - 2);
-      if (wallFace) {
-        // South face: darker wall with two lit/unlit windows.
-        ctx.fillStyle = "#2a2f38";
-        rect(x, y + 6, TILE, TILE - 6);
-        const lit = mod(tx * 7 + ty * 13, 3) !== 0;
-        ctx.fillStyle = lit ? "#c9b458" : "#171b22";
-        rect(x + 3, y + 9, 4, 4);
-        rect(x + 9, y + 9, 4, 4);
-      } else {
-        // Rooftop texture speck.
-        ctx.fillStyle = "#333942";
-        rect(x + mod(tx * 5 + ty * 3, 10) + 2, y + mod(tx * 3 + ty * 7, 10) + 2, 2, 2);
-      }
+      drawOwBuilding(tx, ty, x, y);
       return;
     }
     if (t === "~") {
-      const shift = Math.floor(state.time * 2 + tx + ty) % 2;
+      // Harbor/river water: deep patches, two drifting wave-crest rows and a
+      // sparkle, plus foam lines wherever land touches this tile.
       ctx.fillStyle = "#2459a8";
       rect(x, y, TILE, TILE);
+      if (mod(tx * 19 + ty * 7, 6) < 2) {
+        ctx.fillStyle = "#1e4f92";
+        rect(x + 2, y + 3, 7, 4);
+        rect(x + 9, y + 10, 5, 3);
+      }
+      const ph = Math.floor(state.time * 3);
       ctx.fillStyle = "#4aa8f0";
-      rect(x + 2 + shift * 4, y + 4, 6, 1);
-      rect(x + 6 - shift * 3, y + 11, 6, 1);
+      rect(x + mod(ph * 2 + tx * 5, 12) + 1, y + 4, 4, 1);
+      rect(x + mod(ph * 2 + ty * 7, 12) + 2, y + 10, 4, 1);
+      if (mod(tx * 3 + ty * 5 + ph, 9) === 0) {
+        ctx.fillStyle = "#bcd8f4";
+        rect(x + 5, y + 6, 3, 1);
+      }
+      ctx.fillStyle = "rgba(244, 234, 210, 0.75)";
+      if (!owSolidAt(tx, ty - 1)) rect(x, y, TILE, 1);
+      if (!owSolidAt(tx, ty + 1)) rect(x, y + TILE - 1, TILE, 1);
+      if (!owSolidAt(tx - 1, ty)) rect(x, y, 1, TILE);
+      if (!owSolidAt(tx + 1, ty)) rect(x + TILE - 1, y, 1, TILE);
       return;
     }
-    // Street base (also under doors, manholes, sats, and the vault).
+    if (t === "g") {
+      drawOwGrassBase(tx, ty, x, y);
+      return;
+    }
+    if (t === "t") {
+      drawOwGrassBase(tx, ty, x, y);
+      drawOwTree(tx, ty, x, y);
+      return;
+    }
+    // Street base (also under doors, manholes, sats, crosswalks, the exit),
+    // with two-tone cobble specks keyed off tile coords so the pattern is
+    // stable, then cast shadows: anything tall (building or tree) drops shade
+    // onto the tiles south and east of it — sun from the top-left.
     ctx.fillStyle = "#6b7178";
     rect(x, y, TILE, TILE);
-    ctx.fillStyle = "#5d636a";
-    rect(x, y, TILE, 1);
-    rect(x, y, 1, TILE);
     if (mod(tx * 11 + ty * 17, 5) === 0) {
       ctx.fillStyle = "#767d84";
       rect(x + mod(tx * 3, 8) + 3, y + mod(ty * 5, 8) + 3, 3, 2);
     }
+    if (mod(tx * 7 + ty * 23, 7) === 0) {
+      ctx.fillStyle = "#565c63";
+      rect(x + mod(ty * 3, 9) + 2, y + mod(tx * 5, 9) + 6, 3, 2);
+    }
+    if (owSolidAt(tx, ty - 1)) {
+      ctx.fillStyle = "rgba(16, 16, 24, 0.30)";
+      rect(x, y, TILE, 5);
+    }
+    if (owSolidAt(tx - 1, ty)) {
+      ctx.fillStyle = "rgba(16, 16, 24, 0.16)";
+      rect(x, y, 4, TILE);
+    }
 
+    if (t === "z") {
+      // Crosswalk: pale pedestrian stripes across the road.
+      ctx.fillStyle = "rgba(244, 234, 210, 0.85)";
+      rect(x + 2, y + 2, 3, 12);
+      rect(x + 7, y + 2, 3, 12);
+      rect(x + 12, y + 2, 3, 12);
+      return;
+    }
     if (t === "o") {
       ctx.fillStyle = palette.ink2;
       rect(x + 3, y + 3, 10, 10);
@@ -3448,37 +4077,350 @@
       ctx.fillStyle = palette.ink2;
       rect(x + 6, y + 6, 4, 1);
       rect(x + 6, y + 9, 4, 1);
+      // Steam curling off the grate — very downtown.
+      const puff = Math.floor(state.time * 3 + tx * 2) % 4;
+      if (puff < 3) {
+        ctx.fillStyle = "rgba(232, 232, 228, 0.5)";
+        rect(x + 5 + puff, y - 2 - puff * 2, 3, 2);
+        ctx.fillStyle = "rgba(232, 232, 228, 0.28)";
+        rect(x + 8 - puff, y - 4 - puff * 2, 2, 2);
+      }
       return;
     }
     if (t >= "1" && t <= "9") {
-      // Venue door: a dark doorway with a neon sign; already-cleared venues
-      // dim their sign so remaining work reads at a glance.
+      // Venue entrance: stone steps up to glass double doors under a glowing
+      // neon sign. Cleared venues flip the sign green so remaining work reads
+      // at a glance; open venues pulse their color.
       const cleared = state.venuesCleared.includes(t);
       const flash = !cleared && Math.floor(state.time * 3) % 2 === 0;
+      const neon = cleared ? palette.green : flash ? palette.violet : "#5a3fb0";
+      // Steps + recessed frame.
+      ctx.fillStyle = "#4a4550";
+      rect(x, y + 13, TILE, 3);
+      ctx.fillStyle = "#5d5864";
+      rect(x, y + 13, TILE, 1);
+      ctx.fillStyle = "#2a2630";
+      rect(x + 1, y + 1, 14, 13);
+      ctx.fillStyle = "#171420";
+      rect(x + 3, y + 4, 10, 10);
+      // Glass doors with a center seam and handle glints.
+      ctx.fillStyle = flash ? "#3a5a78" : "#2a3444";
+      rect(x + 4, y + 5, 4, 9);
+      rect(x + 9, y + 5, 4, 9);
+      ctx.fillStyle = "rgba(207, 216, 232, 0.8)";
+      rect(x + 5, y + 7, 1, 3);
+      rect(x + 11, y + 7, 1, 3);
+      // Neon sign: soft glow halo behind a bright board.
+      ctx.fillStyle = "rgba(141, 109, 232, 0.22)";
+      if (cleared) ctx.fillStyle = "rgba(54, 189, 99, 0.25)";
+      if (flash) ctx.fillStyle = "rgba(141, 109, 232, 0.4)";
+      rect(x, y - 2, 16, 8);
+      ctx.fillStyle = neon;
+      rect(x + 2, y - 1, 12, 6);
       ctx.fillStyle = palette.ink;
-      rect(x + 2, y + 2, 12, 14);
-      ctx.fillStyle = palette.ink2;
-      rect(x + 4, y + 5, 8, 11);
-      ctx.fillStyle = cleared ? palette.green : flash ? palette.violet : "#5a3fb0";
-      rect(x + 3, y, 10, 4);
-      ctx.fillStyle = cleared ? palette.white : palette.yellow;
-      text(t, x + 6, y + 13, 7);
+      text(t, x + 6, y + 4, 7);
       return;
     }
     if (t === "X") {
-      // The COLD STORAGE vault: grey door with an orange ₿ dial; pulses gold
-      // once every venue is cleared and it unlocks.
+      if (getTheme() === "wallstreet") {
+        // THE CHARGING BULL: beveled pedestal, plaque, and a gold bull with
+        // a sunlit back; glows once every venue is cleared and ends the run.
+        const total = Object.keys(getCurrentLevel().venues).length;
+        const open = state.venuesCleared.length >= total;
+        const glow = open && Math.floor(state.time * 4) % 2 === 0;
+        // Cast shadow off the pedestal.
+        ctx.fillStyle = "rgba(16, 16, 24, 0.25)";
+        rect(x + 8, y + 14, 9, 2);
+        // Pedestal with bevel + plaque.
+        ctx.fillStyle = "#565145";
+        rect(x + 1, y + 10, 14, 6);
+        ctx.fillStyle = "#8d8878";
+        rect(x + 1, y + 10, 14, 2);
+        rect(x + 1, y + 10, 1, 6);
+        ctx.fillStyle = "#3a362e";
+        rect(x + 1, y + 15, 14, 1);
+        ctx.fillStyle = open ? palette.orange : "#b03a30";
+        rect(x + 5, y + 12, 6, 3);
+        // Bull: body, head, horn, tail, legs.
+        ctx.fillStyle = glow ? palette.yellow : "#c99a3a";
+        rect(x + 3, y + 5, 9, 5);
+        rect(x + 11, y + 4, 3, 4);
+        rect(x + 2, y + 6, 2, 2);
+        ctx.fillStyle = palette.orange;
+        rect(x + 3, y + 5, 9, 1);
+        ctx.fillStyle = glow ? palette.white : palette.paper;
+        rect(x + 12, y + 2, 3, 1);
+        rect(x + 13, y + 3, 1, 1);
+        ctx.fillStyle = glow ? palette.orange : "#a87c2c";
+        rect(x + 4, y + 10, 2, 2);
+        rect(x + 9, y + 10, 2, 2);
+        return;
+      }
+      // The COLD STORAGE vault: beveled steel door with an orange ₿ dial;
+      // pulses gold once every venue is cleared and it unlocks.
       const total = Object.keys(getCurrentLevel().venues).length;
       const open = state.venuesCleared.length >= total;
       const glow = open && Math.floor(state.time * 4) % 2 === 0;
+      ctx.fillStyle = "rgba(16, 16, 24, 0.25)";
+      rect(x + 3, y + 15, 13, 2);
+      ctx.fillStyle = palette.ink;
+      rect(x, y, 16, 16);
       ctx.fillStyle = palette.gray2;
       rect(x + 1, y + 1, 14, 14);
-      ctx.fillStyle = glow ? palette.yellow : palette.gray;
+      ctx.fillStyle = palette.gray;
+      rect(x + 1, y + 1, 14, 1);
+      rect(x + 1, y + 1, 1, 14);
+      ctx.fillStyle = glow ? palette.yellow : "#565c63";
       rect(x + 2, y + 2, 12, 12);
       ctx.fillStyle = open ? palette.orange : palette.ink2;
       rect(x + 5, y + 5, 6, 6);
+      ctx.fillStyle = open ? palette.yellow : palette.gray;
+      rect(x + 5, y + 5, 6, 1);
       ctx.fillStyle = open ? palette.ink : palette.gray;
       text("B", x + 6, y + 11, 6);
+    }
+  }
+
+  // One building tile in one of five facade schemes picked by a stable hash of
+  // its coordinates. Street-level rows render storefronts and windows with a
+  // lit left edge; upper rows render beveled rooftops (light top/left, dark
+  // bottom/right — the block reads solid) with water towers, AC units, and
+  // access bulkheads.
+  function drawOwBuilding(tx, ty, x, y) {
+    const scheme = [
+      { roof: "#6b3a2a", face: "#7d452e", trim: "#8a5236", hi: "#9a6242", win: "#c9b458", dark: "#3a2018" },
+      { roof: "#4a5568", face: "#5a6a80", trim: "#6b7d95", hi: "#8496ae", win: "#cfd8e8", dark: "#2a3442" },
+      { roof: "#8a7a56", face: "#a0906a", trim: "#b3a276", hi: "#c4b48a", win: "#e8d9a0", dark: "#4a3f2a" },
+      { roof: "#20343e", face: "#2a4654", trim: "#3a5a6a", hi: "#4f7a8a", win: "#7fd8e8", dark: "#122430" },
+      { roof: "#55584f", face: "#666a5f", trim: "#777b6e", hi: "#8a8e80", win: "#d8d2b4", dark: "#33352e" }
+    ][mod(tx * 13 + ty * 7, 5)];
+    const wallFace = !owSolidAt(tx, ty + 1);
+    if (wallFace) {
+      ctx.fillStyle = scheme.dark;
+      rect(x, y, TILE, TILE);
+      ctx.fillStyle = scheme.face;
+      rect(x, y + 1, TILE, TILE - 1);
+      // Sunlit left edge grounds the facade.
+      ctx.fillStyle = scheme.hi;
+      rect(x, y + 1, 1, TILE - 1);
+      const kind = mod(tx * 5 + ty * 3, 4);
+      if (kind === 0) {
+        // Shopfront: striped awning over a display window and a door.
+        const awning = mod(tx * 3, 2) ? ["#b03a30", "#d86a50"] : ["#2e6e46", "#54a06a"];
+        for (let i = 0; i < 3; i += 1) {
+          ctx.fillStyle = awning[i % 2];
+          rect(x + 1 + i * 5, y + 4, 4, 3);
+        }
+        ctx.fillStyle = scheme.win;
+        rect(x + 2, y + 8, 12, 5);
+        ctx.fillStyle = "rgba(244, 234, 210, 0.35)";
+        rect(x + 3, y + 9, 3, 1);
+        ctx.fillStyle = scheme.dark;
+        rect(x + 2, y + 13, 5, 3);
+        ctx.fillStyle = scheme.hi;
+        rect(x + 2, y + 13, 5, 1);
+      } else if (kind === 1) {
+        // Paired windows with sills; most lit, some dark.
+        ctx.fillStyle = scheme.dark;
+        rect(x + 2, y + 5, 5, 7);
+        rect(x + 9, y + 5, 5, 7);
+        ctx.fillStyle = scheme.win;
+        rect(x + 3, y + 6, 3, 4);
+        if (mod(tx * 7 + ty * 13, 3) !== 0) rect(x + 10, y + 6, 3, 4);
+        ctx.fillStyle = scheme.trim;
+        rect(x + 2, y + 12, 5, 1);
+        rect(x + 9, y + 12, 5, 1);
+      } else if (kind === 2) {
+        // Wide office glass band with mullions and a sky reflection.
+        ctx.fillStyle = scheme.dark;
+        rect(x + 1, y + 6, TILE - 2, 6);
+        ctx.fillStyle = scheme.win;
+        rect(x + 2, y + 7, TILE - 4, 4);
+        ctx.fillStyle = "rgba(244, 234, 210, 0.3)";
+        rect(x + 3, y + 7, 4, 1);
+        ctx.fillStyle = scheme.dark;
+        rect(x + 7, y + 7, 1, 4);
+        rect(x + 11, y + 7, 1, 4);
+      } else {
+        // Stone pillars framing an entrance with steps.
+        ctx.fillStyle = scheme.trim;
+        rect(x + 1, y + 4, 3, 10);
+        rect(x + 12, y + 4, 3, 10);
+        ctx.fillStyle = scheme.hi;
+        rect(x + 1, y + 4, 1, 10);
+        rect(x + 12, y + 4, 1, 10);
+        ctx.fillStyle = scheme.dark;
+        rect(x + 5, y + 7, 6, 7);
+        ctx.fillStyle = scheme.win;
+        rect(x + 6, y + 8, 4, 3);
+        ctx.fillStyle = scheme.trim;
+        rect(x + 4, y + 14, 8, 1);
+      }
+      return;
+    }
+    // Rooftop: beveled slab (light top/left, dark bottom/right) plus one hashed
+    // prop per tile — water tank, AC unit, bulkhead, vent pipe, or gravel.
+    ctx.fillStyle = scheme.dark;
+    rect(x, y, TILE, TILE);
+    ctx.fillStyle = scheme.roof;
+    rect(x + 1, y + 1, TILE - 2, TILE - 2);
+    ctx.fillStyle = scheme.hi;
+    rect(x + 1, y + 1, TILE - 2, 1);
+    rect(x + 1, y + 1, 1, TILE - 2);
+    const prop = mod(tx * 11 + ty * 5, 6);
+    if (prop === 0) {
+      // Water tank — the skyline classic.
+      ctx.fillStyle = "#4a3527";
+      rect(x + 4, y + 9, 2, 5);
+      rect(x + 10, y + 9, 2, 5);
+      ctx.fillStyle = "#6b4a30";
+      rect(x + 3, y + 3, 10, 7);
+      ctx.fillStyle = "#83593a";
+      rect(x + 3, y + 3, 10, 2);
+      ctx.fillStyle = "#4a3527";
+      rect(x + 5, y + 1, 6, 2);
+      ctx.fillStyle = "#9a7048";
+      rect(x + 4, y + 5, 8, 1);
+    } else if (prop === 1) {
+      ctx.fillStyle = "#8d949c";
+      rect(x + 4, y + 5, 8, 6);
+      ctx.fillStyle = "#aab4bc";
+      rect(x + 4, y + 5, 8, 1);
+      ctx.fillStyle = "#5a616a";
+      rect(x + 5, y + 7, 6, 3);
+    } else if (prop === 2) {
+      ctx.fillStyle = scheme.trim;
+      rect(x + 3, y + 4, 10, 8);
+      ctx.fillStyle = scheme.hi;
+      rect(x + 3, y + 4, 10, 1);
+      ctx.fillStyle = scheme.dark;
+      rect(x + 6, y + 6, 4, 6);
+    } else if (prop === 3) {
+      // Vent pipe with a cap.
+      ctx.fillStyle = scheme.dark;
+      rect(x + 7, y + 5, 3, 7);
+      ctx.fillStyle = scheme.hi;
+      rect(x + 6, y + 4, 5, 2);
+    } else {
+      ctx.fillStyle = scheme.trim;
+      rect(x + mod(tx * 5 + ty * 3, 10) + 2, y + mod(tx * 3 + ty * 7, 10) + 2, 2, 2);
+    }
+  }
+
+  // Park ground: dithered two-tone grass (checker offset by tile parity, like
+  // the classic overworlds) plus occasional flower specks.
+  function drawOwGrassBase(tx, ty, x, y) {
+    ctx.fillStyle = "#3f7d46";
+    rect(x, y, TILE, TILE);
+    ctx.fillStyle = "#37703f";
+    for (let py = 0; py < TILE; py += 4) {
+      for (let px = mod(tx + ty, 2) * 2; px < TILE; px += 4) {
+        rect(x + px, y + py, 2, 2);
+      }
+    }
+    const flower = mod(tx * 31 + ty * 17, 9);
+    if (flower < 3) {
+      ctx.fillStyle = flower === 0 ? palette.yellow : flower === 1 ? palette.paper : "#e08a9a";
+      rect(x + 3 + mod(tx * 5, 8), y + 4 + mod(ty * 7, 8), 1, 1);
+      rect(x + 10 - mod(ty * 3, 6), y + 11 - mod(tx * 2, 6), 1, 1);
+    }
+  }
+
+  // A park tree: cast shadow, shaded trunk, and a big three-tone swaying
+  // canopy with a sunlit highlight clump — the tallest thing in the park.
+  function drawOwTree(tx, ty, x, y) {
+    const sway = mod(Math.floor(state.time * 2) + tx, 2);
+    ctx.fillStyle = "rgba(16, 16, 24, 0.22)";
+    rect(x + 4, y + 13, 12, 2);
+    rect(x + 2, y + 14, 5, 1);
+    ctx.fillStyle = "#5a3a22";
+    rect(x + 6, y + 9, 4, 5);
+    ctx.fillStyle = "#3f2818";
+    rect(x + 6, y + 9, 1, 5);
+    ctx.fillStyle = "#1e5a30";
+    rect(x + 2 + sway, y + 5, 12, 5);
+    ctx.fillStyle = "#2f7a42";
+    rect(x + 1 + sway, y + 2, 14, 6);
+    rect(x + 3 + sway, y + 8, 10, 2);
+    ctx.fillStyle = "#3f9455";
+    rect(x + 3 + sway, y + 2, 5, 2);
+    rect(x + 4 + sway, y + 4, 3, 1);
+    ctx.fillStyle = "#163d24";
+    rect(x + 11 + sway, y + 6, 3, 3);
+    rect(x + 2 + sway, y + 9, 12, 1);
+  }
+
+  // A yellow cab mid-route. `axis` picks the orientation and `dir` the facing
+  // so the windshield leads the travel direction.
+  // Ambient birds. Overworld: a small flock crossing the district overhead,
+  // each with a faint ground shadow so they read as airborne. Lobbies: three
+  // sparrows looping the upper wall behind the furniture. Purely cosmetic —
+  // positions derive from the run clock, so timing is untouched.
+  function drawBird(x, y, flap) {
+    ctx.fillStyle = "#2a2d3a";
+    rect(x + 1, y, 3, 2);
+    if (flap === 0) {
+      rect(x - 1, y - 1, 2, 1);
+      rect(x + 4, y - 1, 2, 1);
+    } else {
+      rect(x - 1, y + 1, 2, 1);
+      rect(x + 4, y + 1, 2, 1);
+    }
+  }
+
+  function drawOverworldBirds(camX, camY) {
+    const span = ow.cols * TILE + 80;
+    for (let i = 0; i < 5; i += 1) {
+      const wx = mod(state.time * (34 + mod(i, 3) * 9) + i * 271, span) - 40;
+      const wy = 34 + i * 17 + Math.sin(state.time * 1.6 + i * 2.2) * 6;
+      const x = Math.round(wx - camX);
+      const y = Math.round(wy - camY);
+      if (x < -12 || x > VIEW_W + 12 || y < -8 || y > VIEW_H + 8) continue;
+      ctx.fillStyle = "rgba(16, 16, 24, 0.18)";
+      rect(x + 2, y + 7, 4, 1);
+      drawBird(x, y, Math.floor(state.time * 7 + i * 1.5) % 2);
+    }
+  }
+
+  function drawLobbyBirds(cam) {
+    for (let i = 0; i < 3; i += 1) {
+      const wx = mod(state.time * (26 + i * 8) + i * 197, WORLD_W + 60) - 30;
+      const wy = 58 + i * 9 + Math.sin(state.time * 2 + i * 2.6) * 4;
+      const x = Math.round(wx - cam);
+      const y = Math.round(wy);
+      if (x < -10 || x > VIEW_W + 10 || y < -6 || y > VIEW_H) continue;
+      drawBird(x, y, Math.floor(state.time * 8 + i * 1.3) % 2);
+    }
+  }
+
+  function drawOwTaxi(x, y, axis, dir) {
+    if (axis === "h") {
+      ctx.fillStyle = "#111318";
+      rect(x + 1, y + 6, 2, 3);
+      rect(x + 11, y + 6, 2, 3);
+      ctx.fillStyle = palette.yellow;
+      rect(x, y + 1, 14, 6);
+      ctx.fillStyle = palette.orange;
+      rect(x, y + 1, 14, 1);
+      ctx.fillStyle = "#1c2a3a";
+      rect(dir > 0 ? x + 9 : x + 1, y + 2, 4, 3);
+      rect(x + 4, y + 2, 3, 3);
+      ctx.fillStyle = palette.ink;
+      rect(x + 5, y + 3, 4, 2);
+      ctx.fillStyle = palette.white;
+      rect(dir > 0 ? x + 13 : x, y + 3, 1, 2);
+    } else {
+      ctx.fillStyle = "#111318";
+      rect(x + 1, y + 2, 3, 2);
+      rect(x + 6, y + 11, 3, 2);
+      ctx.fillStyle = palette.yellow;
+      rect(x + 1, y, 8, 14);
+      ctx.fillStyle = palette.orange;
+      rect(dir > 0 ? x + 1 : x + 8, y, 1, 14);
+      ctx.fillStyle = "#1c2a3a";
+      rect(x + 2, dir > 0 ? y + 9 : y + 2, 6, 3);
+      ctx.fillStyle = palette.ink;
+      rect(x + 3, y + 6, 4, 2);
     }
   }
 
@@ -3486,36 +4428,65 @@
   // bobbing speech bubble until they've been passed (greeted).
   function drawOwNpc(npc, x, y) {
     const bob = Math.floor(state.time * 2) % 2;
-    // Body.
+    // Wall Street era additions: fink/saylor/banker/analyst/cabbie/vendor join
+    // the L4 cast. `hair: null` reads as bald; `cap` swaps hair for a cap;
+    // `glasses` draws a shades band; `apron` a white front panel. The bubble
+    // letter/color come from the outfit so bitcoiners bubble "B" orange.
     const outfits = {
       dokwon: { top: palette.ink2, head: palette.paper, hair: palette.ink },
       sbf: { top: palette.gray, head: palette.paper, hair: palette.brown2 },
       vitalik: { top: palette.violet, head: palette.paper, hair: palette.brown },
       influencer: { top: palette.yellow, head: palette.paper, hair: palette.orange2 },
-      maxi: { top: palette.orange, head: palette.paper, hair: palette.brown2 },
-      warner: { top: palette.red, head: palette.paper, hair: palette.gray }
+      maxi: { top: palette.orange, head: palette.paper, hair: palette.brown2, bubble: "B", bubbleColor: palette.orange },
+      warner: { top: palette.blue2, head: palette.paper, cap: palette.blue2, bubble: "!", bubbleColor: palette.red },
+      fink: { top: palette.blue2, head: palette.paper, hair: palette.gray, glasses: true },
+      saylor: { top: "#3a4a6a", head: palette.paper, hair: null, bubble: "B", bubbleColor: palette.orange },
+      banker: { top: palette.gray2, head: palette.paper, hair: palette.ink },
+      analyst: { top: palette.violet, head: palette.paper, hair: "#d8a850" },
+      cabbie: { top: palette.yellow, head: palette.paper, cap: palette.brown2 },
+      vendor: { top: palette.white, head: palette.paper, hair: palette.brown, apron: true }
     };
     const look = outfits[npc.kind] || outfits.maxi;
-    ctx.fillStyle = look.hair;
-    rect(x + 4, y - 2, 8, 3);
+    // Ground shadow.
+    ctx.fillStyle = "rgba(16, 16, 24, 0.25)";
+    rect(x + 2, y + 15, 12, 2);
+    if (look.cap) {
+      // Cap with a small brim toward the camera.
+      ctx.fillStyle = look.cap;
+      rect(x + 4, y - 2, 8, 3);
+      rect(x + 3, y + 1, 10, 1);
+    } else if (look.hair) {
+      ctx.fillStyle = look.hair;
+      rect(x + 4, y - 2, 8, 3);
+    }
     ctx.fillStyle = look.head;
     rect(x + 4, y + 1, 8, 5);
     ctx.fillStyle = palette.ink;
-    rect(x + 6, y + 3, 1, 1);
-    rect(x + 9, y + 3, 1, 1);
+    if (look.glasses) {
+      // Shades band across the face.
+      rect(x + 5, y + 3, 6, 1);
+    } else {
+      rect(x + 6, y + 3, 1, 1);
+      rect(x + 9, y + 3, 1, 1);
+    }
     ctx.fillStyle = look.top;
     rect(x + 3, y + 6, 10, 7);
+    if (look.apron) {
+      ctx.fillStyle = palette.paper2;
+      rect(x + 5, y + 7, 6, 6);
+    }
     ctx.fillStyle = palette.ink2;
     rect(x + 4, y + 13, 3, 3);
     rect(x + 9, y + 13, 3, 3);
-    // Speech bubble while their line is still coming. The warner shows "!"
-    // (a warning, not a pitch); everyone else shows "$".
+    // Speech bubble while their line is still coming.
+    const bubbleChar = look.bubble || "$";
+    const bubbleColor = look.bubbleColor || palette.ink;
     if (!npc.greeted) {
       ctx.fillStyle = palette.paper;
       rect(x + 11, y - 9 - bob, 9, 7);
       rect(x + 12, y - 2 - bob, 2, 2);
-      ctx.fillStyle = npc.kind === "warner" ? palette.red : palette.ink;
-      text(npc.kind === "warner" ? "!" : "$", x + 14, y - 3 - bob, 6);
+      ctx.fillStyle = bubbleColor;
+      text(bubbleChar, x + 14, y - 3 - bob, 6);
     }
   }
 
@@ -3525,6 +4496,9 @@
   function drawOwWalker(x, y) {
     const step = owPlayer.moving ? Math.floor(state.time * 8) % 2 : 0;
     const f = owPlayer.facing;
+    // Ground shadow.
+    ctx.fillStyle = "rgba(16, 16, 24, 0.25)";
+    rect(x + 1, y + 13, 9, 2);
     // Feet.
     ctx.fillStyle = palette.brown;
     if (f === "left" || f === "right") {
@@ -3574,6 +4548,10 @@
     }
     if (theme === "mania") {
       drawManiaBackdrop(cam);
+      return;
+    }
+    if (theme === "wallstreet") {
+      drawWallStreetBackdrop(cam);
       return;
     }
 
@@ -3727,29 +4705,39 @@
     }
   }
 
-  // Level 4 venue interior backdrop — the beat-em-up wall (TMNT-arcade style):
-  // a brick wall with a baseboard, hype posters, and a price ticker whose
-  // candles are keyed off world x and the integer run tick, so the room is
+  // Level 4 venue interior backdrop — the beat-em-up bar wall, TMNT-arcade
+  // style: individually beveled bricks with mortar grout and hashed tone
+  // variation, a mostly-red price ticker (it's 2022), flickering neon signs
+  // (100x / MOON / HODL), and wall-mounted TVs streaming candle charts that
+  // scroll with the run tick. Everything keyed off world x + integer ticks —
   // pixel-stable and deterministic on every attempt.
   function drawManiaBackdrop(cam) {
-    // Brick wall.
-    const off = mod(-Math.floor(cam * 0.7), 24);
-    ctx.fillStyle = "#3a2b2b";
-    ctx.fillRect(0, 60, VIEW_W, 144);
-    ctx.fillStyle = "#2c2020";
-    for (let row = 0; row < 18; row += 1) {
+    const px = Math.floor(cam * 0.7);
+    // Brick wall: dark grout base, then beveled bricks (lit top/left edge,
+    // dark bottom) in five hashed tones so the wall has real depth.
+    const off = mod(-px, 24);
+    ctx.fillStyle = "#241a1a";
+    ctx.fillRect(0, 60, VIEW_W, 136);
+    const tones = ["#4a3636", "#442f2f", "#503a3a", "#3f2c2c", "#553d3d"];
+    for (let row = 0; row < 17; row += 1) {
       const y = 60 + row * 8;
-      rect(0, y, VIEW_W, 1);
       const stagger = (row % 2) * 12;
-      for (let x = off - 24 + stagger; x < VIEW_W + 24; x += 24) rect(x, y, 1, 8);
+      for (let bx = off - 24 + stagger; bx < VIEW_W + 24; bx += 24) {
+        ctx.fillStyle = tones[mod(Math.floor((bx + px) / 12), tones.length)];
+        rect(bx, y, 22, 7);
+        ctx.fillStyle = "#5f4848";
+        rect(bx, y, 22, 1);
+        rect(bx, y, 1, 7);
+        ctx.fillStyle = "#2c2020";
+        rect(bx, y + 6, 22, 1);
+      }
     }
-    // Baseboard.
-    ctx.fillStyle = "#221818";
-    ctx.fillRect(0, 196, VIEW_W, 8);
     // Ticker tape near the ceiling: green/red candles — mostly red, it's 2022.
     const toff = mod(-Math.floor(cam * 0.85), 14);
     ctx.fillStyle = "#151019";
     ctx.fillRect(0, 64, VIEW_W, 14);
+    ctx.fillStyle = "#3a2530";
+    ctx.fillRect(0, 64, VIEW_W, 1);
     for (let x = toff - 14; x < VIEW_W + 14; x += 14) {
       const k = mod(Math.floor((x + Math.floor(cam * 0.85)) / 14), 5);
       const up = k === 1;
@@ -3757,28 +4745,196 @@
       rect(x + 5, up ? 67 : 70, 4, up ? 8 : 5);
       rect(x + 6, 65, 1, 12);
     }
-    // Posters between bricks: "100x", a rocket, a dog coin.
-    const poff = mod(-Math.floor(cam * 0.7), 132);
-    for (let x = poff - 132; x < VIEW_W + 132; x += 132) {
-      ctx.fillStyle = palette.paper2;
-      rect(x + 8, 96, 26, 34);
-      ctx.fillStyle = palette.red;
-      text("100x", x + 11, 110, 8);
-      ctx.fillStyle = palette.ink2;
-      text("!!!", x + 14, 122, 7);
-      ctx.fillStyle = "#f2e2b8";
-      rect(x + 72, 104, 24, 26);
-      ctx.fillStyle = palette.orange2;
-      rect(x + 80, 108, 8, 8);
-      ctx.fillStyle = palette.ink;
-      rect(x + 82, 110, 2, 2);
-      ctx.fillStyle = palette.violet;
-      rect(x + 78, 118, 12, 3);
+    // Neon signs hanging on chains, each flickering on its own hash clock:
+    // "100x" red, "MOON" violet with a rocket, "HODL" green.
+    const soff = mod(-px, 132);
+    const signs = [
+      { label: "100x", color: palette.red },
+      { label: "MOON", color: palette.violet },
+      { label: "HODL", color: palette.green }
+    ];
+    for (let x = soff - 132; x < VIEW_W + 132; x += 132) {
+      const idx = mod(Math.round((x + px) / 132), signs.length * 7);
+      const sign = signs[idx % signs.length];
+      const lit = mod(Math.floor(state.time * 9) + idx, 11) > 1;
+      // Chains.
+      ctx.fillStyle = "#181212";
+      rect(x + 12, 78, 1, 8);
+      rect(x + 28, 78, 1, 8);
+      // Board with bevel; dark when the flicker is off.
+      ctx.fillStyle = "#181212";
+      rect(x + 6, 86, 30, 16);
+      ctx.fillStyle = lit ? "#241a20" : "#141014";
+      rect(x + 8, 88, 26, 12);
+      if (lit) {
+        ctx.fillStyle = sign.color;
+        text(sign.label, x + 11, 97, 8);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        rect(x + 9, 89, 24, 1);
+        if (sign.label === "MOON") {
+          ctx.fillStyle = palette.orange;
+          rect(x + 30, 90, 3, 3);
+          ctx.fillStyle = palette.yellow;
+          rect(x + 31, 94, 1, 2);
+        }
+      }
+      // Wall TV streaming a scrolling candle chart.
+      const tvx = x + 72;
+      ctx.fillStyle = "#18120e";
+      rect(tvx, 92, 34, 24);
+      ctx.fillStyle = "#101810";
+      rect(tvx + 2, 94, 30, 20);
+      const tick = Math.floor(state.time * 2);
+      for (let c = 0; c < 5; c += 1) {
+        const h = 3 + mod(c * 7 + tick, 6);
+        const cxp = tvx + 4 + c * 6;
+        ctx.fillStyle = mod(c + tick, 3) === 0 ? palette.red : palette.green;
+        rect(cxp, 111 - h - mod(c * 3, 3), 3, h);
+      }
+      // Stand.
+      ctx.fillStyle = "#18120e";
+      rect(tvx + 13, 116, 8, 3);
     }
+    // Baseboard.
+    ctx.fillStyle = "#221818";
+    ctx.fillRect(0, 196, VIEW_W, 8);
+  }
+
+  // Level 5 venue interior backdrop — a corporate lobby done up for the
+  // adoption era: ticker tape up top, a dark cornice, hanging brass lamps
+  // with light cones, marble panels veined with seams, brass-framed windows
+  // on a morning skyline (every third bay is a brass elevator), potted palms,
+  // wood wainscot, and a mostly-GREEN ticker (contrast with Level 4's red
+  // mania tape). All parallax keyed off world x and the integer run tick —
+  // pixel-stable and deterministic on every timed attempt.
+  function drawWallStreetBackdrop(cam) {
+    const px = cam * 0.7;
+    // Ticker tape near the ceiling.
+    ctx.fillStyle = "#141a20";
+    ctx.fillRect(0, 34, VIEW_W, 14);
+    ctx.fillStyle = "#b9a05a";
+    ctx.fillRect(0, 34, VIEW_W, 1);
+    ctx.fillRect(0, 47, VIEW_W, 1);
+    const toff = mod(-Math.floor(cam * 0.85), 14);
+    for (let x = toff - 14; x < VIEW_W + 14; x += 14) {
+      const k = mod(Math.floor((x + Math.floor(cam * 0.85)) / 14), 5);
+      const up = k !== 2;
+      ctx.fillStyle = up ? palette.green : palette.red;
+      rect(x + 5, up ? 37 : 41, 4, up ? 7 : 4);
+      rect(x + 6, 35, 1, 10);
+    }
+    // Cornice between ticker and marble.
+    ctx.fillStyle = "#241d15";
+    ctx.fillRect(0, 48, VIEW_W, 8);
+    ctx.fillStyle = "#b9a05a";
+    ctx.fillRect(0, 55, VIEW_W, 1);
+    // Marble upper wall.
+    ctx.fillStyle = "#cdc2a6";
+    ctx.fillRect(0, 56, VIEW_W, 80);
+    const voff = mod(-Math.floor(px), 160);
+    ctx.fillStyle = "#bdb192";
+    for (let x = voff - 160; x < VIEW_W + 160; x += 160) {
+      rect(x + 18, 74, 26, 1);
+      rect(x + 30, 78, 18, 1);
+      rect(x + 96, 94, 22, 1);
+      rect(x + 108, 98, 12, 1);
+      rect(x, 56, 1, 80);
+    }
+    // Bays of 128px: banner, window or elevator, pilaster, lamp, plant.
+    const boff = mod(-Math.floor(px), 128);
+    const bayBase = Math.floor(px / 128) * 128;
+    for (let x = boff - 128; x < VIEW_W + 128; x += 128) {
+      const bay = mod(Math.round((x + Math.floor(px)) / 128), 97);
+      // Adoption banner on the left of the bay.
+      ctx.fillStyle = palette.orange;
+      rect(x + 4, 62, 18, 24);
+      rect(x + 4, 86, 18, 3);
+      ctx.fillStyle = palette.ink;
+      text("B", x + 9, 80, 12);
+      if (mod(bay, 3) === 2) {
+        // Elevator bay: gold frame, steel doors, arrival lamp.
+        ctx.fillStyle = "#8a6a2e";
+        rect(x + 34, 64, 52, 54);
+        ctx.fillStyle = "#9aa2ac";
+        rect(x + 37, 67, 46, 48);
+        ctx.fillStyle = "#7a828c";
+        rect(x + 59, 67, 2, 48);
+        ctx.fillStyle = "#c6ced8";
+        rect(x + 38, 68, 20, 1);
+        rect(x + 61, 68, 20, 1);
+        ctx.fillStyle = Math.floor(state.time * 2) % 2 ? palette.green : palette.red;
+        rect(x + 57, 60, 6, 3);
+      } else {
+        // Window bay: morning skyline behind brass mullions.
+        ctx.fillStyle = "#8a6a2e";
+        rect(x + 34, 64, 52, 54);
+        ctx.fillStyle = "#9cc8ec";
+        rect(x + 37, 67, 46, 48);
+        ctx.fillStyle = "#6e87a8";
+        rect(x + 41, 90, 10, 25);
+        rect(x + 53, 82, 8, 33);
+        rect(x + 63, 95, 12, 20);
+        rect(x + 77, 86, 7, 29);
+        ctx.fillStyle = "#57657a";
+        rect(x + 43, 93, 2, 3);
+        rect(x + 56, 86, 2, 3);
+        rect(x + 67, 99, 2, 3);
+        ctx.fillStyle = "rgba(244, 234, 210, 0.35)";
+        rect(x + 39, 69, 5, 44);
+      }
+      // Pilaster between bays: stone column with capital and base.
+      ctx.fillStyle = "#b3a78a";
+      rect(x + 94, 58, 8, 76);
+      ctx.fillStyle = "#c4b89a";
+      rect(x + 94, 58, 2, 76);
+      ctx.fillStyle = "#8f8468";
+      rect(x + 92, 56, 12, 3);
+      rect(x + 92, 130, 12, 4);
+      // Hanging brass lamp with a soft light cone.
+      ctx.fillStyle = "#241d15";
+      rect(x + 62, 56, 1, 12);
+      ctx.fillStyle = "#b9a05a";
+      rect(x + 58, 68, 9, 4);
+      ctx.fillStyle = palette.yellow;
+      rect(x + 60, 71, 5, 2);
+      ctx.fillStyle = "rgba(255, 209, 102, 0.08)";
+      triangle(x + 58, 73, x + 67, 73, x + 72, 120);
+      triangle(x + 58, 73, x + 67, 73, x + 53, 120);
+      // Potted palm against the wainscot line.
+      if (mod(bay, 2) === 0) {
+        ctx.fillStyle = "#8a5230";
+        rect(x + 112, 122, 10, 8);
+        ctx.fillStyle = "#6b3e22";
+        rect(x + 112, 122, 10, 2);
+        ctx.fillStyle = "#2f7a42";
+        rect(x + 107, 110, 20, 3);
+        rect(x + 111, 104, 12, 3);
+        rect(x + 109, 115, 16, 3);
+        ctx.fillStyle = "#3f9455";
+        rect(x + 113, 105, 4, 2);
+      }
+    }
+    // Wood wainscot with inset panels.
+    ctx.fillStyle = "#4a3527";
+    ctx.fillRect(0, 136, VIEW_W, 60);
+    const doff = mod(-Math.floor(px), 48);
+    for (let x = doff - 48; x < VIEW_W + 48; x += 48) {
+      ctx.fillStyle = "#5c4432";
+      rect(x + 6, 142, 36, 44);
+      ctx.fillStyle = "#6d5238";
+      rect(x + 8, 144, 32, 2);
+      ctx.fillStyle = "#3a291d";
+      rect(x + 10, 148, 28, 34);
+    }
+    // Brass rail and dark baseboard.
+    ctx.fillStyle = "#b9a05a";
+    ctx.fillRect(0, 133, VIEW_W, 3);
+    ctx.fillStyle = "#2a2018";
+    ctx.fillRect(0, 194, VIEW_W, 6);
   }
 
   function drawSunMoon(cam, zone) {
-    if (getTheme() === "mania") return; // venue interiors have no sky
+    if (getTheme() === "mania" || getTheme() === "wallstreet") return; // interiors have no sky
     const x = 196 - Math.floor(cam * 0.03) % 80;
     if (getTheme() === "tour") {
       // The globe the tour is crossing — landmasses plus two adoption beacons
@@ -3823,13 +4979,46 @@
       if (solid.kind === "ground") {
         ctx.fillStyle = zone.ground;
         rect(x, solid.y, solid.w, solid.h);
-        // Top edge + vertical seams. The network theme uses a terminal-green
-        // "circuit floor" trim, the tour theme a gold "tour route" trim, and
-        // the city theme keeps its grey → green-grass zone transition.
+        // Wall Street lobbies walk on checkered marble: alternating slabs
+        // across the visible span with a soft sheen line under the trim.
+        if (getTheme() === "wallstreet") {
+          const fromCol = Math.max(0, Math.floor(cam / TILE));
+          const toCol = fromCol + VIEW_W / TILE + 1;
+          for (let col = fromCol; col <= toCol; col += 1) {
+            const sx = col * TILE - cam;
+            if (sx < -TILE || sx > VIEW_W) continue;
+            ctx.fillStyle = mod(col, 2) === 0 ? "#5a5548" : "#4e4940";
+            rect(sx, solid.y + 3, TILE, solid.h - 3);
+            ctx.fillStyle = "rgba(244, 234, 210, 0.06)";
+            rect(sx, solid.y + 3, TILE, 1);
+          }
+        }
+        // Mania venues roll out casino carpet: deep-red checker with brass
+        // flecks every fourth column.
+        if (getTheme() === "mania") {
+          const fromCol = Math.max(0, Math.floor(cam / TILE));
+          const toCol = fromCol + VIEW_W / TILE + 1;
+          for (let col = fromCol; col <= toCol; col += 1) {
+            const sx = col * TILE - cam;
+            if (sx < -TILE || sx > VIEW_W) continue;
+            ctx.fillStyle = mod(col, 2) === 0 ? "#57232f" : "#451d27";
+            rect(sx, solid.y + 3, TILE, solid.h - 3);
+            if (mod(col, 4) === 0) {
+              ctx.fillStyle = "#6b2f3d";
+              rect(sx + 7, solid.y + 9, 2, 2);
+              rect(sx + 4, solid.y + 16, 2, 2);
+              rect(sx + 10, solid.y + 22, 2, 2);
+            }
+          }
+        }
+        // Top edge + vertical seams. Each theme gets its own trim: network's
+        // terminal-green circuit, tour's gold route line, mania's bar brass,
+        // wallstreet's polished brass, and the city theme keeps its grey →
+        // green-grass zone transition.
         const theme = getTheme();
-        ctx.fillStyle = theme === "network" ? "#3ad17a" : theme === "tour" ? "#ffd166" : theme === "mania" ? "#8a6a4e" : state.currentZone < 3 ? "#70745f" : "#54c35d";
-        rect(x, solid.y, solid.w, theme === "network" ? 2 : theme === "tour" || theme === "mania" ? 3 : 4);
-        ctx.fillStyle = theme === "network" ? "#143a28" : theme === "tour" ? "#5a3110" : theme === "mania" ? "#221818" : state.currentZone < 3 ? "#262929" : "#225f35";
+        ctx.fillStyle = theme === "network" ? "#3ad17a" : theme === "tour" ? "#ffd166" : theme === "mania" ? "#8a6a4e" : theme === "wallstreet" ? "#b9a05a" : state.currentZone < 3 ? "#70745f" : "#54c35d";
+        rect(x, solid.y, solid.w, theme === "network" ? 2 : theme === "tour" || theme === "mania" || theme === "wallstreet" ? 3 : 4);
+        ctx.fillStyle = theme === "network" ? "#143a28" : theme === "tour" ? "#5a3110" : theme === "mania" || theme === "wallstreet" ? "#221818" : state.currentZone < 3 ? "#262929" : "#225f35";
         for (let tx = x - mod(x, TILE); tx < x + solid.w; tx += TILE) {
           rect(tx, solid.y + 16, 1, solid.h - 16);
         }
@@ -3849,21 +5038,85 @@
           rect(px + 1, solid.y + 4, 6, solid.h - 4);
         }
       } else if (solid.kind === "question") {
-        ctx.fillStyle = solid.hit ? palette.gray : palette.yellow;
-        rect(x, solid.y, solid.w, solid.h);
-        ctx.fillStyle = solid.hit ? palette.gray2 : palette.orange2;
-        rect(x, solid.y, solid.w, 2);
-        rect(x, solid.y + solid.h - 2, solid.w, 2);
-        rect(x + 2, solid.y + 4, solid.w - 4, 1);
-        ctx.fillStyle = solid.hit ? palette.paper2 : palette.ink;
-        text(solid.hit ? "." : "?", x + 5, solid.y + 11, 8);
+        if (getTheme() === "wallstreet") {
+          // Brass plaque with corner rivets and an engraved "?".
+          ctx.fillStyle = solid.hit ? "#6f6a5c" : "#8a6a2e";
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = solid.hit ? "#8d8878" : "#c9a44a";
+          rect(x + 1, solid.y + 1, solid.w - 2, solid.h - 2);
+          ctx.fillStyle = solid.hit ? "#5a564c" : "#6f5522";
+          rect(x + 2, solid.y + 2, 1, 1);
+          rect(x + solid.w - 3, solid.y + 2, 1, 1);
+          rect(x + 2, solid.y + solid.h - 3, 1, 1);
+          rect(x + solid.w - 3, solid.y + solid.h - 3, 1, 1);
+          ctx.fillStyle = solid.hit ? palette.paper2 : palette.ink;
+          text("?", x + 5, solid.y + 11, 8);
+        } else {
+          ctx.fillStyle = solid.hit ? palette.gray : palette.yellow;
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = solid.hit ? palette.gray2 : palette.orange2;
+          rect(x, solid.y, solid.w, 2);
+          rect(x, solid.y + solid.h - 2, solid.w, 2);
+          rect(x + 2, solid.y + 4, solid.w - 4, 1);
+          if (getTheme() === "mania") {
+            // Casino gold block: beveled edges and a shine speck.
+            ctx.fillStyle = solid.hit ? "#7a7670" : "#ffe7a8";
+            rect(x + 1, solid.y + 2, solid.w - 2, 1);
+            rect(x + 1, solid.y + 2, 1, solid.h - 4);
+            if (!solid.hit && mod(Math.floor(state.time * 3), 4) !== 0) {
+              ctx.fillStyle = palette.white;
+              rect(x + solid.w - 6, solid.y + 4, 2, 2);
+            }
+          }
+          ctx.fillStyle = solid.hit ? palette.paper2 : palette.ink;
+          text(solid.hit ? "." : "?", x + 5, solid.y + 11, 8);
+        }
       } else if (solid.kind === "ledger") {
-        ctx.fillStyle = palette.blue2;
-        rect(x, solid.y, solid.w, solid.h);
-        ctx.fillStyle = palette.blue;
-        rect(x, solid.y, solid.w, 3);
-        ctx.fillStyle = palette.paper2;
-        for (let i = 6; i < solid.w - 6; i += 14) rect(x + i, solid.y + 6, 6, 2);
+        if (getTheme() === "wallstreet") {
+          // Mahogany conference desk: beveled top slab with stacked paperwork.
+          ctx.fillStyle = "#4a3320";
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = "#6b4a30";
+          rect(x, solid.y, solid.w, solid.h - 4);
+          ctx.fillStyle = "#8a6242";
+          rect(x, solid.y, solid.w, 1);
+          ctx.fillStyle = "#3a291d";
+          rect(x + 2, solid.y + solid.h - 3, 2, 3);
+          rect(x + solid.w - 4, solid.y + solid.h - 3, 2, 3);
+          ctx.fillStyle = palette.paper;
+          rect(x + 6, solid.y + 6, 9, 2);
+          ctx.fillStyle = palette.paper2;
+          rect(x + solid.w - 16, solid.y + 8, 7, 2);
+          ctx.fillStyle = palette.orange;
+          rect(x + 9, solid.y + 6, 3, 1);
+        } else if (getTheme() === "mania") {
+          // Shitcoin-crate platform: plank frame with a diagonal brace,
+          // corner nails, and a stenciled tag.
+          ctx.fillStyle = "#6b4a26";
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = "#83593a";
+          rect(x + 1, solid.y + 1, solid.w - 2, 2);
+          ctx.fillStyle = "#4a3018";
+          rect(x, solid.y + solid.h - 2, solid.w, 2);
+          rect(x + solid.w - 2, solid.y, 2, solid.h);
+          rect(x, solid.y, 2, solid.h);
+          ctx.fillStyle = "#7a4f28";
+          for (let i = 0; i < solid.w - 6; i += 3) {
+            rect(x + 3 + i, solid.y + 4 + Math.floor((i / Math.max(1, solid.w - 6)) * (solid.h - 8)), 2, 3);
+          }
+          ctx.fillStyle = palette.paper2;
+          rect(x + 3, solid.y + 3, 2, 2);
+          rect(x + solid.w - 5, solid.y + 3, 2, 2);
+          rect(x + 3, solid.y + solid.h - 5, 2, 2);
+          rect(x + solid.w - 5, solid.y + solid.h - 5, 2, 2);
+        } else {
+          ctx.fillStyle = palette.blue2;
+          rect(x, solid.y, solid.w, solid.h);
+          ctx.fillStyle = palette.blue;
+          rect(x, solid.y, solid.w, 3);
+          ctx.fillStyle = palette.paper2;
+          for (let i = 6; i < solid.w - 6; i += 14) rect(x + i, solid.y + 6, 6, 2);
+        }
       } else if (solid.kind === "confirm") {
         // Confirmed = solid green block with a check tick; unconfirmed = a dim
         // green ghost outline so the player can read where it will return and
@@ -3939,7 +5192,7 @@
       if (coin.taken) continue;
       const x = Math.round(coin.x - cam);
       if (x < -8 || x > VIEW_W + 8) continue;
-      if (theme === "tour" || theme === "mania") {
+      if (theme === "tour" || theme === "mania" || theme === "wallstreet") {
         // SATS tips: an orange sat with a lightning glint — value tossed from
         // the crowd to the stage. Distinct from L1's plain gold coin and L2's
         // green-ringed token.
@@ -3978,6 +5231,23 @@
       const x = Math.round(page.x - cam);
       if (x < -12 || x > VIEW_W + 12) continue;
       const bob = Math.round(Math.sin(state.time * 5 + page.x) * 2);
+      if (theme === "wallstreet") {
+        // VAULT KEY: a heavy gold key — bow, shaft, teeth. The L5 milestone
+        // collectible (KEYS taken from the institutions' own vaults).
+        const yb = page.y + bob;
+        ctx.fillStyle = palette.orange2;
+        rect(x + 1, yb + 2, 6, 6);
+        ctx.fillStyle = palette.yellow;
+        rect(x + 2, yb + 3, 4, 4);
+        ctx.fillStyle = palette.orange;
+        rect(x + 3, yb + 4, 2, 2);
+        ctx.fillStyle = palette.orange2;
+        rect(x + 7, yb + 4, 6, 2);
+        ctx.fillStyle = palette.yellow;
+        rect(x + 10, yb + 6, 2, 2);
+        rect(x + 12, yb + 6, 1, 3);
+        continue;
+      }
       if (theme === "mania") {
         // WHALE STASH: a small hardware-wallet case — grey shell, orange ₿
         // clasp, a green status pip. The L4 milestone collectible.
@@ -4214,13 +5484,65 @@
   function drawGoal(cam) {
     const x = Math.round(goal.x - cam);
     if (x < -40 || x > VIEW_W + 40) return;
+    if (getTheme() === "wallstreet") {
+      if (goal.kind === "up" || goal.kind === "down") {
+        // Stairwell: steps running toward a landing door, with a flashing
+        // sign. UP rises to the right; DN descends to the right.
+        const up = goal.kind === "up";
+        ctx.fillStyle = "#2a2018";
+        rect(x - 2, goal.y - 2, goal.w + 8, goal.h + 4);
+        for (let i = 0; i < 4; i += 1) {
+          const step = up ? i : 3 - i;
+          const top = goal.y + goal.h - 12 - step * 12;
+          const w = goal.w - (up ? i : 3 - i) * 7;
+          ctx.fillStyle = "#8d8474";
+          rect(x + i * 7, top, w, 12);
+          ctx.fillStyle = "#a89e8a";
+          rect(x + i * 7, top, w, 2);
+        }
+        // Landing door at the tall end.
+        const dx = up ? x + goal.w - 14 : x - 6;
+        ctx.fillStyle = palette.ink2;
+        rect(dx, goal.y - 8, 18, 26);
+        ctx.fillStyle = up ? "#7a5a2e" : "#3a4a5e";
+        rect(dx + 2, goal.y - 6, 14, 22);
+        ctx.fillStyle = palette.yellow;
+        rect(dx + 4, goal.y + 2, 2, 2);
+        // Flashing direction sign.
+        const flash = Math.floor(state.time * 3) % 2 === 0;
+        ctx.fillStyle = flash ? palette.yellow : "#8a6a2e";
+        rect(x + 2, goal.y - 16, 24, 10);
+        ctx.fillStyle = palette.ink;
+        text(up ? "UP >" : "< DN", x + 3, goal.y - 8, 7);
+        return;
+      }
+      // Final-floor EXIT: a brass double door. Green when every agent in the
+      // building has been stomped this visit, red while any remain.
+      const totals = venueEnemyTotals();
+      const cleared = state.venuesCleared.includes(state.venueKey) ||
+        (totals.total > 0 && totals.killed >= totals.total);
+      ctx.fillStyle = palette.ink;
+      rect(x - 2, goal.y - 2, goal.w + 6, goal.h + 4);
+      ctx.fillStyle = "#8a6a2e";
+      rect(x, goal.y, goal.w + 2, goal.h);
+      ctx.fillStyle = palette.ink2;
+      rect(x + 2, goal.y + 2, goal.w - 2, goal.h - 4);
+      ctx.fillStyle = cleared ? "#3ad17a" : palette.red;
+      rect(x - 2, goal.y - 12, goal.w + 6, 8);
+      ctx.fillStyle = palette.white;
+      text("EXIT", x - 1, goal.y - 5, 6);
+      ctx.fillStyle = palette.yellow;
+      rect(x + goal.w / 2 - 1, goal.y + goal.h / 2, 2, 6);
+      return;
+    }
     if (getTheme() === "mania") {
       // Venue EXIT: a lit door back to the street. Green when the room is
       // cleared (this visit or a previous one — cleared venues rebuild no
       // enemies), red while shills remain. Either way it works; clearing is
       // what banks the split.
+      const totals = venueEnemyTotals();
       const cleared = state.venuesCleared.includes(state.venueKey) ||
-        (enemies.length > 0 && enemies.every((e) => !e.alive));
+        (totals.total > 0 && totals.killed >= totals.total);
       ctx.fillStyle = palette.ink;
       rect(x - 2, goal.y - 2, goal.w + 6, goal.h + 4);
       ctx.fillStyle = palette.ink2;
@@ -4289,10 +5611,17 @@
       if (x < -20 || x > VIEW_W + 20) continue;
 
       if (!enemy.alive) {
-        ctx.fillStyle = palette.red2;
-        rect(x, enemy.y + enemy.h - 5, enemy.w, 5);
+        // Defeated: a settling dust pile with a couple of star specks.
+        ctx.fillStyle = "#9a938a";
+        rect(x + 1, enemy.y + enemy.h - 4, enemy.w - 2, 4);
+        ctx.fillStyle = "#c0bab0";
+        rect(x + 3, enemy.y + enemy.h - 6, enemy.w - 6, 3);
         continue;
       }
+
+      // Ground shadow under every standing threat.
+      ctx.fillStyle = "rgba(16, 16, 24, 0.25)";
+      rect(x + 2, enemy.y + enemy.h - 1, 12, 2);
 
       // Level-2 threats have bespoke sprites (ticket 60f350ff) so the legacy
       // system reads distinctly at a glance. Level 1's banker/printer/miner fall
@@ -4301,7 +5630,7 @@
       if (enemy.type === "chargeback") { drawChargeback(x, enemy.y, enemy.w, enemy.h); continue; }
       if (enemy.type === "exploit") { drawExploit(x, enemy.y, enemy.w, enemy.h); continue; }
       if (enemy.type === "suit") { drawSuit(x, enemy.y); continue; }
-      if (enemy.type === "agent") { drawAgent(x, enemy.y); continue; }
+      if (enemy.type === "agent") { drawAgent(x, enemy.y, enemy); continue; }
       if (enemy.type === "wiretap") { drawWiretap(x, enemy.y); continue; }
       if (enemy.type === "shiller") { drawShiller(x, enemy.y); continue; }
       if (enemy.type === "rugpull") { drawRugpull(x, enemy.y); continue; }
@@ -4425,27 +5754,63 @@
     rect(x + 13, y + 12, 2, 1);
   }
 
-  // AGENT — a three-letter tail: black suit, shades band across the eyes, and
-  // a blue earpiece with a wire. Watches the messenger; can't stop the message.
-  function drawAgent(x, y) {
+  // AGENT — the Matrix-grade Wall Street tail: black suit with a charcoal
+  // sheen, white shirt and red tie, briefcase, and shades that catch a glint
+  // every few seconds. While `windup` runs he holds a coin aloft — the tell
+  // before the arcing shitcoin throw.
+  function drawAgent(x, y, enemy) {
+    const winding = enemy && enemy.windup > 0;
+    const seed = enemy ? enemy.x : 0;
+    const glint = mod(Math.floor(state.time * 3) + mod(seed, 7), 9) === 0;
+    const step = Math.abs(enemy.vx) > 0 && !winding ? Math.floor(state.time * 8 + seed) % 2 : 0;
+    // Shoes.
     ctx.fillStyle = palette.ink;
-    rect(x + 4, y + 14, 3, 4);
-    rect(x + 9, y + 14, 3, 4);
-    ctx.fillStyle = palette.ink2;
-    rect(x + 2, y + 6, 12, 9);
+    if (step === 0) {
+      rect(x + 3, y + 15, 4, 3);
+      rect(x + 9, y + 15, 4, 3);
+    } else {
+      rect(x + 2, y + 15, 4, 3);
+      rect(x + 10, y + 15, 4, 3);
+    }
+    // Suit body with sheen lapels.
     ctx.fillStyle = palette.ink;
-    rect(x + 2, y + 6, 3, 9);
-    rect(x + 11, y + 6, 3, 9);
+    rect(x + 1, y + 6, 14, 9);
+    ctx.fillStyle = "#35374e";
+    rect(x + 6, y + 6, 4, 6);
+    rect(x + 2, y + 6, 1, 9);
+    // Shirt V + red tie.
     ctx.fillStyle = palette.white;
     rect(x + 7, y + 7, 2, 3);
+    ctx.fillStyle = palette.red;
+    rect(x + 7, y + 9, 1, 3);
+    // Off arm + briefcase.
+    ctx.fillStyle = palette.ink;
+    rect(x - 1, y + 8, 2, 5);
+    ctx.fillStyle = palette.brown2;
+    rect(x - 3, y + 12, 5, 4);
+    ctx.fillStyle = palette.yellow;
+    rect(x - 2, y + 13, 2, 1);
+    // Throwing arm: cocked back with a coin while winding, else at rest.
+    ctx.fillStyle = palette.ink;
+    if (winding) {
+      rect(x + 14, y + 1, 2, 6);
+      ctx.fillStyle = palette.orange;
+      rect(x + 14, y - 2, 3, 3);
+      ctx.fillStyle = palette.yellow;
+      rect(x + 15, y - 1, 1, 1);
+    } else {
+      rect(x + 15, y + 8, 2, 5);
+    }
+    // Head: slick hair, pale face, shades.
     ctx.fillStyle = palette.paper;
-    rect(x + 4, y + 1, 8, 6);
+    rect(x + 4, y + 1, 8, 5);
     ctx.fillStyle = palette.ink;
     rect(x + 4, y, 8, 2);
     rect(x + 4, y + 3, 8, 2);
-    ctx.fillStyle = palette.blue;
-    rect(x + 12, y + 4, 2, 2);
-    rect(x + 13, y + 6, 1, 3);
+    if (glint) {
+      ctx.fillStyle = palette.white;
+      rect(x + 6, y + 3, 2, 1);
+    }
   }
 
   // WIRETAP — a listening bug on legs: grey shell, violet cap, dark mic grille,
@@ -4555,6 +5920,8 @@
     rect(x + 1, y + 5, 14, 10);
     ctx.fillStyle = palette.brown;
     rect(x + 2, y + 6, 12, 4);
+    ctx.fillStyle = "#9a7048";
+    rect(x + 2, y + 6, 12, 1);
     // Tokens piled in the hopper.
     ctx.fillStyle = palette.violet;
     rect(x + 3, y + 3, 4, 3);
@@ -4567,18 +5934,29 @@
     rect(aim > 0 ? x + 17 : x - 3, y + 9, 2, 2);
   }
 
-  // Projectiles. Enemy shitcoins spin (two-frame squash) so they read as the
-  // junk tokens they are; sat shots are quick orange bolts.
+  // Projectiles. Turret shitcoins spin (two-frame squash); lobbed coins from
+  // agents tumble through the air as proper little coins; sat shots are quick
+  // orange bolts.
   function drawShots(cam) {
     const spin = Math.floor(state.time * 10) % 2;
     for (const s of shots) {
       if (!s.alive) continue;
       const x = Math.round(s.x - cam);
       if (x < -10 || x > VIEW_W + 10) continue;
+      const y = Math.round(s.y);
+      if (s.lob) {
+        ctx.fillStyle = palette.brown2;
+        rect(x, y, 8, 8);
+        ctx.fillStyle = palette.brown;
+        rect(x + 1, y + 1, 6, 6);
+        ctx.fillStyle = palette.yellow;
+        rect(x + 2 + spin, y + 2, 3 - spin, 3);
+        continue;
+      }
       ctx.fillStyle = palette.brown;
-      rect(x + spin, Math.round(s.y), 8 - spin * 2, 8);
+      rect(x + spin, y, 8 - spin * 2, 8);
       ctx.fillStyle = palette.violet;
-      rect(x + 2, Math.round(s.y) + 2, 4 - spin, 4);
+      rect(x + 2, y + 2, 4 - spin, 4);
     }
     for (const s of satShots) {
       if (!s.alive) continue;

@@ -14,6 +14,15 @@ Level 4 (**SHITCOIN CITY**) is a top-down overworld: walk with WASD/arrows,
 step onto a numbered doorway to enter that venue as a side-view brawl, clear
 every venue, then enter the vault to finish the run.
 
+Level 5 (**WALL STREET**) scales that formula up into a New York style financial
+district: a bigger map with a park, crosswalks, steaming manholes, and taxi
+traffic that costs a life on contact. Saylor, Fink, and the freshly converted
+bankers work the streets — but inside each of the four buildings, Matrix-style
+agents in suits try to bounce you out. Every building has multiple floors
+linked by stairwells: climb UP to a roof exit or descend DOWN to a vault exit,
+and stomp every agent across all floors in one visit to bank the clear. Clear
+all four to wake the Charging Bull.
+
 ## Start
 
 ```bash
@@ -64,8 +73,8 @@ retry; a successful or duplicate submit locks it so the same run is not saved tw
 ### Viewing the Leaderboard
 
 The **LEADERBOARD** button on the title screen — and on the results screen after a
-run — opens an in-game rankings view. Tabs switch between the Level 1, Level 2,
-Level 3, and **COMBINED** boards; each row shows the rank, player name, final time,
+run — opens an in-game rankings view. Tabs switch between each level's board
+and the **COMBINED** board; each row shows the rank, player name, final time,
 and the run's context stats (deaths, coins, pages) plus the date. A run you
 submitted this session is highlighted. The view handles loading, empty, and
 storage-unavailable states cleanly, and **BACK** (or `Esc`) returns to where you
@@ -86,6 +95,7 @@ You can also open it from the browser console:
 eightBitSatoshi.openLeaderboard()                  // first board
 eightBitSatoshi.openLeaderboard("running-bitcoin") // Level 2 board
 eightBitSatoshi.openLeaderboard("internet-of-money") // Level 3 board
+eightBitSatoshi.openLeaderboard("wall-street")       // Level 5 board
 eightBitSatoshi.openLeaderboard("combined")        // combined total board
 ```
 
