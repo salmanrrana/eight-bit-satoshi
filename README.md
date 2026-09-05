@@ -23,6 +23,55 @@ linked by stairwells: climb UP to a roof exit or descend DOWN to a vault exit,
 and stomp every agent across all floors in one visit to bank the clear. Clear
 all four to wake the Charging Bull.
 
+Level 6 (**FOR THE PEOPLE**) is an arcade beat-em-up with **eight districts,
+sixteen fights, and 55 enemies**, ending at the **Bullshit Machine** boss. Its
+8,640-pixel street is three times the original Level 6 route. Choose a fighter
+on the title screen:
+
+| Fighter | Combo style | Signature throw | Charged special |
+| --- | --- | --- | --- |
+| Jack Mallers | Heavy uppercut | Lightning sats | People Power shockwave |
+| Satoshi | Sweeping kicks | Piercing Bitcoin discs | Genesis Spin coin ring |
+| CryptoWizzardd | Long staff strikes | Exploding shitcoins | Moonshot token storm |
+| Random Coder | Fast keyboard jabs | Flying keyboards | Hotfix heals and stuns |
+
+Move with **WASD / arrows**, hold **X / F** to chain attacks, press **Space** to
+jump, and attack in the air to jump-kick. Press **E / Q** near a chair, trash
+can, crate, cone, bottle, or shitcoin to pick it up; press again to throw it in
+the direction you face. Away from loose objects, the same key throws your
+fighter's signature projectile. Holding the key won't accidentally launch a
+fresh pickup. **C** uses your special when the green meter is full.
+
+Enemies also grab objects and throw their own junk. A **THROW!** tell warns you
+before they release; change lanes or jump to dodge. Missed enemy chairs, cans,
+tokens, and bottles can land as pickups. Heavy throws can bowl through more
+than one enemy, and exploding objects damage nearby crowds.
+
+Clear each crowd, then walk right when GO appears. Health partially refills
+between fights and districts; deaths use the shared three-life pool and preserve
+the current fight and run timer. Smash newsboxes for power secrets and crates
+for healing pizza. **P / Escape** pauses, **R** restarts, and **M** toggles sound.
+Touch has a four-way pad and Attack / Jump / Power / Grab–Throw buttons.
+
+The scenery uses a 640 × 360 coordinate system rendered into a 1280 × 720 canvas.
+Health, charge, score, time, dialogue, and item prompts are sharp HTML text
+outside the playfield, so the pixel effect doesn't blur essential instructions.
+
+The Level 6 story is an **alternate 2026 satire**, with imagined dialogue and
+events, rather than a news report. CryptoWizzardd, Willy Woo, Larry Fink and
+Michael Saylor appear as satirical cameos. Enemy crowds are fictional spin
+doctors, gatekeepers, token shills, and fiat enforcers.
+
+Jump directly to its local level selection at `http://127.0.0.1:5000/?level=6`.
+The first five levels keep their original graphics and play styles.
+
+## Deployment
+
+The live game is https://eight-bit-satoshi.netlify.app/. Netlify is connected to
+`salmanrrana/eight-bit-satoshi` and deploys the `main` branch. Run `npm run check`
+and `npm test` before pushing. Confirm the published Netlify deploy references
+the pushed commit before considering a release complete.
+
 ## Start
 
 ```bash
@@ -96,6 +145,7 @@ eightBitSatoshi.openLeaderboard()                  // first board
 eightBitSatoshi.openLeaderboard("running-bitcoin") // Level 2 board
 eightBitSatoshi.openLeaderboard("internet-of-money") // Level 3 board
 eightBitSatoshi.openLeaderboard("wall-street")       // Level 5 board
+eightBitSatoshi.openLeaderboard("for-the-people")    // Level 6 board
 eightBitSatoshi.openLeaderboard("combined")        // combined total board
 ```
 
@@ -103,7 +153,13 @@ eightBitSatoshi.openLeaderboard("combined")        // combined total board
 
 ```bash
 npm run check
+npm test
 ```
+
+The 15 focused Level 6 checks cover facing/lane collision, combos, jumping,
+special charge, life loss, pickup/carry/throw behavior, piercing hits, enemy
+throws and dodging, quick input taps, lethal hits at exits, and a complete input-only run with each
+of the four fighters through every district and the boss.
 
 ## Timing Rules
 
@@ -138,7 +194,9 @@ eightBitSatoshi.getLastRun()
 ## Personal Bests
 
 Best final time and checkpoint splits are saved per level in `localStorage`
-under the versioned key `8bit-satoshi:bests:v1`. To clear saved bests during
+under the versioned key `8bit-satoshi:bests:v1`. The extended Level 6 retires
+personal best times from its shorter route while preserving its cleared flag.
+To clear saved bests during
 development or testing, run this in the browser console and reload:
 
 ```js

@@ -7,7 +7,8 @@ plans/
 # Local design notes and legacy story-engine files are not needed for the
 # playable public build.
 8bit.md
-assets/
+assets/*
+!assets/brawler/
 js/animation.js
 js/audio.js
 js/chapters.js
@@ -29,3 +30,6 @@ server/data/
 # Brain Dump Ralph artifacts
 .ralph-prompt.md
 .ralph-services.json
+
+# Local screenshots from the arcade layout and gameplay checks.
+.impeccable/review/

@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-05T16:04:47.567673+00:00",
+  "title": "Design System: 8-Bit Satoshi",
+  "extensions": {
+    "colorMeta": {
+      "bitcoin": {
+        "role": "primary",
+        "displayName": "Bitcoin Orange"
+      },
+      "arcade-gold": {
+        "role": "primary",
+        "displayName": "Arcade Gold"
+      },
+      "arcade-mint": {
+        "role": "secondary",
+        "displayName": "People Power Mint"
+      },
+      "arcade-ink": {
+        "role": "neutral",
+        "displayName": "Arcade Ink"
+      },
+      "arcade-cream": {
+        "role": "neutral",
+        "displayName": "Warm Arcade Cream"
+      }
+    },
+    "typographyMeta": {
+      "arcade-label": {
+        "displayName": "Canvas labels",
+        "purpose": "Bold Arial, at least 11 logical pixels, with a dark outline behind light text."
+      },
+      "arcade-body": {
+        "displayName": "Arcade instructions",
+        "purpose": "16px Arial dialogue outside the canvas; 15px portrait, 14px short portrait, and 12px compact landscape."
+      },
+      "arcade-data": {
+        "displayName": "Arcade status",
+        "purpose": "14px Arial data with tabular numerals; stronger 18\u201320px names and district labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shared-action",
+        "value": "0 4px 0 var(--ink)",
+        "purpose": "Hard physical edge beneath menu controls."
+      },
+      {
+        "name": "arcade-frame",
+        "value": "0 12px 32px #080e15",
+        "purpose": "Soft depth under the Level 6 bezel."
+      }
+    ],
+    "motion": [
+      {
+        "name": "menu-press",
+        "value": "translateY(3px)",
+        "purpose": "Immediate pressed state; touch keys use 4px."
+      },
+      {
+        "name": "arcade-screen-shake",
+        "value": "3px",
+        "purpose": "Brief horizontal combat shake, disabled by prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "touch-layout",
+        "value": "(pointer: coarse), (max-width: 700px)"
+      },
+      {
+        "name": "arcade-side-controls",
+        "value": "(max-height: 480px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Shared action geometry; the secondary palette is scoped to Level 6.",
+      "html": "<button class=\"ds-button-primary\">LET'S GO</button>",
+      "css": ".ds-button-primary {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace; border:2px solid var(--outline, oklch(93% 0.018 80)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)); cursor:pointer; min-width:132px; min-height:44px; padding:0 18px; background:var(--bitcoin, oklch(72% 0.18 62)); color:var(--ink, oklch(8% 0.01 255)); font-weight:800;} .ds-button-primary:hover {filter:brightness(1.08);} .ds-button-primary:focus-visible {outline:3px solid var(--paper, oklch(93% 0.018 80)); outline-offset:4px;} .ds-button-primary:active {transform:translateY(3px); box-shadow:0 1px 0 var(--ink, oklch(8% 0.01 255));}"
+    },
+    {
+      "name": "Arcade secondary action",
+      "kind": "button",
+      "refersTo": "button-arcade-secondary",
+      "description": "Shared action geometry; the secondary palette is scoped to Level 6.",
+      "html": "<button class=\"ds-button-secondary\">LEVELS</button>",
+      "css": ".ds-button-secondary {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace; border:2px solid var(--outline, oklch(93% 0.018 80)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)); cursor:pointer; min-width:132px; min-height:44px; padding:0 18px; background:#293644; color:#ffe5b7; font-weight:800;} .ds-button-secondary:hover {filter:brightness(1.08);} .ds-button-secondary:focus-visible {outline:3px solid var(--paper, oklch(93% 0.018 80)); outline-offset:4px;} .ds-button-secondary:active {transform:translateY(3px); box-shadow:0 1px 0 var(--ink, oklch(8% 0.01 255));}"
+    },
+    {
+      "name": "Selected level card",
+      "kind": "card",
+      "refersTo": "level-card",
+      "description": "The level picker shows a number, title, and run status.",
+      "html": "<button class=\"ds-level-card\" role=\"radio\" aria-checked=\"true\"><span class=\"ds-level-number\">LEVEL 6</span><strong class=\"ds-level-title\">FOR THE PEOPLE</strong><span class=\"ds-level-status\">READY</span></button>",
+      "css": ".ds-level-card {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace; border:2px solid var(--outline, oklch(93% 0.018 80)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)); cursor:pointer; display:grid; gap:3px; min-width:140px; min-height:44px; padding:clamp(6px,1.6vw,10px); text-align:left; background:var(--panel-2, oklch(23% 0.025 255)); color:var(--paper, oklch(93% 0.018 80)); border-color:var(--bitcoin, oklch(72% 0.18 62)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)),inset 0 0 0 2px var(--bitcoin, oklch(72% 0.18 62));} .ds-level-title {font-size:14px; line-height:1.1; color:var(--bitcoin, oklch(72% 0.18 62)); font-weight:800;} .ds-level-number,.ds-level-status {font-size:11px; opacity:.7;} .ds-level-card:hover {filter:brightness(1.08);} .ds-level-card:focus-visible {outline:3px solid var(--paper, oklch(93% 0.018 80)); outline-offset:4px;}"
+    },
+    {
+      "name": "Scoreboard name field",
+      "kind": "input",
+      "refersTo": "name-input",
+      "description": "The existing score submission field preserves text selection and touch editing.",
+      "html": "<input class=\"ds-name-input\" aria-label=\"Player name\" placeholder=\"YOUR NAME\">",
+      "css": ".ds-name-input {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace; border:2px solid var(--outline, oklch(93% 0.018 80)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)); cursor:pointer; min-height:44px; min-width:0; padding:0 12px; background:var(--panel, oklch(15% 0.02 255)); color:var(--paper, oklch(93% 0.018 80)); font-size:clamp(11px,2.4vw,15px); letter-spacing:1px; text-align:center; user-select:text; touch-action:manipulation; cursor:text;} .ds-name-input::placeholder {color:var(--muted, oklch(70% 0.035 95)); opacity:.7;} .ds-name-input:focus {outline:none; border-color:var(--bitcoin, oklch(72% 0.18 62)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)),inset 0 0 0 2px var(--bitcoin, oklch(72% 0.18 62));} .ds-name-input:disabled {opacity:.55; cursor:default;}"
+    },
+    {
+      "name": "Leaderboard tab",
+      "kind": "nav",
+      "refersTo": "leaderboard-tab",
+      "description": "Compact tabs reuse the selected orange stroke.",
+      "html": "<button class=\"ds-leaderboard-tab\" role=\"tab\" aria-selected=\"true\">LEVEL 6</button>",
+      "css": ".ds-leaderboard-tab {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace; border:2px solid var(--outline, oklch(93% 0.018 80)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)); cursor:pointer; min-height:40px; padding:6px 14px; font-size:clamp(10px,2.2vw,14px); font-weight:800; background:var(--panel-2, oklch(23% 0.025 255)); color:var(--paper, oklch(93% 0.018 80)); border-color:var(--bitcoin, oklch(72% 0.18 62)); box-shadow:0 4px 0 var(--ink, oklch(8% 0.01 255)),inset 0 0 0 2px var(--bitcoin, oklch(72% 0.18 62));} .ds-leaderboard-tab:hover {filter:brightness(1.08);} .ds-leaderboard-tab:focus-visible {outline:3px solid var(--paper, oklch(93% 0.018 80)); outline-offset:4px;}"
+    },
+    {
+      "name": "Special attack touch key",
+      "kind": "button",
+      "refersTo": "people-power",
+      "description": "Mint special key in a two-by-two action grid, 60px normally, 52px short portrait, and 50px landscape. Its accessible label follows the selected fighter.",
+      "html": "<button class=\"ds-power\" aria-label=\"Selected fighter special attack\">POWER</button>",
+      "css": ".ds-power {font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace; width:60px; height:60px; padding:0; display:grid; place-items:center; border:0; border-radius:50%; background:#7af0be; color:#102b2a; font-size:11px; font-weight:800; line-height:1; text-shadow:none; box-shadow:inset 0 1px 0 oklch(38% 0.028 255 / .7),inset 0 -4px 0 oklch(6% 0.013 255); cursor:pointer; touch-action:none;} .ds-power:hover {filter:brightness(1.08);} .ds-power:focus-visible {outline:3px solid var(--paper, oklch(93% 0.018 80)); outline-offset:4px;} .ds-power:active {transform:translateY(4px); box-shadow:inset 0 1px 0 oklch(38% 0.028 255 / .7),inset 0 -1px 0 oklch(6% 0.013 255);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "For the People",
+    "overview": "Five classic pixel levels and Level 6: four selectable fighters, eight districts, sixteen fights, and throwable street objects. Essential status and instructions use sharp HTML text around a 640\u00d7360 logical playfield rendered at 1280\u00d7720.",
+    "keyCharacteristics": [
+      "Crisp pixels, dark outlines, readable silhouettes, and direct arcade labels.",
+      "Warm financial-district scenery behind a clear fighting lane.",
+      "Sharp status and instructions around a pixel playfield, with expressive characters and throwable street objects."
+    ],
+    "rules": [],
+    "dos": [
+      "**Do** preserve the first five levels and scope the arcade presentation to `body.brawler-mode` and the Level 6 renderer.",
+      "**Do** keep gameplay pixels crisp and the lower street clear enough to read movement and attacks.",
+      "**Do** retain the alternate-2026 satire label and distinguish imagined dialogue from real quotations."
+    ],
+    "donts": [
+      "**Don't** apply the 16:9 viewport, arcade palette, or richer sprites to classic levels by default.",
+      "**Don't** treat \u201c32-bit\u201d as a required hardware emulation limit.",
+      "**Don't** claim an approved visual mockup; this system records the implemented game extension."
+    ]
+  }
+}

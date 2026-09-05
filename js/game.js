@@ -56,7 +56,7 @@
   // leaderboard groups entries by gameVersion so a run set on an older build is
   // never silently ranked against a different game. Keep this in sync with the
   // "version" field in package.json on any release that changes timed play.
-  const GAME_VERSION = "1.1.0";
+  const GAME_VERSION = "1.3.0";
 
   // Local/dev detection. When the game is served from a loopback host (npm
   // start) or opened straight from disk, every level is playable so any level
@@ -1093,6 +1093,86 @@
     }
   ];
 
+  LEVELS.push({
+    id: "for-the-people",
+    title: "FOR THE PEOPLE",
+    description: "Four fighters. Eight districts. Pick up, throw down, fight for the people.",
+    mode: "brawler",
+    theme: "brawler",
+    worldW: window.SatoshiBrawler.STAGE_WIDTH * window.SatoshiBrawler.STAGES.length,
+    labels: { coin: "SATS", pageStat: "BLOCKS" },
+    zones: [{ x: 0, name: "FOR THE PEOPLE" }],
+    layout: { pages: window.SatoshiBrawler.STAGES.map((_, index) => index) }
+  });
+
+  let brawler = null;
+  let selectedFighter = "jack";
+  const brawlerArt = window.SatoshiBrawlerArt.create(ctx);
+  const arcadeFields = Object.fromEntries(["name", "lives", "health", "hp", "power-name", "power", "power-state", "district", "wave", "time", "score", "dialogue", "item-hint"]
+    .map((key) => [key, document.getElementById(`arcade-${key}`)]));
+
+  function renderFighterPicker() {
+    const picker = document.getElementById("fighter-select");
+    for (const [id, character] of Object.entries(window.SatoshiBrawler.CHARACTERS)) {
+      const option = document.createElement("label");
+      option.className = "fighter-option";
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "fighter";
+      radio.value = id;
+      radio.checked = id === selectedFighter;
+      radio.setAttribute("aria-label", `${character.name}. ${character.description}`);
+      const portrait = document.createElement("canvas");
+      portrait.width = 80;
+      portrait.height = 104;
+      portrait.setAttribute("aria-hidden", "true");
+      window.SatoshiBrawlerArt.create(portrait.getContext("2d")).portrait(id);
+      const name = document.createElement("strong");
+      name.textContent = character.short;
+      const move = document.createElement("span");
+      move.textContent = character.move;
+      option.append(radio, portrait, name, move);
+      radio.addEventListener("change", () => {
+        if (state.phase !== "title") return;
+        selectedFighter = id;
+        initLevel();
+        syncHud(true);
+      });
+      picker.append(option);
+    }
+  }
+
+  // The important text lives in the DOM at screen resolution, independent of
+  // the pixel scenery. Only changed values are written during the game loop.
+  function syncBrawlerHud() {
+    const fight = brawler.state;
+    const character = window.SatoshiBrawler.CHARACTERS[fight.characterId];
+    const nearby = brawler.nearbyItem();
+    const held = fight.player.held;
+    const itemName = window.SatoshiBrawler.ITEMS[(held || nearby)?.kind || character.projectile].name;
+    const remaining = fight.enemies.filter((enemy) => enemy.hp > 0).length;
+    const values = {
+      name: character.name,
+      lives: `${state.lives} ${state.lives === 1 ? "life" : "lives"}`,
+      hp: `${Math.ceil(fight.player.hp)}/${fight.player.maxHp}`,
+      "power-name": character.special,
+      "power-state": fight.special === 100 ? "C · READY" : `${fight.special}%`,
+      district: `${fight.stage + 1}/${window.SatoshiBrawler.STAGES.length} · ${window.SatoshiBrawler.STAGES[fight.stage].name}`,
+      wave: fight.waveClear ? "Fight clear · Move right →" : `Fight ${fight.wave + 1}/2 · ${remaining} ${remaining === 1 ? "enemy" : "enemies"}`,
+      time: formatTime(state.time),
+      score: `Score ${state.score.toLocaleString()}`,
+      dialogue: fight.messageTime > 0 ? fight.message : "Dodge into another lane. Jump over low throws. Hit E to grab or throw.",
+      "item-hint": held ? `Holding ${itemName} · E to throw` : nearby ? `E · Pick up ${itemName}` : `E · Throw ${itemName}`
+    };
+    for (const [key, value] of Object.entries(values)) if (arcadeFields[key].textContent !== value) arcadeFields[key].textContent = value;
+    arcadeFields.health.max = fight.player.maxHp;
+    arcadeFields.health.value = fight.player.hp;
+    arcadeFields.power.value = fight.special;
+    const throwButton = document.querySelector('[data-action="throw"]');
+    throwButton.textContent = !held && nearby ? "GRAB" : "THROW";
+    throwButton.setAttribute("aria-label", values["item-hint"]);
+  }
+
   // Active level's scenery bands. Mirrors getCurrentLevel().zones so the existing
   // zone-index logic keeps working unchanged; assigned in initLevel.
   let zones = [];
@@ -1307,6 +1387,29 @@
     }
   };
 
+  // An original slower, bass-led arcade groove for the street fights.
+  SONGS.brawler = {
+    bpm: 122, leadGain: 0.06, harmonyGain: 0.038, bassGain: 0.12,
+    lead: noteRow(`
+      E4 . G4 A4 . B4 . D5 B4 . A4 G4 E4 . . .
+      E4 . G4 A4 . B4 D5 E5 . D5 B4 . A4 G4 . .
+      A4 . C5 . E5 . D5 C5 B4 . G4 A4 . G4 E4 .
+      B4 . A4 G4 . E4 . D4 E4 . G4 . E4 . . .
+    `),
+    harmony: noteRow(`
+      . . B3 . . . E4 . . . G4 . . . E4 .
+      . . B3 . . . E4 . . . G4 . . . B4 .
+      . . E4 . . . A4 . . . D4 . . . G4 .
+      . . F#4 . . . D4 . . . B3 . E4 . . .
+    `),
+    bass: noteRow(`
+      E2 E2 . B2 . D3 E3 . E2 . G2 A2 B2 . G2 .
+      E2 E2 . B2 . D3 E3 . E2 . G2 A2 B2 . D3 .
+      A2 A2 . E3 . G3 A3 . G2 . D3 . G2 . A2 .
+      B2 . B2 D3 . F#3 . D3 E2 E2 . G2 B2 . E3 .
+    `)
+  };
+
   // The active level definition. Declared after `state` (which it reads) to avoid
   // any temporal-dead-zone hazard, and guarded so a bad levelIndex fails loudly
   // with an actionable message instead of throwing a cryptic TypeError frames
@@ -1374,6 +1477,8 @@
   function getLevelBest(level) {
     const entry = loadBests()[level];
     if (!entry || typeof entry.time !== "number" || !Number.isFinite(entry.time)) return null;
+    // The extended arcade route cannot be compared with its old four-block run.
+    if (level === "for-the-people" && entry.gameVersion !== GAME_VERSION) return null;
     const rulesVersion = typeof entry.rulesVersion === "number" ? entry.rulesVersion : TIMING_RULES.version;
     if (rulesVersion !== TIMING_RULES.version) return null;
     const splits = Array.isArray(entry.splits) ? entry.splits : [];
@@ -1383,6 +1488,7 @@
   function saveLevelBest(level, time, splits) {
     const bests = loadBests();
     bests[level] = {
+      gameVersion: GAME_VERSION,
       rulesVersion: TIMING_RULES.version,
       // `cleared` records that the level was completed at all, independent of the
       // timing ruleset. Level unlock reads this (see isLevelCleared) so bumping
@@ -1500,6 +1606,10 @@
     window.eightBitSatoshi.dev = {
       getState: () => ({
         subMode: state.subMode,
+        phase: state.phase,
+        paused: state.paused,
+        time: state.time,
+        brawler: state.subMode === "brawler" ? brawler.snapshot() : null,
         venueKey: state.venueKey,
         venuesCleared: state.venuesCleared.slice(),
         floorIndex: state.floorIndex,
@@ -1674,16 +1784,20 @@
   const input = {
     left: false,
     right: false,
-    // Up/down are only used by the overworld walk; in side-view "up" is
-    // handled by the jump action, so these stay false there.
+    // Up/down move through city maps and brawler lanes. Classic side-view
+    // levels map their up key to jumping.
     up: false,
     down: false,
     jump: false,
     jumpPressed: false,
     jumpReleased: false,
-    // Fire is only live in a venue that grants the sat cannon.
+    // Fire shoots the sat cannon in armed venues and punches in the brawler.
     fire: false,
-    firePressed: false
+    firePressed: false,
+    special: false,
+    specialPressed: false,
+    throw: false,
+    throwPressed: false
   };
 
   const player = {
@@ -1850,6 +1964,44 @@
 
   function initLevel() {
     const level = getCurrentLevel();
+    const arcade = level.mode === "brawler";
+    canvas.width = arcade ? window.SatoshiBrawler.WIDTH * 2 : VIEW_W;
+    canvas.height = arcade ? window.SatoshiBrawler.HEIGHT * 2 : VIEW_H;
+    ctx.imageSmoothingEnabled = false;
+    document.body.classList.toggle("brawler-mode", arcade);
+    document.getElementById("arcade-brief").hidden = !arcade;
+    document.getElementById("arcade-controls").hidden = !arcade;
+    document.getElementById("arcade-status").hidden = !arcade;
+    document.getElementById("arcade-readout").hidden = !arcade;
+    document.getElementById("fighter-picker").hidden = !arcade;
+    document.getElementById("fighter-description").textContent = window.SatoshiBrawler.CHARACTERS[selectedFighter].description;
+    document.querySelector(".title-stack > h1").textContent = arcade ? "FOR THE PEOPLE" : "8-BIT SATOSHI";
+    document.getElementById("title-tagline").textContent = arcade
+      ? "Pick your fighter. Take the people's route."
+      : "Build Bitcoin. Beat fiat. Reach the whitepaper.";
+    startButton.textContent = arcade ? "LET'S GO" : "START";
+    canvas.setAttribute("aria-label", arcade ? "For the People: arcade street brawler" : "8-Bit Satoshi game canvas");
+    if (arcade) {
+      state.subMode = "brawler";
+      state.cameraX = 0;
+      state.currentZone = 0;
+      state.venueKey = null;
+      zones = level.zones.map((zone) => ({ ...zone }));
+      brawler = window.SatoshiBrawler.create({
+        sfx: playSfx,
+        reward: (sats, score) => { state.coins += sats; state.score += score; },
+        checkpoint: (index, name) => { state.pages += 1; recordSplit({ index: index + 1, name }); },
+        death: () => {
+          state.lives -= 1;
+          state.deaths += 1;
+          if (state.lives <= 0) { gameOver(); return false; }
+          return true;
+        },
+        complete: completeGame
+      }, selectedFighter);
+      return;
+    }
+    brawler = null;
 
     // Overworld levels build the tile city instead of the side-view course.
     // The side-view collections are cleared so nothing stale renders, and the
@@ -2516,6 +2668,10 @@
     input.jumpReleased = false;
     input.fire = false;
     input.firePressed = false;
+    input.special = false;
+    input.throw = false;
+    input.throwPressed = false;
+    input.specialPressed = false;
 
     if (full) {
       state.coins = 0;
@@ -2585,6 +2741,8 @@
   function pauseGame() {
     if (state.phase !== "playing") return;
     state.paused = true;
+    for (const key of Object.keys(input)) input[key] = false;
+    document.querySelectorAll(".touch-button.active").forEach((button) => button.classList.remove("active"));
     stopMusic();
     showMessage("PAUSED", "Game paused.", "RESTART", true, true);
   }
@@ -2617,7 +2775,7 @@
   // splits, run stats, and a personal-best marker. Reuses the shared message
   // screen so PLAY AGAIN (restartButton) keeps its existing wiring.
   function showResults(isNewBest, previousBest) {
-    messageTitle.textContent = "BITCOIN LIVES";
+    messageTitle.textContent = state.subMode === "brawler" ? "THE PEOPLE WIN" : "BITCOIN LIVES";
     messageCopy.classList.add("hidden");
 
     messageResults.replaceChildren(
@@ -2704,6 +2862,10 @@
       ["DEATHS", String(state.deaths)],
       ["LIVES", String(state.lives)]
     ];
+    if (brawler && state.subMode === "brawler") {
+      stats.push(["FIGHTER", window.SatoshiBrawler.CHARACTERS[brawler.state.characterId].name],
+        ["THROWS", String(brawler.state.throws)], ["PICKUPS", String(brawler.state.pickups)]);
+    }
     const dl = document.createElement("dl");
     dl.className = "results-stats";
     for (const [label, value] of stats) {
@@ -3234,6 +3396,15 @@
     if (state.phase !== "playing" || state.paused) return;
 
     state.time += dt;
+    if (state.subMode === "brawler") {
+      brawler.update(dt, input);
+      input.throwPressed = false;
+      input.specialPressed = false;
+      input.jumpPressed = false;
+      input.jumpReleased = false;
+      input.firePressed = false;
+      return;
+    }
     state.toastTime = Math.max(0, state.toastTime - dt);
     // Queued ambient lines (NPC exchanges) play out one at a time as the
     // current toast expires, so a two-line exchange reads naturally without
@@ -3899,6 +4070,11 @@
   }
 
   function render() {
+    if (state.subMode === "brawler") {
+      brawlerArt.draw(brawler.state);
+      syncBrawlerHud();
+      return;
+    }
     if (state.subMode === "overworld") {
       renderOverworld();
       syncTimer();
@@ -6059,6 +6235,12 @@
   function syncControlMode() {
     document.body.classList.toggle("overworld-mode", state.subMode === "overworld");
     document.body.classList.toggle("cannon-mode", hasSatCannon());
+    const arcade = state.subMode === "brawler";
+    const fireButton = document.querySelector('[data-action="fire"]');
+    fireButton.textContent = arcade ? "ATTACK" : "●";
+    fireButton.setAttribute("aria-label", arcade ? "Combo attack or jump kick" : "Fire sat cannon");
+    if (arcade) document.querySelector('[data-action="special"]').setAttribute("aria-label", `${window.SatoshiBrawler.CHARACTERS[selectedFighter].special} special attack`);
+    document.querySelector('[data-action="jump"]').textContent = arcade ? "JUMP" : "↑";
   }
 
   function syncHud(force = false) {
@@ -6165,6 +6347,14 @@
   }
 
   function setAction(action, active) {
+    if (action === "throw") {
+      if (active && !input.throw) input.throwPressed = true;
+      input.throw = active;
+    }
+    if (action === "special") {
+      if (active && !input.special) input.specialPressed = true;
+      input.special = active;
+    }
     if (action === "left") input.left = active;
     if (action === "right") input.right = active;
     if (action === "up") input.up = active;
@@ -6180,10 +6370,8 @@
     }
   }
 
-  // A keyboard event is "text entry" when it targets an editable field — the only
-  // one in the app is the leaderboard name input on the results screen. While it is
-  // focused we must not hijack keys (e.g. "r" would restart the run) or preventDefault
-  // typed characters, so both handlers bail out early for it.
+  // Leave native inputs alone: typing a leaderboard name and choosing a fighter
+  // with radio keys must never trigger the game's movement or restart shortcuts.
   function isTextEntryTarget(event) {
     const el = event.target;
     return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
@@ -6203,12 +6391,11 @@
       return;
     }
 
-    // On the title screen "any key starts the game"; let focused title buttons
-    // activate natively instead of being swallowed by that shortcut.
+    // Let focused title utility buttons activate natively.
     if (state.phase === "title" && (event.target === leaderboardButton || event.target === soundButton)) return;
 
     const key = event.key.toLowerCase();
-    if (["arrowleft", "arrowright", "arrowup", "arrowdown", " ", "a", "d", "w", "s", "x", "f", "enter", "p", "r", "m"].includes(key)) {
+    if (["arrowleft", "arrowright", "arrowup", "arrowdown", " ", "a", "d", "w", "s", "x", "f", "c", "e", "q", "enter", "p", "r", "m", "escape"].includes(key)) {
       event.preventDefault();
     }
 
@@ -6218,16 +6405,15 @@
     }
 
     if (state.phase === "title") {
-      // Left/right move the level-select highlight; any other key (except the
-      // pause/restart keys) starts the currently selected level, preserving the
-      // fast "press to play" feel while making the picker keyboard-navigable.
+      // Left/right select a level; explicit play keys start it. Tab remains free
+      // to reach the fighter picker and the native menu controls.
       if (key === "arrowleft" || key === "a") moveSelection(-1);
       else if (key === "arrowright" || key === "d") moveSelection(1);
-      else if (key !== "p" && key !== "r") startGame();
+      else if (["enter", " ", "x", "f"].includes(key)) startGame();
       return;
     }
 
-    if (key === "p") {
+    if (key === "p" || key === "escape") {
       if (state.phase === "playing" && state.paused) resumeGame();
       else pauseGame();
       return;
@@ -6239,6 +6425,18 @@
     }
 
     if (state.paused || state.phase !== "playing") return;
+
+    if (state.subMode === "brawler") {
+      if (key === "e" || key === "q") setAction("throw", true);
+      if (key === "a" || key === "arrowleft") setAction("left", true);
+      if (key === "d" || key === "arrowright") setAction("right", true);
+      if (key === "w" || key === "arrowup") setAction("up", true);
+      if (key === "s" || key === "arrowdown") setAction("down", true);
+      if (key === " ") setAction("jump", true);
+      if (key === "x" || key === "f") setAction("fire", true);
+      if (key === "c") setAction("special", true);
+      return;
+    }
 
     if (key === "a" || key === "arrowleft") setAction("left", true);
     if (key === "d" || key === "arrowright") setAction("right", true);
@@ -6256,6 +6454,17 @@
   function handleKeyUp(event) {
     if (isTextEntryTarget(event)) return;
     const key = event.key.toLowerCase();
+    if (key === "c") setAction("special", false);
+    if (state.subMode === "brawler") {
+      if (key === "e" || key === "q") setAction("throw", false);
+      if (key === "a" || key === "arrowleft") setAction("left", false);
+      if (key === "d" || key === "arrowright") setAction("right", false);
+      if (key === "w" || key === "arrowup") setAction("up", false);
+      if (key === "s" || key === "arrowdown") setAction("down", false);
+      if (key === " ") setAction("jump", false);
+      if (key === "x" || key === "f") setAction("fire", false);
+      return;
+    }
     if (key === "a" || key === "arrowleft") setAction("left", false);
     if (key === "d" || key === "arrowright") setAction("right", false);
     if (key === "w" || key === "arrowup" || key === " ") {
@@ -6290,9 +6499,10 @@
           else if (action === "right") moveSelection(1);
           // Up/down/fire do nothing on the title so a stray tap on a mode-only
           // key can't accidentally launch a level; jump starts the game.
-          else if (action !== "up" && action !== "down" && action !== "fire") startGame();
+          else if (action === "jump") startGame();
           return;
         }
+        if (state.phase !== "playing" || state.paused) return;
         button.classList.add("active");
         setAction(action, true);
       };
@@ -6327,6 +6537,10 @@
   continueButton.addEventListener("click", resumeGame);
   restartButton.addEventListener("click", startGame);
   menuButton.addEventListener("click", showTitle);
+  document.getElementById("arcade-pause").addEventListener("click", () => {
+    if (state.paused) resumeGame();
+    else pauseGame();
+  });
   if (soundButton) soundButton.addEventListener("click", toggleSound);
 
   // Leaderboard entry points. The title button opens the first board; the results
@@ -6368,6 +6582,7 @@
   // chosen level is active on the title screen too); otherwise fall back to
   // loading Level 1. Either branch runs initLevel exactly once.
   const requestedLevel = Number.parseInt(new URLSearchParams(location.search).get("level"), 10);
+  renderFighterPicker();
   if (!setLevel(requestedLevel)) initLevel();
   renderLevelSelect();
   initTouchControls();

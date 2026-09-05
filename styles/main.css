@@ -943,3 +943,190 @@ body.cannon-mode .fire-button {
     font-size: 1.7rem;
   }
 }
+
+/* Level 6: pixel scenery, with readable status and instructions in the DOM. */
+.special-button, .throw-button, .fire-button { display: none; }
+body.cannon-mode .fire-button,
+body.brawler-mode .fire-button,
+body.brawler-mode .special-button,
+body.brawler-mode .throw-button,
+body.brawler-mode .vertical-button { display: grid; }
+[hidden] { display: none !important; }
+button:focus-visible { outline: 3px solid var(--paper); outline-offset: 4px; }
+.title-screen { overflow-y: auto; }
+.title-stack { max-height: 100%; overflow-y: auto; padding-block: 16px 64px; scrollbar-color: var(--bitcoin) var(--panel); scrollbar-width: thin; }
+
+body.brawler-mode {
+  --screen-width: min(1320px, calc(100vw - 32px), calc((100dvh - 240px) * 16 / 9));
+  --screen-height: calc(var(--screen-width) * 9 / 16);
+  background: #101820;
+}
+body.brawler-mode .game-shell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding: 8px 0;
+}
+body.brawler-mode .screen-frame {
+  flex: none;
+  border: 2px solid #a78160;
+  box-shadow: 0 12px 32px #080e15;
+}
+body.brawler-mode .hud, body.brawler-mode .hud-timer { display: none; }
+body.brawler-mode .title-screen { background: #111b29f2; }
+body.brawler-mode .title-stack {
+  width: min(94%, 880px);
+  gap: 10px;
+  padding-block: 20px 60px;
+}
+body.brawler-mode .title-stack h1 { color: #ffb34c; font-size: clamp(28px, 4vw, 48px); }
+body.brawler-mode .title-stack > p { font-size: 16px; max-width: 60ch; }
+body.brawler-mode .level-card { flex: 1 1 30%; min-width: 130px; }
+body.brawler-mode .level-card-title { font-size: 13px; }
+body.brawler-mode .level-card-num, body.brawler-mode .level-card-status { font-size: 11px; }
+body.brawler-mode .secondary-button { background: #293644; color: #ffe5b7; }
+.arcade-brief { max-width: 66ch; }
+.title-stack .arcade-brief p { max-width: 66ch; font-size: 14px; color: #eed9b8; }
+.title-stack .arcade-brief .arcade-fiction { margin-top: 4px; font-size: 12px; color: #b1c6cc; }
+body.brawler-mode .title-stack .title-rules { font-size: 11px; max-width: 68ch; }
+
+.fighter-picker { width: 100%; border: 0; padding: 0; margin: 6px 0; min-width: 0; }
+.fighter-picker legend { padding: 0 0 10px; color: #fff0c2; font-size: 18px; font-weight: 800; text-align: left; }
+.fighter-select { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.fighter-option { position: relative; display: grid; justify-items: center; gap: 3px; padding: 6px 6px 10px; border: 2px solid #5f7080; background: #202e3c; cursor: pointer; }
+.fighter-option:has(input:checked) { border-color: #ffb34c; background: #3b352b; }
+.fighter-option:has(input:focus-visible) { outline: 3px solid #fff0c2; outline-offset: 3px; }
+.fighter-option input { position: absolute; top: 8px; left: 8px; width: 16px; height: 16px; margin: 0; accent-color: #ffb34c; }
+.fighter-option canvas { width: 60px; height: 78px; image-rendering: pixelated; }
+.fighter-option strong { font-size: 16px; color: #fff0c2; }
+.fighter-option span { font-size: 12px; color: #d3c7b0; }
+.title-stack #fighter-description { margin-top: 9px; max-width: 70ch; font-size: 14px; color: #eee1c8; min-height: 2.8em; }
+
+.arcade-status, .arcade-readout, .arcade-controls { width: var(--screen-width); font-family: Arial, sans-serif; }
+.arcade-status { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(230px, 1fr); gap: 24px; padding: 10px 12px; background: #182431; color: #fff0c2; font-size: 16px; }
+.fighter-vitals { display: grid; gap: 6px; }
+.vitals-heading { display: flex; justify-content: space-between; gap: 8px; }
+.vitals-heading strong { font-size: 20px; }
+.vitals-heading > span { color: #e7c9a1; }
+.meter-row { display: grid; grid-template-columns: 104px 1fr 68px; align-items: center; gap: 8px; font-size: 14px; }
+.meter-row > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.meter-row progress { appearance: none; width: 100%; height: 10px; border: 0; border-radius: 0; background: #4c4a46; color: #ffb34c; accent-color: #ffb34c; }
+.meter-row progress::-webkit-progress-bar { background: #4c4a46; }
+.meter-row progress::-webkit-progress-value { background: #ffb34c; }
+.meter-row progress::-moz-progress-bar { background: #ffb34c; }
+.power-meter progress { color: #7af0be; accent-color: #7af0be; }
+.power-meter progress::-webkit-progress-value { background: #7af0be; }
+.power-meter progress::-moz-progress-bar { background: #7af0be; }
+.arcade-objective { display: grid; gap: 4px; text-align: right; align-content: center; }
+.arcade-objective strong { color: #ffbf69; font-size: 18px; }
+.arcade-objective > span { font-size: 14px; }
+#arcade-time { font-weight: 700; font-variant-numeric: tabular-nums; margin-right: 18px; }
+.arcade-readout { background: #182431; padding: 9px 12px; display: grid; gap: 5px; }
+.arcade-readout p { margin: 0; font-size: 16px; line-height: 1.4; color: #fff0c2; }
+.arcade-readout #arcade-item-hint { font-weight: 700; color: #7af0be; font-size: 14px; }
+.arcade-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #e0cfb5; font-size: 14px; padding: 6px 2px; }
+.arcade-controls p { margin: 0; }
+.arcade-controls kbd { color: #ffe5b7; font-family: inherit; font-weight: 800; margin-inline: 6px 3px; }
+#arcade-pause { min-height: 44px; padding: 0 14px; background: #24313d; color: #ffe5b7; border: 1px solid #8e785f; cursor: pointer; }
+body.brawler-mode .message-box { width: min(88%, 650px); max-height: 98%; }
+body.brawler-mode .message-box p { font-size: 16px; }
+body.brawler-mode .results-stat, body.brawler-mode .results-split { font-size: 13px; }
+
+body.brawler-mode:has(.overlay:not(.hidden)) .arcade-status,
+body.brawler-mode:has(.overlay:not(.hidden)) .arcade-readout,
+body.brawler-mode:has(.overlay:not(.hidden)) .arcade-controls,
+body.brawler-mode:has(.overlay:not(.hidden)) .touch-controls { display: none; }
+body.brawler-mode:has(.overlay:not(.hidden)) {
+  --screen-width: min(1100px, calc(100vw - 24px));
+  /* Menus scroll with a finger; active fights still reserve touch for controls. */
+  touch-action: pan-y;
+}
+body.brawler-mode:has(.overlay:not(.hidden)) .screen-frame { height: min(880px, calc(100dvh - 24px)); }
+body.brawler-mode:has(.overlay:not(.hidden)) #game-canvas { object-fit: cover; }
+
+@media (pointer: coarse), (max-width: 700px) {
+  body.brawler-mode { --screen-width: calc(100vw - 16px); --screen-height: calc(var(--screen-width) * 9 / 16); }
+  body.brawler-mode .game-shell { padding: 8px 0; }
+  .arcade-status { grid-template-columns: 1fr; gap: 9px; padding: 10px; }
+  .vitals-heading strong { font-size: 18px; }
+  .meter-row { grid-template-columns: 100px 1fr 64px; }
+  .arcade-objective { grid-template-columns: 1fr auto; text-align: left; gap: 5px 8px; }
+  .arcade-objective strong { grid-column: 1 / -1; font-size: 16px; }
+  .arcade-objective > span { font-size: 13px; }
+  #arcade-time { margin-right: 8px; }
+  #arcade-score { font-size: 12px; }
+  .arcade-readout { padding: 8px 10px; min-height: 85px; }
+  .arcade-readout p { font-size: 15px; }
+  .arcade-controls { justify-content: flex-end; padding-block: 3px; }
+  .arcade-controls p { display: none; }
+  body.brawler-mode .touch-controls { --move-size: 46px; --jump-size: 58px; width: var(--screen-width); min-height: 176px; padding: 8px; gap: 10px; border: 1px solid #6c6458; }
+  body.brawler-mode .action-cluster { display: grid; grid-template-columns: repeat(2, 60px); gap: 13px 10px; }
+  body.brawler-mode .fire-button, body.brawler-mode .jump-button,
+  body.brawler-mode .special-button, body.brawler-mode .throw-button { width: 60px; height: 60px; font-size: 12px; border-radius: 50%; }
+  body.brawler-mode .fire-button { background: #c36151; }
+  body.brawler-mode .special-button { color: #102b2a; background: #7af0be; text-shadow: none; }
+  body.brawler-mode .throw-button { color: #122336; background: #94ceff; text-shadow: none; }
+  body.brawler-mode .title-stack { gap: 10px; padding-block: 20px 66px; }
+  body.brawler-mode .title-stack > p { font-size: 14px; }
+  .fighter-select { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .fighter-option { grid-template-columns: 46px 1fr; grid-template-rows: 1fr auto; text-align: left; padding: 8px 5px; }
+  .fighter-option canvas { grid-row: 1 / 3; width: 46px; height: 60px; }
+  .fighter-option strong { align-self: end; font-size: 14px; justify-self: start; }
+  .fighter-option span { font-size: 11px; justify-self: start; }
+  .fighter-option input { width: 12px; height: 12px; top: 4px; left: 4px; }
+  .fighter-picker legend { font-size: 16px; }
+}
+
+@media (max-height: 700px) and (orientation: portrait) {
+  body.brawler-mode .screen-frame {
+    width: min(var(--screen-width), calc(max(120px, 100dvh - 425px) * 16 / 9));
+    height: min(var(--screen-height), max(120px, calc(100dvh - 425px)));
+  }
+  body.brawler-mode .arcade-status { padding: 8px; gap: 6px; }
+  body.brawler-mode .fighter-vitals { gap: 4px; }
+  body.brawler-mode .vitals-heading strong { font-size: 16px; }
+  body.brawler-mode .arcade-readout { min-height: 0; }
+  body.brawler-mode .arcade-readout p { font-size: 14px; }
+  body.brawler-mode .touch-controls { --move-size: 40px; min-height: 152px; padding: 6px; }
+  body.brawler-mode .direction-pad { gap: 5px; padding: 5px; }
+  body.brawler-mode .action-cluster { grid-template-columns: repeat(2, 52px); gap: 12px; }
+  body.brawler-mode .fire-button, body.brawler-mode .jump-button,
+  body.brawler-mode .special-button, body.brawler-mode .throw-button { width: 52px; height: 52px; font-size: 11px; }
+  body.brawler-mode:has(.overlay:not(.hidden)) .screen-frame { width: var(--screen-width); height: calc(100dvh - 24px); }
+}
+
+@media (max-height: 480px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
+  body.brawler-mode { --screen-width: min(calc(100vw - 240px), calc((100dvh - 164px) * 16 / 9)); }
+  body.brawler-mode .game-shell { padding: 4px 0; }
+  .arcade-status { grid-template-columns: 1fr 1fr; gap: 12px; padding: 6px 8px; font-size: 12px; }
+  .vitals-heading strong { font-size: 14px; }
+  .fighter-vitals { gap: 3px; }
+  .meter-row { grid-template-columns: 74px 1fr 48px; font-size: 11px; gap: 4px; }
+  .meter-row progress { height: 7px; }
+  .arcade-objective { display: grid; grid-template-columns: 1fr; gap: 2px; text-align: right; }
+  .arcade-objective strong { font-size: 13px; }
+  .arcade-objective > span { font-size: 11px; }
+  #arcade-time { margin-right: 5px; }
+  .arcade-readout { min-height: 0; padding: 5px 8px; gap: 2px; }
+  .arcade-readout p, .arcade-readout #arcade-item-hint { font-size: 12px; }
+  .arcade-controls { position: fixed; top: 8px; right: 8px; width: auto; }
+  #arcade-pause { font-size: 12px; }
+  body.brawler-mode .touch-controls { position: fixed; inset: auto 6px 12px; width: calc(100vw - 12px); background: none; border: none; box-shadow: none; padding: 0; pointer-events: none; }
+  body.brawler-mode .action-cluster { grid-template-columns: repeat(2, 50px); gap: 12px 6px; }
+  body.brawler-mode .fire-button, body.brawler-mode .jump-button,
+  body.brawler-mode .special-button, body.brawler-mode .throw-button { width: 50px; height: 50px; font-size: 11px; }
+  body.brawler-mode:has(.overlay:not(.hidden)) { --screen-width: calc(100vw - 24px); }
+  body.brawler-mode:has(.overlay:not(.hidden)) .screen-frame { height: calc(100dvh - 20px); }
+  .fighter-select { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (min-height: 481px) {
+  body.brawler-mode { --screen-width: min(calc(100vw - 240px), calc((100dvh - 200px) * 16 / 9)); }
+  .arcade-status { font-size: 14px; padding: 8px; }
+  .vitals-heading strong { font-size: 18px; }
+  .meter-row { grid-template-columns: 84px 1fr 52px; font-size: 12px; }
+  .arcade-objective strong { font-size: 16px; }
+  .arcade-objective > span { font-size: 13px; }
+  .arcade-readout p, .arcade-readout #arcade-item-hint { font-size: 14px; }
+}

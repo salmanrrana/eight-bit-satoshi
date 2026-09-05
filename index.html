@@ -4,12 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>8-Bit Satoshi</title>
-  <meta name="description" content="Play as Satoshi in a fast 8-bit platformer about building Bitcoin.">
+  <meta name="description" content="Build Bitcoin through five pixel adventures and an arcade street brawl with four fighters, flying chairs, and shitcoins.">
 
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-  <main class="game-shell" aria-label="8-Bit Satoshi playable platformer">
+  <main class="game-shell" aria-label="8-Bit Satoshi game">
+    <section id="arcade-status" class="arcade-status" aria-label="Fighter status" hidden>
+      <div class="fighter-vitals">
+        <div class="vitals-heading"><strong id="arcade-name">Jack Mallers</strong><span id="arcade-lives">3 lives</span></div>
+        <label class="meter-row"><span>Health</span><progress id="arcade-health" value="120" max="120"></progress><span id="arcade-hp">120/120</span></label>
+        <label class="meter-row power-meter"><span id="arcade-power-name">People Power</span><progress id="arcade-power" value="60" max="100"></progress><span id="arcade-power-state">60%</span></label>
+      </div>
+      <div class="arcade-objective"><strong id="arcade-district">1/8 · THE NOISE</strong><span id="arcade-wave">Fight 1/2</span><span><time id="arcade-time">0:00.00</time><span id="arcade-score">Score 0</span></span></div>
+    </section>
     <section class="screen-frame" aria-label="Game screen">
       <canvas id="game-canvas" width="256" height="240" aria-label="8-Bit Satoshi game canvas"></canvas>
 
@@ -24,7 +32,16 @@
       <div id="title-screen" class="overlay title-screen">
         <div class="title-stack">
           <h1>8-BIT SATOSHI</h1>
-          <p>Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
+          <p id="title-tagline">Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
+          <div id="arcade-brief" class="arcade-brief" hidden>
+            <p>Eight districts. Sixteen street fights. Grab a chair, dodge the shitcoins, and fight for the people.</p>
+            <p class="arcade-fiction">An alternate 2026. Fictional satire, imagined dialogue.</p>
+          </div>
+          <fieldset id="fighter-picker" class="fighter-picker" hidden>
+            <legend>Choose your fighter</legend>
+            <div id="fighter-select" class="fighter-select"></div>
+            <p id="fighter-description"></p>
+          </fieldset>
           <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
           <button id="start-button" class="primary-button" type="button">START</button>
           <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
@@ -60,9 +77,19 @@
 
     </section>
 
+    <section id="arcade-readout" class="arcade-readout" hidden aria-label="Fight instructions">
+      <p id="arcade-dialogue" role="status">Grab objects with E. Press E again to throw.</p>
+      <p id="arcade-item-hint">E · Grab / Throw</p>
+    </section>
+
+    <div id="arcade-controls" class="arcade-controls" hidden>
+      <p><kbd>WASD</kbd> move <kbd>X</kbd> attack <kbd>SPACE</kbd> jump <kbd>E</kbd> grab / throw <kbd>C</kbd> special</p>
+      <button id="arcade-pause" type="button">PAUSE <kbd>P</kbd></button>
+    </div>
+
     <div class="touch-controls" aria-label="Touch controls">
-      <!-- Up/down only render on overworld levels (body.overworld-mode, set by
-           the game); side-view levels keep the original two-button pad. -->
+      <!-- City maps and the arcade brawler use four directions;
+           classic side-view levels keep the two-button pad. -->
       <div class="direction-pad" aria-label="Move">
         <button class="touch-button vertical-button" type="button" data-action="up" aria-label="Move up">&uarr;</button>
         <div class="direction-pad-row">
@@ -72,16 +99,19 @@
         <button class="touch-button vertical-button" type="button" data-action="down" aria-label="Move down">&darr;</button>
       </div>
       <div class="action-cluster">
-        <!-- FIRE only renders in venues that arm the sat cannon
-             (body.cannon-mode, set by the game). -->
+        <!-- FIRE is the sat cannon in armed venues and ATTACK in Level 6. -->
         <button class="touch-button fire-button" type="button" data-action="fire" aria-label="Fire sat cannon">&#9679;</button>
         <button class="touch-button jump-button" type="button" data-action="jump" aria-label="Jump">&uarr;</button>
+        <button class="touch-button special-button" type="button" data-action="special" aria-label="People Power special attack">POWER</button>
+        <button class="touch-button throw-button" type="button" data-action="throw" aria-label="Pick up or throw an object">THROW</button>
       </div>
     </div>
   </main>
 
   <script src="js/leaderboard-rules.js"></script>
   <script src="js/leaderboard-client.js"></script>
+  <script src="js/brawler.js"></script>
+  <script src="js/brawler-art.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
