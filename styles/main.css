@@ -534,9 +534,7 @@ button {
 }
 
 .sound-button {
-  position: absolute;
-  right: clamp(8px, 3vw, 16px);
-  bottom: clamp(8px, 3vw, 16px);
+  position: static;
   min-width: 116px;
   min-height: 36px;
   padding: 0 14px;
@@ -735,213 +733,74 @@ button {
   box-shadow: 0 1px 0 var(--ink);
 }
 
-.touch-controls {
-  display: none;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.direction-pad {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.direction-pad-row {
-  display: flex;
-  /* Match the pad's own key spacing (set in the touch media query below). */
-  gap: inherit;
-}
-
-/* Up/down keys exist for the overworld (top-down) levels only; side-view
-   levels keep the original two-button pad. The game toggles this class on
-   <body> whenever the active mode changes. */
-.vertical-button {
-  display: none;
-}
-
-body.overworld-mode .vertical-button {
-  display: grid;
-}
-
-.action-cluster {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 3vw, 18px);
-}
-
-/* FIRE appears only while the sat cannon is armed (ICO TOWER). The game
-   toggles this class on <body> alongside overworld-mode. */
-.fire-button {
-  display: none;
-}
-
-body.cannon-mode .fire-button {
-  display: grid;
-}
-
-.touch-button {
-  width: 54px;
-  height: 54px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  font-size: 25px;
-  line-height: 1;
-  pointer-events: auto;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
+/* Touch controls stay outside the playfield, within reach of both thumbs. */
+.touch-controls { display: none; user-select: none; -webkit-touch-callout: none; }
+.direction-pad { display: flex; align-items: center; justify-content: space-between; }
+.direction-pad-row { display: contents; }
+.vertical-button { display: none; }
+body.overworld-mode .vertical-button { display: grid; }
+.action-cluster { display: flex; align-items: center; gap: 12px; }
+.touch-button { touch-action: none; pointer-events: auto; cursor: pointer; }
+.control-hint { position: absolute; top: 6px; left: 18px; color: var(--muted); font-size: 10px; }
+.touch-pause { position: absolute; top: 0; right: 16px; min-height: 44px; padding: 0 12px; background: transparent; border: 0; color: var(--paper); font-size: 11px; pointer-events: auto; }
 
 @media (pointer: coarse), (max-width: 700px) {
   :root {
-    --bezel: max(2px, calc(var(--screen-width) / 128));
-    --controls-height: clamp(124px, 19dvh, 152px);
-    --screen-width: min(calc(100vw - 16px), calc((100dvh - var(--controls-height)) * 256 / 240));
-    --screen-height: min(calc(100dvh - var(--controls-height)), calc((100vw - 16px) * 240 / 256));
+    --controls-height: 204px;
+    --screen-width: min(calc(100vw - 16px), calc((100dvh - var(--controls-height) - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 256 / 240));
+    --screen-height: calc(var(--screen-width) * 240 / 256);
   }
-
-  .game-shell {
-    grid-template-rows: auto auto;
-    align-content: center;
-    justify-items: center;
-    gap: clamp(10px, 1.8dvh, 16px);
-    padding: clamp(8px, 1.6dvh, 14px) 0 max(12px, env(safe-area-inset-bottom));
-  }
-
-  .screen-frame {
-    align-self: center;
-  }
-
-  /* The lower body of the handheld: same bezel + ink shadow as the screen,
-     so screen and controls read as one device rather than orphaned squares. */
+  .game-shell { display: flex; flex-direction: column; justify-content: space-between; gap: 12px; padding: max(12px, env(safe-area-inset-top)) 0 max(16px, env(safe-area-inset-bottom)); height: 100dvh; min-height: 0; }
+  .screen-frame { flex: none; margin-block: auto; }
   .touch-controls {
-    --move-size: clamp(52px, 7.2dvh, 66px);
-    --jump-size: clamp(70px, 9.6dvh, 86px);
-    position: relative;
-    width: min(calc(100vw - 16px), var(--screen-width));
-    min-height: var(--controls-height);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: clamp(16px, 5vw, 32px);
-    padding: clamp(10px, 2dvh, 18px) clamp(16px, 5.5vw, 30px);
-    background: linear-gradient(180deg, oklch(17% 0.022 255), oklch(11% 0.018 255));
-    border: var(--bezel) solid var(--outline);
-    box-shadow:
-      0 0 0 var(--bezel) var(--ink),
-      inset 0 2px 0 oklch(30% 0.022 255 / 0.6);
-    pointer-events: none;
+    position: relative; display: flex; flex: none; align-items: center; justify-content: space-between;
+    width: min(100%, 560px); min-height: var(--controls-height); padding: 44px 18px 8px; gap: 16px;
+    background: none; border: 0; box-shadow: none; pointer-events: none;
   }
-
-  /* Recessed cradle holding two key-caps; the dark groove between them
-     reads as the d-pad seam without any decorative side border. */
   .direction-pad {
-    gap: clamp(5px, 1.2dvh, 8px);
-    padding: clamp(5px, 1.2dvh, 8px);
-    border-radius: 12px;
-    background: linear-gradient(180deg, oklch(7% 0.013 255), oklch(13% 0.018 255));
-    box-shadow:
-      inset 0 3px 5px oklch(2% 0.01 255 / 0.9),
-      0 5px 0 oklch(3% 0.01 255);
-    pointer-events: none;
+    position: relative; flex: none; width: 144px; height: 88px; padding: 0; gap: 0;
+    background: var(--panel-2); border-radius: 24px; pointer-events: auto; touch-action: none;
   }
-
   .touch-button {
-    width: var(--move-size);
-    height: var(--move-size);
-    border: none;
-    border-radius: 9px;
-    background: linear-gradient(180deg, oklch(26% 0.026 255), oklch(15% 0.02 255));
-    box-shadow:
-      inset 0 1px 0 oklch(38% 0.028 255 / 0.7),
-      inset 0 -4px 0 oklch(6% 0.013 255);
-    color: var(--paper);
-    font-size: 1.6rem;
-    font-weight: 800;
-    text-shadow: 0 2px 0 var(--ink);
+    display: grid; place-items: center; width: 60px; height: 72px; padding: 0;
+    border: 0; border-radius: 18px; background: transparent; color: var(--paper);
+    font-size: 28px; font-weight: 800; line-height: 1; text-shadow: none;
   }
+  .vertical-button { display: none; }
+  body.overworld-mode .direction-pad, body.brawler-mode .direction-pad {
+    display: grid; grid-template: repeat(3, 48px) / repeat(3, 48px); width: 144px; height: 144px;
+  }
+  .direction-pad [data-action="up"] { grid-area: 1 / 2; }
+  .direction-pad [data-action="left"] { grid-area: 2 / 1; }
+  .direction-pad [data-action="right"] { grid-area: 2 / 3; }
+  .direction-pad [data-action="down"] { grid-area: 3 / 2; }
+  body.overworld-mode .direction-pad .touch-button, body.brawler-mode .direction-pad .touch-button { width: 48px; height: 48px; }
+  .direction-pad::after { content: ""; position: absolute; left: calc(50% - 3px); top: calc(50% - 3px); width: 6px; height: 6px; border-radius: 50%; background: var(--muted); pointer-events: none; }
+  .action-cluster .touch-button { width: 76px; height: 76px; border-radius: 50%; font-size: 13px; background: var(--bitcoin); color: var(--ink); box-shadow: 0 5px 12px #0006; }
+  .action-cluster .jump-button { width: 88px; height: 88px; }
+  .action-cluster .fire-button { background: var(--red); color: var(--paper); }
+  .touch-button.active { background: var(--paper); color: var(--ink); transform: translateY(2px); }
+  .action-cluster .touch-button.active { background: var(--paper); box-shadow: none; transform: translateY(3px); }
+  body.overworld-mode .jump-button { display: none; }
 
-  /* Round FIRE key beside jump: smaller, red, only present with the cannon. */
-  .fire-button {
-    width: calc(var(--jump-size) * 0.72);
-    height: calc(var(--jump-size) * 0.72);
-    border: none;
-    border-radius: 50%;
-    background: linear-gradient(180deg, oklch(70% 0.19 30), oklch(58% 0.2 25) 50%, oklch(44% 0.17 22));
-    box-shadow:
-      inset 0 2px 0 oklch(84% 0.1 40 / 0.8),
-      inset 0 -5px 0 oklch(38% 0.15 20),
-      0 5px 0 oklch(24% 0.09 20);
-    color: var(--paper);
-    font-size: 1.3rem;
-  }
-
-  .fire-button:active,
-  .fire-button.active {
-    transform: translateY(4px);
-    box-shadow:
-      inset 0 2px 0 oklch(84% 0.1 40 / 0.8),
-      inset 0 -2px 0 oklch(38% 0.15 20),
-      0 1px 0 oklch(24% 0.09 20);
-  }
-
-  /* Round action button: the one committed orange affordance, thumb-reach right. */
-  .jump-button {
-    width: var(--jump-size);
-    height: var(--jump-size);
-    margin-bottom: 0;
-    border: none;
-    border-radius: 50%;
-    background: linear-gradient(180deg, oklch(82% 0.16 68), var(--bitcoin) 50%, oklch(56% 0.17 48));
-    box-shadow:
-      inset 0 2px 0 oklch(92% 0.07 82 / 0.8),
-      inset 0 -6px 0 oklch(48% 0.16 44),
-      0 6px 0 oklch(30% 0.1 40);
-    color: var(--ink);
-    font-size: 2.1rem;
-    text-shadow: 0 1px 0 oklch(92% 0.06 80 / 0.7);
-  }
-
-  .touch-button:active,
-  .touch-button.active {
-    transform: translateY(4px);
-    box-shadow:
-      inset 0 1px 0 oklch(38% 0.028 255 / 0.7),
-      inset 0 -1px 0 oklch(6% 0.013 255);
-  }
-
-  .jump-button:active,
-  .jump-button.active {
-    transform: translateY(4px);
-    box-shadow:
-      inset 0 2px 0 oklch(92% 0.07 82 / 0.8),
-      inset 0 -2px 0 oklch(48% 0.16 44),
-      0 2px 0 oklch(30% 0.1 40);
-  }
+  /* Menus are touch-native: no inactive controller, and no overlapping audio CTA. */
+  body:has(.overlay:not(.hidden)) { touch-action: pan-y; }
+  body:has(.overlay:not(.hidden)) .touch-controls { display: none; }
+  body:not(.brawler-mode):has(.overlay:not(.hidden)) .screen-frame { width: min(calc(100vw - 24px), 640px); height: 100%; margin: 0; border: 0; box-shadow: none; }
+  body:has(.overlay:not(.hidden)) .title-stack { width: min(100% - 24px, 520px); max-height: 100%; padding: 24px 0; gap: 16px; }
+  .title-stack .sound-button { position: static; min-height: 44px; background: transparent; color: var(--muted); box-shadow: none; }
+  .level-card { min-height: 72px; }
+  .level-card-title { font-size: 12px; }
+  .level-card-num, .level-card-status { font-size: 10px; }
 }
 
-@media (pointer: coarse) and (orientation: landscape), (max-width: 700px) and (max-height: 480px) {
-  :root {
-    --controls-height: clamp(84px, 24dvh, 104px);
-  }
-
-  .touch-controls {
-    --move-size: clamp(46px, 13dvh, 56px);
-    --jump-size: clamp(58px, 16dvh, 70px);
-    padding: clamp(6px, 1.4dvh, 12px) clamp(16px, 5vw, 30px);
-  }
-
-  .touch-button {
-    font-size: 1.4rem;
-  }
-
-  .jump-button {
-    font-size: 1.7rem;
-  }
+@media (pointer: coarse) and (orientation: landscape), (max-width: 700px) and (max-height: 480px) and (orientation: landscape) {
+  body:not(.brawler-mode) { --screen-height: calc(var(--screen-width) * 240 / 256); --screen-width: min(calc(100vw - 340px), calc((100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 256 / 240)); }
+  .game-shell { justify-content: center; }
+  .touch-controls { position: fixed; inset: auto max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); width: auto; min-height: 192px; padding-inline: 0; }
+  .control-hint { left: 0; }
+  .touch-pause { right: 0; }
+  body:not(.brawler-mode):has(.overlay:not(.hidden)) .screen-frame { width: min(100%, 760px); }
 }
 
 /* Level 6: pixel scenery, with readable status and instructions in the DOM. */
@@ -1097,7 +956,7 @@ body.brawler-mode:has(.overlay:not(.hidden)) #game-canvas { object-fit: cover; }
 }
 
 @media (max-height: 480px) and (orientation: landscape), (pointer: coarse) and (orientation: landscape) {
-  body.brawler-mode { --screen-width: min(calc(100vw - 240px), calc((100dvh - 164px) * 16 / 9)); }
+  body.brawler-mode { --screen-width: min(calc(100vw - 340px), calc((100dvh - 164px) * 16 / 9)); }
   body.brawler-mode .game-shell { padding: 4px 0; }
   .arcade-status { grid-template-columns: 1fr 1fr; gap: 12px; padding: 6px 8px; font-size: 12px; }
   .vitals-heading strong { font-size: 14px; }
@@ -1122,11 +981,25 @@ body.brawler-mode:has(.overlay:not(.hidden)) #game-canvas { object-fit: cover; }
 }
 
 @media (pointer: coarse) and (orientation: landscape) and (min-height: 481px) {
-  body.brawler-mode { --screen-width: min(calc(100vw - 240px), calc((100dvh - 200px) * 16 / 9)); }
+  body.brawler-mode { --screen-width: min(calc(100vw - 340px), calc((100dvh - 200px) * 16 / 9)); }
   .arcade-status { font-size: 14px; padding: 8px; }
   .vitals-heading strong { font-size: 18px; }
   .meter-row { grid-template-columns: 84px 1fr 52px; font-size: 12px; }
   .arcade-objective strong { font-size: 16px; }
   .arcade-objective > span { font-size: 13px; }
   .arcade-readout p, .arcade-readout #arcade-item-hint { font-size: 14px; }
+}
+
+/* Keep the same thumb pad across movement modes and compact arcade layouts. */
+@media (pointer: coarse), (max-width: 700px) {
+  body.brawler-mode .direction-pad { grid-template: repeat(3, 48px) / repeat(3, 48px); padding: 0; gap: 0; }
+  body.brawler-mode .touch-controls { min-height: 192px; padding: 40px 8px 8px; border: 0; }
+  body.brawler-mode .touch-pause { display: none; }
+  body.brawler-mode .game-shell { justify-content: center; padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  body.brawler-mode .screen-frame { margin-block: 0; }
+  .direction-pad .touch-button { box-shadow: none; }
+  body.cannon-mode:not(.brawler-mode) .touch-controls { padding-inline: 12px; gap: 8px; }
+  body.brawler-mode .action-cluster .touch-button.active { background: var(--paper); color: var(--ink); box-shadow: none; }
+  body.cannon-mode:not(.brawler-mode) .action-cluster { gap: 8px; }
+  body.cannon-mode:not(.brawler-mode) .action-cluster .touch-button { width: 64px; height: 64px; }
 }

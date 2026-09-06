@@ -116,17 +116,19 @@ The game is a centered canvas with HTML overlays, not a scrolling website. Class
 
 Level 6 keeps health and power above the playfield at left and district, wave, timer, and score at right. Dialogue and pickup prompts sit immediately below the canvas. Eight districts share four scenery themes, with two fights per district. The camera begins inside each new district when the checkpoint changes.
 
-Coarse pointers or widths at or below 700px show touch controls. Portrait Level 6 places them below the canvas; its overlays grow taller and scroll internally. Touch landscape, including tablets, reserves side space for the controls; desktop landscape below 480px uses the same compact arrangement. Tablet landscape keeps larger status type than phones. Action keys form a two-by-two grid: 60px normally, 52px on short portrait phones, and 50px in landscape. Direction keys are 46px normally and 40px on short portrait phones. Short portrait layouts shrink the playfield separately from the status text. Menu buttons have a 44px minimum height.
+Coarse pointers or widths at or below 700px show a bottom thumb deck during play, with no outer bezel. Menus hide it and use the available height; sound sits in the menu flow. Classic portrait games reserve 204px for controls, with safe-area padding; landscape moves controls beside the playfield. A 144px movement surface supports sliding without lifting and a neutral center. Side-view levels show left/right; city maps and the brawler use a 144×144px cross with 48px targets and diagonal movement. City maps omit the unused jump action. Actions carry explicit Jump, Fire, Attack, Power, and Grab/Throw labels. Classic play has a separate 44px Pause target.
+
+Level 6 retains its four-action cluster and DOM status/readout. Portrait action targets are 60px (52px on short phones), and landscape targets are 50px. All movement targets remain 48px. Menus scroll internally and respect safe areas. Desktop keyboard controls remain available.
 
 ## Elevation & Depth
 
-Shared menus use hard ink shadows and inset selected-state strokes. Touch controls have recessed directional cradles and raised action keys that depress on contact. Level 6 adds a soft shadow beneath its bezel. Within the scene, sprite shading, ground shadows, depth sorting, and slower background movement provide depth.
+Shared menus use hard ink shadows and inset selected-state strokes. Touch controls use a continuous dark movement surface and orange primary action keys, with light pressed feedback. Level 6 adds a soft shadow beneath its bezel. Within the scene, sprite shading, ground shadows, depth sorting, and slower background movement provide depth.
 
 Combat uses small particles, hit words, a mint special-attack ring, and brief screen shake. Reduced-motion preference suppresses screen shake; ambient animation continues.
 
 ## Shapes
 
-Menu cards and panels remain rectangular with visible strokes. The touch pad uses rounded square keys inside a rounded cradle; action keys are circular. Runtime fighters use a two-pixel construction grid, ink silhouettes, shaded clothing, and separate moving limbs.
+Menu cards and panels remain rectangular with visible strokes. The touch pad is one rounded surface with a neutral center; action keys are circular. Runtime fighters use a two-pixel construction grid, ink silhouettes, shaded clothing, and separate moving limbs.
 
 ## Components
 

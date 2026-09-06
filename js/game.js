@@ -6237,10 +6237,10 @@
     document.body.classList.toggle("cannon-mode", hasSatCannon());
     const arcade = state.subMode === "brawler";
     const fireButton = document.querySelector('[data-action="fire"]');
-    fireButton.textContent = arcade ? "ATTACK" : "●";
+    fireButton.textContent = arcade ? "ATTACK" : "FIRE";
     fireButton.setAttribute("aria-label", arcade ? "Combo attack or jump kick" : "Fire sat cannon");
     if (arcade) document.querySelector('[data-action="special"]').setAttribute("aria-label", `${window.SatoshiBrawler.CHARACTERS[selectedFighter].special} special attack`);
-    document.querySelector('[data-action="jump"]').textContent = arcade ? "JUMP" : "↑";
+    document.querySelector('[data-action="jump"]').textContent = "JUMP";
   }
 
   function syncHud(force = false) {
@@ -6480,57 +6480,88 @@
   }
 
   function initTouchControls() {
-    for (const button of document.querySelectorAll("[data-action]")) {
-      const action = button.dataset.action;
-      const press = (event) => {
-        event.preventDefault();
-        if (typeof event.pointerId === "number" && typeof button.setPointerCapture === "function") {
-          try {
-            button.setPointerCapture(event.pointerId);
-          } catch (error) {
-            // The pointer may already be gone on older mobile browsers.
-          }
-        }
-        if (state.phase === "title") {
-          // On the title screen the d-pad navigates the level select and the
-          // jump button starts the selected level — mirroring the keyboard map
-          // and avoiding carrying a stray jump input into the run.
-          if (action === "left") moveSelection(-1);
-          else if (action === "right") moveSelection(1);
-          // Up/down/fire do nothing on the title so a stray tap on a mode-only
-          // key can't accidentally launch a level; jump starts the game.
-          else if (action === "jump") startGame();
-          return;
-        }
-        if (state.phase !== "playing" || state.paused) return;
-        button.classList.add("active");
-        setAction(action, true);
-      };
-      const release = (event) => {
-        event.preventDefault();
-        if (
-          typeof event.pointerId === "number" &&
-          typeof button.releasePointerCapture === "function" &&
-          typeof button.hasPointerCapture === "function" &&
-          button.hasPointerCapture(event.pointerId)
-        ) {
-          button.releasePointerCapture(event.pointerId);
-        }
+    const pad = document.querySelector(".direction-pad");
+    const directionButtons = [...pad.querySelectorAll("[data-action]")];
+    let movementPointer = null;
+
+    // Capture the whole pad so a thumb can change direction without lifting.
+    // The neutral center stops movement; corners allow diagonal city movement.
+    const move = (event) => {
+      if (event.pointerId !== movementPointer) return;
+      const rect = pad.getBoundingClientRect();
+      const x = (event.clientX - rect.left - rect.width / 2) / (rect.width / 2);
+      const y = (event.clientY - rect.top - rect.height / 2) / (rect.height / 2);
+      const vertical = state.subMode === "overworld" || state.subMode === "brawler";
+      for (const button of directionButtons) {
+        const action = button.dataset.action;
+        const active = state.phase === "playing" && !state.paused && (
+          (action === "left" && x < -0.22) || (action === "right" && x > 0.22) ||
+          (vertical && action === "up" && y < -0.22) ||
+          (vertical && action === "down" && y > 0.22)
+        );
+        button.classList.toggle("active", active);
+        setAction(action, active);
+      }
+    };
+    const releaseMovement = () => {
+      movementPointer = null;
+      for (const button of directionButtons) {
         button.classList.remove("active");
-        setAction(action, false);
-      };
-      button.addEventListener("pointerdown", press);
-      button.addEventListener("pointerup", release);
-      button.addEventListener("pointercancel", release);
-      button.addEventListener("pointerleave", release);
-      button.addEventListener("touchstart", press, { passive: false });
-      button.addEventListener("touchend", release, { passive: false });
-      button.addEventListener("touchcancel", release, { passive: false });
-      button.addEventListener("touchmove", blockControlDefault, { passive: false });
-      button.addEventListener("contextmenu", blockControlDefault);
-      button.addEventListener("selectstart", blockControlDefault);
-      button.addEventListener("dragstart", blockControlDefault);
+        setAction(button.dataset.action, false);
+      }
+    };
+    pad.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      if (movementPointer !== null || state.phase !== "playing" || state.paused) return;
+      movementPointer = event.pointerId;
+      pad.setPointerCapture(event.pointerId);
+      move(event);
+    });
+    pad.addEventListener("pointermove", move);
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+      pad.addEventListener(type, (event) => {
+        if (event.pointerId === movementPointer) releaseMovement();
+      });
     }
+
+    const resetActions = [];
+    for (const button of document.querySelectorAll(".action-cluster [data-action]")) {
+      const pointers = new Set();
+      const release = (event) => {
+        pointers.delete(event.pointerId);
+        if (pointers.size) return;
+        button.classList.remove("active");
+        setAction(button.dataset.action, false);
+      };
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        if (state.phase !== "playing" || state.paused) return;
+        pointers.add(event.pointerId);
+        button.setPointerCapture(event.pointerId);
+        button.classList.add("active");
+        setAction(button.dataset.action, true);
+      });
+      for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+        button.addEventListener(type, release);
+      }
+      resetActions.push(() => {
+        pointers.clear();
+        button.classList.remove("active");
+        setAction(button.dataset.action, false);
+      });
+    }
+    const reset = () => {
+      releaseMovement();
+      resetActions.forEach((release) => release());
+    };
+    window.addEventListener("blur", reset);
+    window.addEventListener("resize", reset);
+    document.addEventListener("visibilitychange", reset);
+    document.getElementById("touch-pause").addEventListener("click", () => {
+      reset();
+      pauseGame();
+    });
+    document.querySelector(".touch-controls").addEventListener("contextmenu", blockControlDefault);
   }
 
   startButton.addEventListener("click", startGame);

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>8-Bit Satoshi</title>
   <meta name="description" content="Build Bitcoin through five pixel adventures and an arcade street brawl with four fighters, flying chairs, and shitcoins.">
 
@@ -45,9 +45,9 @@
           <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
           <button id="start-button" class="primary-button" type="button">START</button>
           <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
+          <button id="sound-button" class="primary-button secondary-button sound-button" type="button" aria-pressed="true">TAP FOR SOUND</button>
           <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
         </div>
-        <button id="sound-button" class="primary-button secondary-button sound-button" type="button" aria-pressed="true">TAP FOR SOUND</button>
       </div>
 
       <div id="message-screen" class="overlay message-screen hidden">
@@ -90,7 +90,9 @@
     <div class="touch-controls" aria-label="Touch controls">
       <!-- City maps and the arcade brawler use four directions;
            classic side-view levels keep the two-button pad. -->
-      <div class="direction-pad" aria-label="Move">
+      <span class="control-hint" id="movement-hint">SLIDE TO MOVE</span>
+      <button id="touch-pause" class="touch-pause" type="button" aria-label="Pause game">PAUSE</button>
+      <div class="direction-pad" aria-label="Move" aria-describedby="movement-hint">
         <button class="touch-button vertical-button" type="button" data-action="up" aria-label="Move up">&uarr;</button>
         <div class="direction-pad-row">
           <button class="touch-button" type="button" data-action="left" aria-label="Move left">&larr;</button>
@@ -101,7 +103,7 @@
       <div class="action-cluster">
         <!-- FIRE is the sat cannon in armed venues and ATTACK in Level 6. -->
         <button class="touch-button fire-button" type="button" data-action="fire" aria-label="Fire sat cannon">&#9679;</button>
-        <button class="touch-button jump-button" type="button" data-action="jump" aria-label="Jump">&uarr;</button>
+        <button class="touch-button jump-button" type="button" data-action="jump" aria-label="Jump">JUMP</button>
         <button class="touch-button special-button" type="button" data-action="special" aria-label="People Power special attack">POWER</button>
         <button class="touch-button throw-button" type="button" data-action="throw" aria-label="Pick up or throw an object">THROW</button>
       </div>
