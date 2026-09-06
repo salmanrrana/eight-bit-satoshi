@@ -152,9 +152,15 @@ eightBitSatoshi.openLeaderboard("combined")        // combined total board
 ## Check
 
 ```bash
-npm run check
-npm test
+npm install
+npm run check:fast
 ```
+
+`npm install` enables the tracked pre-commit hook. It checks supported staged
+files with Prettier, then runs ESLint and the focused game checks. Running the
+whole fast check also catches broken references after a deletion. Prettier is
+applied incrementally so adopting it does not rewrite the existing game in one
+large diff.
 
 The 15 focused Level 6 checks cover facing/lane collision, combos, jumping,
 special charge, life loss, pickup/carry/throw behavior, piercing hits, enemy
