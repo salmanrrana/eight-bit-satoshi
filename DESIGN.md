@@ -146,7 +146,8 @@ Menu cards and panels remain rectangular with visible strokes. The touch pad is 
 - **Do** preserve the first five levels and scope the arcade presentation to `body.brawler-mode` and the Level 6 renderer.
 - **Do** keep gameplay pixels crisp and the lower street clear enough to read movement and attacks.
 - **Do** retain the alternate-2026 satire label and distinguish imagined dialogue from real quotations.
-- **Don't** apply the 16:9 viewport, arcade palette, or richer sprites to classic levels by default.
+- **Do** keep the title and leaderboard in the shared 16:9 menu frame for every level (`syncFrame` in `js/game.js`); each level's intro shows the same kicker, name, pitch, how-to line and optional satire note from its `LEVELS` entry.
+- **Don't** apply the 16:9 viewport, arcade palette, or richer sprites to classic levels during play.
 - **Don't** treat “32-bit” as a required hardware emulation limit.
 - **Don't** claim an approved visual mockup; this system records the implemented game extension.
 

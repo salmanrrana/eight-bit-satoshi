@@ -193,6 +193,7 @@
       id: "whitepaper-run",
       title: "THE WHITEPAPER RUN",
       description: "Build Bitcoin from the broken world to the whitepaper.",
+      howTo: "Side-scroller · ←→ move · SPACE jump · grab every page",
       // Visual theme — selects the backdrop, ground accents, collectible, and
       // checkpoint/goal art families (see getTheme + the draw* routines). "city"
       // is Level 1's dystopian-skyline → green-hills look.
@@ -271,6 +272,7 @@
       id: "running-bitcoin",
       title: "RUNNING BITCOIN",
       description: "Run a node, harden the code, and grow the network with Hal and the early builders.",
+      howTo: "Side-scroller · ←→ move · SPACE jump · patch every bug",
       // "network" theme (ticket 60f350ff): a "network at night" look — server
       // towers and a mempool node-map backdrop that lights up as you advance,
       // terminal-green ground accents, SATS/PATCH collectibles, node-beacon
@@ -403,6 +405,7 @@
       id: "internet-of-money",
       title: "THE INTERNET OF MONEY",
       description: "Take the word on tour — talks, meetups, and sats from Chicago to the world.",
+      howTo: "Side-scroller · ←→ move · SPACE jump · give every talk",
       // "tour" theme: a world-tour dusk that warms zone by zone into sunrise —
       // landmark skylines in the far parallax, and a near-layer crowd whose
       // heads light up orange as adoption spreads. SATS/TALK collectibles,
@@ -528,6 +531,7 @@
       id: "shitcoin-city",
       title: "SHITCOIN CITY",
       description: "2021 mania: a shill on every corner. Stay focused, stack sats, clear the venues.",
+      howTo: "City map · WASD walk · step into doors to fight · X fires the sat cannon",
       theme: "mania",
       mode: "overworld",
       labels: { coin: "SATS", pageStat: "STASHES", pageNote: "Stash" },
@@ -726,6 +730,7 @@
       id: "wall-street",
       title: "WALL STREET",
       description: "2024: institutions pile in. Clear four towers, dodge taxis, wake the Bull.",
+      howTo: "City map · WASD walk · climb every floor · stomp the agents",
       theme: "wallstreet",
       mode: "overworld",
       labels: { coin: "SATS", pageStat: "KEYS", pageNote: "Key" },
@@ -1097,6 +1102,8 @@
     id: "for-the-people",
     title: "FOR THE PEOPLE",
     description: "Four fighters. Eight districts. Pick up, throw down, fight for the people.",
+    howTo: "Brawler · pick a fighter · X attack · E grab/throw · C special",
+    note: "An alternate 2026. Fictional satire, imagined dialogue.",
     mode: "brawler",
     theme: "brawler",
     worldW: window.SatoshiBrawler.STAGE_WIDTH * window.SatoshiBrawler.STAGES.length,
@@ -1109,6 +1116,8 @@
     id: "number-go-up",
     title: "NUMBER GO UP",
     description: "Stomp the suits, fly the hoodie. Every crypto bill fails; Bitcoin keeps climbing.",
+    howTo: "Platformer · ←→ move · hold X to run · SPACE jump · hoodie + full P-meter = fly",
+    note: "Fictional satire. Any resemblance to real bills is the joke.",
     mode: "platformer",
     theme: "platformer",
     worldW: window.NumberGoUp.WORLD_W,
@@ -1796,6 +1805,27 @@
     }
   }
 
+  // Every level's intro uses the same layout: kicker, name, pitch, how to
+  // play, and an optional satire note. Copy lives on the LEVELS entries.
+  function renderTitleCopy(level) {
+    document.getElementById("title-kicker").textContent = `8-BIT SATOSHI · LEVEL ${LEVELS.indexOf(level) + 1}`;
+    document.getElementById("title-heading").textContent = level.title;
+    document.getElementById("title-tagline").textContent = level.description;
+    document.getElementById("title-howto").textContent = level.howTo;
+    const note = document.getElementById("title-note");
+    note.textContent = level.note || "";
+    note.hidden = !level.note;
+  }
+
+  // Menus (title and leaderboard) always use the wide 16:9 frame so they look
+  // the same whichever level is picked. During play, only the brawler and the
+  // platformer keep it; classic levels shrink back to their 256 × 240 screen.
+  function syncFrame() {
+    const mode = getCurrentLevel().mode;
+    const menu = state.phase === "title" || state.phase === "leaderboard";
+    document.body.classList.toggle("brawler-mode", menu || mode === "brawler" || mode === "platformer");
+  }
+
   // Return to the title screen / level select from a finished or failed run.
   // Refreshes the picker first so a level just cleared shows its new best and
   // unlocks the next level without needing a page reload.
@@ -1812,6 +1842,7 @@
     if (!isLevelUnlocked(state.levelIndex)) selectLevel(0);
     else renderLevelSelect();
     titleScreen.classList.remove("hidden");
+    syncFrame();
   }
 
   // Map of checkpoint index -> best split duration for the active level, captured
@@ -2015,16 +2046,14 @@
     const level = getCurrentLevel();
     const arcade = level.mode === "brawler";
     const platformer = level.mode === "platformer";
-    // Both late levels use the 16:9 arcade frame (body.brawler-mode);
+    // Both late levels play in the 16:9 arcade frame (see syncFrame);
     // platformer-mode trims its controls down to move, run and jump.
     const wide = arcade || platformer;
     canvas.width = arcade ? window.SatoshiBrawler.WIDTH * 2 : platformer ? window.NumberGoUp.VIEW_W * window.NumberGoUpArt.SCALE : VIEW_W;
     canvas.height = arcade ? window.SatoshiBrawler.HEIGHT * 2 : platformer ? window.NumberGoUp.VIEW_H * window.NumberGoUpArt.SCALE : VIEW_H;
     ctx.imageSmoothingEnabled = false;
-    document.body.classList.toggle("brawler-mode", wide);
+    syncFrame();
     document.body.classList.toggle("platformer-mode", platformer);
-    document.getElementById("arcade-brief").hidden = !arcade;
-    document.getElementById("platformer-brief").hidden = !platformer;
     document.getElementById("arcade-controls").hidden = !wide;
     document.getElementById("brawler-keys").hidden = !arcade;
     document.getElementById("platformer-keys").hidden = !platformer;
@@ -2032,13 +2061,7 @@
     document.getElementById("arcade-readout").hidden = !arcade;
     document.getElementById("fighter-picker").hidden = !arcade;
     document.getElementById("fighter-description").textContent = window.SatoshiBrawler.CHARACTERS[selectedFighter].description;
-    document.querySelector(".title-stack > h1").textContent = arcade ? "FOR THE PEOPLE" : platformer ? "NUMBER GO UP" : "8-BIT SATOSHI";
-    document.getElementById("title-tagline").textContent = arcade
-      ? "Pick your fighter. Take the people's route."
-      : platformer
-        ? "Stomp the suits. Fly the hoodie. Every bill fails."
-        : "Build Bitcoin. Beat fiat. Reach the whitepaper.";
-    startButton.textContent = wide ? "LET'S GO" : "START";
+    renderTitleCopy(level);
     canvas.setAttribute("aria-label", arcade ? "For the People: arcade street brawler" : platformer ? "Number Go Up: side-scrolling platformer" : "8-Bit Satoshi game canvas");
     if (platformer) {
       state.subMode = "platformer";
@@ -2801,6 +2824,7 @@
     titleScreen.classList.add("hidden");
     messageScreen.classList.add("hidden");
     state.phase = "playing";
+    syncFrame();
     state.paused = false;
     resetRun(true);
     startMusic(true);
@@ -3182,6 +3206,7 @@
     titleScreen.classList.add("hidden");
     messageScreen.classList.add("hidden");
     leaderboardScreen.classList.remove("hidden");
+    syncFrame();
     renderLeaderboardTabs();
     loadLeaderboard();
     if (leaderboardBack) leaderboardBack.focus();
@@ -3198,6 +3223,7 @@
     if (state.leaderboardOrigin === "results") {
       state.phase = "complete";
       messageScreen.classList.remove("hidden");
+      syncFrame();
     } else {
       showTitle();
     }

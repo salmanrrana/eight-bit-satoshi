@@ -836,7 +836,7 @@ body.brawler-mode .title-screen { background: #111b29f2; }
 body.brawler-mode .title-stack {
   width: min(94%, 880px);
   gap: 10px;
-  padding-block: 20px 60px;
+  padding-block: 16px 20px;
 }
 body.brawler-mode .title-stack h1 { color: #ffb34c; font-size: clamp(28px, 4vw, 48px); }
 body.brawler-mode .title-stack > p { font-size: 16px; max-width: 60ch; }
@@ -844,9 +844,10 @@ body.brawler-mode .level-select { grid-template-columns: repeat(4, minmax(0, 1fr
 body.brawler-mode .level-card-title { font-size: 13px; }
 body.brawler-mode .level-card-num, body.brawler-mode .level-card-status { font-size: 11px; }
 body.brawler-mode .secondary-button { background: #293644; color: #ffe5b7; }
-.arcade-brief { max-width: 66ch; }
-.title-stack .arcade-brief p { max-width: 66ch; font-size: 14px; color: #eed9b8; }
-.title-stack .arcade-brief .arcade-fiction { margin-top: 4px; font-size: 12px; color: #b1c6cc; }
+/* Shared level intro: kicker, name, pitch, how to play, optional satire note. */
+.title-screen .title-stack > p.title-kicker { color: #b1c6cc; font-size: 12px; letter-spacing: 0.12em; margin-bottom: -4px; }
+.title-screen .title-stack > p.title-howto { max-width: 66ch; font-size: 13px; color: #7af0be; }
+.title-screen .title-stack > p.title-note { font-size: 12px; color: #b1c6cc; }
 body.brawler-mode .title-stack .title-rules { font-size: 11px; max-width: 68ch; }
 
 .fighter-picker { width: 100%; border: 0; padding: 0; margin: 6px 0; min-width: 0; }

@@ -31,16 +31,12 @@
 
       <div id="title-screen" class="overlay title-screen">
         <div class="title-stack">
-          <h1>8-BIT SATOSHI</h1>
-          <p id="title-tagline">Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
-          <div id="arcade-brief" class="arcade-brief" hidden>
-            <p>Eight districts. Sixteen street fights. Grab a chair, dodge the shitcoins, and fight for the people.</p>
-            <p class="arcade-fiction">An alternate 2026. Fictional satire, imagined dialogue.</p>
-          </div>
-          <div id="platformer-brief" class="arcade-brief" hidden>
-            <p>Three cities. Three crypto bills. Every one fails. Stomp politicians, kick bankers' briefcases, grab the NO-BS hoodie and fly while Bitcoin keeps climbing.</p>
-            <p class="arcade-fiction">Fictional satire. Any resemblance to real bills is the joke.</p>
-          </div>
+          <!-- Filled per level by renderTitleCopy so every level's intro shares one layout. -->
+          <p id="title-kicker" class="title-kicker">8-BIT SATOSHI · LEVEL 1</p>
+          <h1 id="title-heading">THE WHITEPAPER RUN</h1>
+          <p id="title-tagline">Build Bitcoin from the broken world to the whitepaper.</p>
+          <p id="title-howto" class="title-howto"></p>
+          <p id="title-note" class="title-note" hidden></p>
           <fieldset id="fighter-picker" class="fighter-picker" hidden>
             <legend>Choose your fighter</legend>
             <div id="fighter-select" class="fighter-select"></div>
