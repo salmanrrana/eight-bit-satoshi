@@ -4,6 +4,11 @@ Playable static canvas game. No install step is required.
 
 ## Levels & Local Development
 
+The start screen is the same for every level: the selected level plays live
+behind the **8-BIT SATOSHI** logo, and one panel shows the level's name, pitch
+and controls, numbered stage buttons (arrow keys also move between them), the
+fighter/runner picker for Levels 6 and 7, and a big START (Enter / Space).
+
 Levels normally unlock in order — clearing a level unlocks the next. When the
 game is served from a loopback host (`npm start` → `127.0.0.1`) or opened from
 disk, **every level is unlocked** so any of them can be played or tested
@@ -64,6 +69,29 @@ doctors, gatekeepers, token shills, and fiat enforcers.
 
 Jump directly to its local level selection at `http://127.0.0.1:5000/?level=6`.
 The first five levels keep their original graphics and play styles.
+
+Level 7 (**NUMBER GO UP**) is a Super Mario Bros. 3 / Super Mario World style
+side-scroller through **Washington D.C., New York and Dubai**, each with its own
+animated skyline. Every city pushes a crypto bill; every bill fails at the
+city gate and the BTC price in the HUD keeps climbing.
+
+- Move with **A/D or arrows**, hold **X / F** to run, **Space / W / Up** to jump.
+  Touch shows the left/right pad plus RUN and JUMP.
+- Stomp **politicians**. Stomp a **banker** and he hides in his briefcase — kick
+  it to bowl over everyone in its path.
+- **?** blocks hold sats and power-ups: the **orange pill** makes you big; big,
+  you get the **NO-BS hoodie**, which bounces bullshit coins off you. With the
+  hoodie, run until the P-meter fills, then jump and hold (or tap) jump to fly.
+  Holding jump while falling floats you down.
+- The **HODL star** makes you invincible: suits flip over and fall off screen.
+- Pick a runner on the start screen — the same four heroes as Level 6, each
+  with one perk: **Jack** fills the P-meter twice as fast, **Satoshi** starts
+  every life orange-pilled, the **Wizard** jumps higher and floats softer, and
+  the **Coder** flies 50% longer.
+- Hit the moving goal tape high for the 5,000 bonus.
+
+Simulation lives in `js/number-go-up.js` (plain JS, runs in Node for tests) and
+all art in `js/number-go-up-art.js` (384 × 216 pixel art drawn at 3×).
 
 ## Deployment
 
@@ -146,6 +174,7 @@ eightBitSatoshi.openLeaderboard("running-bitcoin") // Level 2 board
 eightBitSatoshi.openLeaderboard("internet-of-money") // Level 3 board
 eightBitSatoshi.openLeaderboard("wall-street")       // Level 5 board
 eightBitSatoshi.openLeaderboard("for-the-people")    // Level 6 board
+eightBitSatoshi.openLeaderboard("number-go-up")      // Level 7 board
 eightBitSatoshi.openLeaderboard("combined")        // combined total board
 ```
 
@@ -165,7 +194,9 @@ large diff.
 The 15 focused Level 6 checks cover facing/lane collision, combos, jumping,
 special charge, life loss, pickup/carry/throw behavior, piercing hits, enemy
 throws and dodging, quick input taps, lethal hits at exits, and a complete input-only run with each
-of the four fighters through every district and the boss.
+of the four fighters through every district and the boss. Eight Level 7 checks
+cover stomps, briefcase kicks, ? blocks and power-ups, hoodie flight and
+shitcoin blocking, star kills, bills failing, and that every gap is jumpable.
 
 ## Timing Rules
 

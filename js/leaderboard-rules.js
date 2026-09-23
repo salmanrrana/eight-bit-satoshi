@@ -31,7 +31,8 @@
     "internet-of-money": "THE INTERNET OF MONEY",
     "shitcoin-city": "SHITCOIN CITY",
     "wall-street": "WALL STREET",
-    "for-the-people": "FOR THE PEOPLE"
+    "for-the-people": "FOR THE PEOPLE",
+    "number-go-up": "NUMBER GO UP"
   };
 
   // The virtual combined board's levelId. It is never submitted; it is derived on

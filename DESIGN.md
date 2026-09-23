@@ -1,6 +1,6 @@
 ---
 name: 8-Bit Satoshi
-description: Five classic pixel levels and a distinct Level 6 street brawler, For the People.
+description: Five classic pixel levels, a Level 6 street brawler (For the People), and a Level 7 SMB3/SMW-style platformer (Number Go Up).
 colors:
   ink: "oklch(8% 0.01 255)"
   panel: "oklch(15% 0.02 255)"
@@ -132,12 +132,13 @@ Menu cards and panels remain rectangular with visible strokes. The touch pad is 
 
 ## Components
 
-- **Level picker:** wrapping button cards with number, title, and status. Level 6 fits three columns when space allows; selection remains visibly outlined.
+- **Start screen:** one layout for every level. A logo bar (8-BIT SATOSHI, Leaderboard, Sound) sits over the selected level's live preview; a bezel-bordered bottom panel shows "LEVEL N / 7 · status", the level name, pitch, green how-to line, optional satire note, numbered stage buttons (selected is solid orange and raised, cleared shows a green check, locked is dimmed), the fighter/runner picker on Levels 6–7, and a large glowing START.
 - **Buttons:** orange primary actions, dark secondary actions in arcade mode, brightness on hover, physical depression on press, and a visible paper-colored keyboard focus ring.
 - **Overlays and results:** centered, darkened backdrops with internal scrolling. Results retain the existing timer, splits, statistics, name field, and leaderboard patterns.
 - **Name field and leaderboard tabs:** paper strokes, dark surfaces, and orange focus or selected treatment; submission states keep their existing muted, green, orange, and red feedback.
 - **Fighter picker:** four portrait cards with native radio inputs, a selected gold stroke, visible keyboard focus, and a description of the selected fighter's moves. Two columns on portrait phones.
 - **Arcade HUD and controls:** gold health, mint special charge, labeled Attack/Jump/Power/Grab–Throw touch keys, and a separate Pause button. The throw key changes its label when an object is available. Gameplay labels stay clear of the fight.
+- **Level 7 (Number Go Up):** 384×216 logical pixels at 3× inside the same 16:9 frame (`body.brawler-mode` plus `body.platformer-mode`, which hides the Power/Throw/vertical touch keys and relabels Fire as RUN). Sprites are character grids with an automatic ink outline; the HUD, news banner and FAILED stamp use an in-canvas 5×7 pixel font. Skylines move from daytime D.C. to sunset New York to night-time Dubai, crossfading at each city gate. All of it lives in `js/number-go-up-art.js`.
 - **City and actors:** `assets/brawler/city.png` is the generated background plate; fighters, props, thrown objects, signs, and effects are drawn in `js/brawler-art.js`. Asset provenance and the prompt live in `assets/brawler/README.md`.
 
 ## Do's and Don'ts
@@ -145,7 +146,8 @@ Menu cards and panels remain rectangular with visible strokes. The touch pad is 
 - **Do** preserve the first five levels and scope the arcade presentation to `body.brawler-mode` and the Level 6 renderer.
 - **Do** keep gameplay pixels crisp and the lower street clear enough to read movement and attacks.
 - **Do** retain the alternate-2026 satire label and distinguish imagined dialogue from real quotations.
-- **Don't** apply the 16:9 viewport, arcade palette, or richer sprites to classic levels by default.
+- **Do** keep the title and leaderboard in the shared 16:9 menu frame for every level (`syncFrame` in `js/game.js`); each level's intro shows the same kicker, name, pitch, how-to line and optional satire note from its `LEVELS` entry.
+- **Don't** apply the 16:9 viewport, arcade palette, or richer sprites to classic levels during play.
 - **Don't** treat “32-bit” as a required hardware emulation limit.
 - **Don't** claim an approved visual mockup; this system records the implemented game extension.
 

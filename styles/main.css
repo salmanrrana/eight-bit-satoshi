@@ -198,75 +198,6 @@ button {
   display: none;
 }
 
-/* Title-screen level picker. A compact row of cards (one per level) so the
-   choice stays glanceable rather than reading like a deep menu. Wraps to a
-   column on narrow screens. Cards are populated by JS from the level list. */
-.level-select {
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: clamp(6px, 1.6vw, 12px);
-}
-
-.level-card {
-  flex: 1 1 clamp(120px, 38%, 200px);
-  min-width: clamp(120px, 38%, 160px);
-  min-height: 44px;
-  display: grid;
-  gap: 3px;
-  padding: clamp(6px, 1.6vw, 10px);
-  border: 2px solid var(--outline);
-  background: var(--panel);
-  color: var(--paper);
-  text-align: left;
-  box-shadow: 0 4px 0 var(--ink);
-  cursor: pointer;
-}
-
-.level-card:hover {
-  filter: brightness(1.08);
-}
-
-.level-card.selected {
-  background: var(--panel-2);
-  border-color: var(--bitcoin);
-  box-shadow: 0 4px 0 var(--ink), inset 0 0 0 2px var(--bitcoin);
-}
-
-.level-card.locked {
-  opacity: 0.55;
-  cursor: not-allowed;
-  filter: none;
-}
-
-.level-card-num {
-  font-size: clamp(8px, 1.7vw, 11px);
-  letter-spacing: 0.5px;
-  opacity: 0.7;
-}
-
-.level-card-title {
-  color: var(--bitcoin);
-  font-size: clamp(10px, 2.2vw, 14px);
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.level-card.locked .level-card-title {
-  color: var(--paper);
-}
-
-.level-card-status {
-  font-size: clamp(8px, 1.7vw, 11px);
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
-}
-
-.level-card.cleared .level-card-status {
-  color: var(--green);
-  opacity: 1;
-}
 
 /* Quieter than the bitcoin-orange primary buttons so LEVELS reads as a
    secondary action next to CONTINUE / RESTART / PLAY AGAIN. (Its hidden state is
@@ -787,11 +718,6 @@ body.overworld-mode .vertical-button { display: grid; }
   body:has(.overlay:not(.hidden)) { touch-action: pan-y; }
   body:has(.overlay:not(.hidden)) .touch-controls { display: none; }
   body:not(.brawler-mode):has(.overlay:not(.hidden)) .screen-frame { width: min(calc(100vw - 24px), 640px); height: 100%; margin: 0; border: 0; box-shadow: none; }
-  body:has(.overlay:not(.hidden)) .title-stack { width: min(100% - 24px, 520px); max-height: 100%; padding: 24px 0; gap: 16px; }
-  .title-stack .sound-button { position: static; min-height: 44px; background: transparent; color: var(--muted); box-shadow: none; }
-  .level-card { min-height: 72px; }
-  .level-card-title { font-size: 12px; }
-  .level-card-num, .level-card-status { font-size: 10px; }
 }
 
 @media (pointer: coarse) and (orientation: landscape), (max-width: 700px) and (max-height: 480px) and (orientation: landscape) {
@@ -812,8 +738,6 @@ body.brawler-mode .throw-button,
 body.brawler-mode .vertical-button { display: grid; }
 [hidden] { display: none !important; }
 button:focus-visible { outline: 3px solid var(--paper); outline-offset: 4px; }
-.title-screen { overflow-y: auto; }
-.title-stack { max-height: 100%; overflow-y: auto; padding-block: 16px 64px; scrollbar-color: var(--bitcoin) var(--panel); scrollbar-width: thin; }
 
 body.brawler-mode {
   --screen-width: min(1320px, calc(100vw - 32px), calc((100dvh - 240px) * 16 / 9));
@@ -833,22 +757,7 @@ body.brawler-mode .screen-frame {
   box-shadow: 0 12px 32px #080e15;
 }
 body.brawler-mode .hud, body.brawler-mode .hud-timer { display: none; }
-body.brawler-mode .title-screen { background: #111b29f2; }
-body.brawler-mode .title-stack {
-  width: min(94%, 880px);
-  gap: 10px;
-  padding-block: 20px 60px;
-}
-body.brawler-mode .title-stack h1 { color: #ffb34c; font-size: clamp(28px, 4vw, 48px); }
-body.brawler-mode .title-stack > p { font-size: 16px; max-width: 60ch; }
-body.brawler-mode .level-card { flex: 1 1 30%; min-width: 130px; }
-body.brawler-mode .level-card-title { font-size: 13px; }
-body.brawler-mode .level-card-num, body.brawler-mode .level-card-status { font-size: 11px; }
 body.brawler-mode .secondary-button { background: #293644; color: #ffe5b7; }
-.arcade-brief { max-width: 66ch; }
-.title-stack .arcade-brief p { max-width: 66ch; font-size: 14px; color: #eed9b8; }
-.title-stack .arcade-brief .arcade-fiction { margin-top: 4px; font-size: 12px; color: #b1c6cc; }
-body.brawler-mode .title-stack .title-rules { font-size: 11px; max-width: 68ch; }
 
 .fighter-picker { width: 100%; border: 0; padding: 0; margin: 6px 0; min-width: 0; }
 .fighter-picker legend { padding: 0 0 10px; color: #fff0c2; font-size: 18px; font-weight: 800; text-align: left; }
@@ -860,7 +769,6 @@ body.brawler-mode .title-stack .title-rules { font-size: 11px; max-width: 68ch; 
 .fighter-option canvas { width: 60px; height: 78px; image-rendering: pixelated; }
 .fighter-option strong { font-size: 16px; color: #fff0c2; }
 .fighter-option span { font-size: 12px; color: #d3c7b0; }
-.title-stack #fighter-description { margin-top: 9px; max-width: 70ch; font-size: 14px; color: #eee1c8; min-height: 2.8em; }
 
 .arcade-status, .arcade-readout, .arcade-controls { width: var(--screen-width); font-family: Arial, sans-serif; }
 .arcade-status { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(230px, 1fr); gap: 24px; padding: 10px 12px; background: #182431; color: #fff0c2; font-size: 16px; }
@@ -926,8 +834,6 @@ body.brawler-mode:has(.overlay:not(.hidden)) #game-canvas { object-fit: cover; }
   body.brawler-mode .fire-button { background: #c36151; }
   body.brawler-mode .special-button { color: #102b2a; background: #7af0be; text-shadow: none; }
   body.brawler-mode .throw-button { color: #122336; background: #94ceff; text-shadow: none; }
-  body.brawler-mode .title-stack { gap: 10px; padding-block: 20px 66px; }
-  body.brawler-mode .title-stack > p { font-size: 14px; }
   .fighter-select { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .fighter-option { grid-template-columns: 46px 1fr; grid-template-rows: 1fr auto; text-align: left; padding: 8px 5px; }
   .fighter-option canvas { grid-row: 1 / 3; width: 46px; height: 60px; }
@@ -1002,4 +908,107 @@ body.brawler-mode:has(.overlay:not(.hidden)) #game-canvas { object-fit: cover; }
   body.brawler-mode .action-cluster .touch-button.active { background: var(--paper); color: var(--ink); box-shadow: none; }
   body.cannon-mode:not(.brawler-mode) .action-cluster { gap: 8px; }
   body.cannon-mode:not(.brawler-mode) .action-cluster .touch-button { width: 64px; height: 64px; }
+}
+
+/* Level 7 shares the 16:9 arcade frame but only needs move, RUN and JUMP. */
+body.platformer-mode .special-button,
+body.platformer-mode .throw-button,
+body.platformer-mode .vertical-button { display: none; }
+
+/* ---- Start screen -------------------------------------------------------
+   Arcade attract screen for every level: the selected level shows live
+   behind a logo bar, and one bottom panel holds the level, stage buttons,
+   runner picker and START. Menus always use the wide frame (syncFrame). */
+.title-screen {
+  place-items: stretch;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #0b122000 0%, #0b12204d 30%, #0b1220e6 58%, #0b1220fa 100%);
+}
+.title-screen .title-stack {
+  width: 100%;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: stretch;
+  gap: 16px;
+  padding: 16px clamp(12px, 3vw, 28px) 18px;
+  text-align: center;
+}
+.title-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.title-screen .title-logo {
+  margin: 0;
+  max-width: none;
+  color: var(--bitcoin);
+  font-size: clamp(26px, 4.6vw, 54px);
+  font-weight: 900;
+  line-height: 0.95;
+  text-align: left;
+  text-shadow: 0 3px 0 oklch(34% 0.08 42), 0 6px 0 var(--ink), 0 0 24px #f7931a55;
+}
+.title-logo span { color: #fff0c2; }
+.title-utils { display: flex; gap: 8px; }
+.title-screen .title-utils .primary-button { min-width: 0; min-height: 40px; padding: 0 14px; font-size: 12px; }
+.title-panel {
+  align-self: end;
+  justify-self: center;
+  width: min(100%, 920px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 18px clamp(12px, 3vw, 26px) 16px;
+  background: #0d1624ee;
+  border: 2px solid #a78160;
+  box-shadow: 0 0 0 2px var(--ink), 0 18px 40px #05080ccc;
+}
+.title-screen .title-panel p { max-width: 66ch; margin: 0; text-shadow: none; }
+.title-screen .title-kicker { color: #b1c6cc; font-size: 12px; letter-spacing: 0.14em; }
+.title-screen .title-panel h1 { color: #ffb34c; font-size: clamp(24px, 3.6vw, 40px); }
+.title-screen #title-tagline { color: #fff0c2; font-size: 15px; line-height: 1.45; }
+.title-screen .title-howto { color: #7af0be; font-size: 13px; }
+.title-screen .title-note { color: #b1c6cc; font-size: 12px; }
+.title-screen .title-rules { opacity: 0.7; font-size: 11px; line-height: 1.5; }
+
+/* Stage buttons: one numbered button per level. */
+.level-select { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+.level-card {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 2px solid #5f7080;
+  background: #202e3c;
+  color: #fff0c2;
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+}
+.level-card:hover { filter: brightness(1.15); }
+.level-card-num { font-size: 22px; font-weight: 900; }
+.level-card-status { position: absolute; right: 3px; bottom: 1px; font-size: 10px; color: var(--green); }
+.level-card.selected { background: var(--bitcoin); border-color: #fff0c2; color: var(--ink); transform: translateY(-3px); box-shadow: 0 7px 0 var(--ink); }
+.level-card.selected .level-card-status { color: var(--ink); }
+.level-card.locked { opacity: 0.45; cursor: not-allowed; filter: none; }
+.level-card.locked .level-card-status { left: 0; right: 0; color: var(--muted); font-size: 8px; }
+
+.title-screen .fighter-picker { margin: 2px 0 0; }
+.title-screen .fighter-picker legend { width: 100%; text-align: center; font-size: 15px; padding-bottom: 8px; }
+.title-screen #fighter-description { margin-top: 8px; font-size: 13px; color: #eee1c8; }
+
+.start-button { min-width: 240px; min-height: 56px; margin-top: 4px; font-size: 22px; letter-spacing: 0.12em; }
+@media (prefers-reduced-motion: no-preference) {
+  .start-button { animation: start-glow 1.6s ease-in-out infinite; }
+}
+@keyframes start-glow {
+  50% { box-shadow: 0 4px 0 var(--ink), 0 0 26px #f7931a99; }
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  .title-bar { flex-direction: column; align-items: center; }
+  .title-screen .title-logo { text-align: center; }
+  .title-panel { border-width: 1px; }
+  .level-select { gap: 6px; }
+  .level-card { width: 38px; height: 44px; }
+  .level-card-num { font-size: 18px; }
+  .start-button { width: 100%; }
 }

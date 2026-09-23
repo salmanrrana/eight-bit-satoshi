@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>8-Bit Satoshi</title>
-  <meta name="description" content="Build Bitcoin through five pixel adventures and an arcade street brawl with four fighters, flying chairs, and shitcoins.">
+  <meta name="description" content="Build Bitcoin through five pixel adventures, an arcade street brawl, and a Mario-style run where every crypto bill fails.">
 
   <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -31,22 +31,31 @@
 
       <div id="title-screen" class="overlay title-screen">
         <div class="title-stack">
-          <h1>8-BIT SATOSHI</h1>
-          <p id="title-tagline">Build Bitcoin. Beat fiat. Reach the whitepaper.</p>
-          <div id="arcade-brief" class="arcade-brief" hidden>
-            <p>Eight districts. Sixteen street fights. Grab a chair, dodge the shitcoins, and fight for the people.</p>
-            <p class="arcade-fiction">An alternate 2026. Fictional satire, imagined dialogue.</p>
-          </div>
-          <fieldset id="fighter-picker" class="fighter-picker" hidden>
-            <legend>Choose your fighter</legend>
-            <div id="fighter-select" class="fighter-select"></div>
-            <p id="fighter-description"></p>
-          </fieldset>
-          <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
-          <button id="start-button" class="primary-button" type="button">START</button>
-          <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
-          <button id="sound-button" class="primary-button secondary-button sound-button" type="button" aria-pressed="true">TAP FOR SOUND</button>
-          <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
+          <!-- Start screen: the selected level plays behind as a live preview;
+               the panel below holds the level, stage picker, runner and START. -->
+          <header class="title-bar">
+            <p class="title-logo">8-BIT <span>SATOSHI</span></p>
+            <div class="title-utils">
+              <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
+              <button id="sound-button" class="primary-button secondary-button sound-button" type="button" aria-pressed="true">TAP FOR SOUND</button>
+            </div>
+          </header>
+          <section class="title-panel" aria-label="Choose a level and start">
+            <!-- Filled per level by renderTitleCopy / renderLevelSelect. -->
+            <p id="title-kicker" class="title-kicker">LEVEL 1 / 7</p>
+            <h1 id="title-heading">THE WHITEPAPER RUN</h1>
+            <p id="title-tagline">Build Bitcoin from the broken world to the whitepaper.</p>
+            <p id="title-howto" class="title-howto"></p>
+            <p id="title-note" class="title-note" hidden></p>
+            <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
+            <fieldset id="fighter-picker" class="fighter-picker" hidden>
+              <legend id="fighter-legend">Choose your fighter</legend>
+              <div id="fighter-select" class="fighter-select"></div>
+              <p id="fighter-description"></p>
+            </fieldset>
+            <button id="start-button" class="primary-button start-button" type="button">START</button>
+            <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
+          </section>
         </div>
       </div>
 
@@ -83,7 +92,8 @@
     </section>
 
     <div id="arcade-controls" class="arcade-controls" hidden>
-      <p><kbd>WASD</kbd> move <kbd>X</kbd> attack <kbd>SPACE</kbd> jump <kbd>E</kbd> grab / throw <kbd>C</kbd> special</p>
+      <p id="platformer-keys" hidden><kbd>A/D</kbd> move <kbd>X</kbd> hold to run <kbd>SPACE</kbd> jump · with the hoodie, fill the P-meter then hold jump to fly</p>
+      <p id="brawler-keys"><kbd>WASD</kbd> move <kbd>X</kbd> attack <kbd>SPACE</kbd> jump <kbd>E</kbd> grab / throw <kbd>C</kbd> special</p>
       <button id="arcade-pause" type="button">PAUSE <kbd>P</kbd></button>
     </div>
 
@@ -114,6 +124,8 @@
   <script src="js/leaderboard-client.js"></script>
   <script src="js/brawler.js"></script>
   <script src="js/brawler-art.js"></script>
+  <script src="js/number-go-up.js"></script>
+  <script src="js/number-go-up-art.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
