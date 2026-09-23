@@ -74,6 +74,33 @@
     flap: 165,
     flightTime: 4.2,
     floatFall: 55,
+    pStep: 0.12, // seconds of sprinting per P-meter arrow
+  };
+
+  // The same four heroes as Level 6. Each one bends a single tuning so the
+  // pick matters without changing how the level plays.
+  const CHARACTERS = {
+    jack: {
+      name: "JACK",
+      perk: "P-meter fills twice as fast",
+      phys: { pStep: 0.06 },
+    },
+    satoshi: {
+      name: "SATOSHI",
+      perk: "Starts every life orange-pilled",
+      phys: {},
+      startBig: true,
+    },
+    wizard: {
+      name: "WIZARD",
+      perk: "Higher jumps, softer hoodie floats",
+      phys: { jump: 290, floatFall: 35 },
+    },
+    coder: {
+      name: "CODER",
+      perk: "Hoodie flights last 50% longer",
+      phys: { flightTime: 6.3 },
+    },
   };
 
   // Builds the tile map, semisolid platforms and spawns for all three cities.
@@ -291,9 +318,12 @@
     };
   }
 
-  function create(hooks = {}) {
+  function create(hooks = {}, characterId = "jack") {
+    const hero = CHARACTERS[characterId] ? characterId : "jack";
+    const phys = { ...PHYS, ...CHARACTERS[hero].phys };
     const level = buildLevel();
     const state = {
+      characterId: hero,
       level,
       tiles: level.tiles,
       platforms: level.platforms,
@@ -377,7 +407,7 @@
     }
 
     function makePlayer(x) {
-      return {
+      const player = {
         x,
         y: GROUND * TILE - 14,
         w: 12,
@@ -401,6 +431,12 @@
         grow: 0,
         prevBottom: 0,
       };
+      if (CHARACTERS[hero].startBig) {
+        player.form = "big";
+        player.h = 25;
+        player.y = GROUND * TILE - 25;
+      }
+      return player;
     }
 
     function spawnEntities() {
@@ -641,7 +677,7 @@
           item.x += Math.sin(item.t * 3.2) * 50 * dt;
           item.y += item.vy * dt;
         } else {
-          item.vy = Math.min(item.vy + 900 * dt, PHYS.maxFall);
+          item.vy = Math.min(item.vy + 900 * dt, phys.maxFall);
           const hit = moveBody(item, dt);
           if (hit.wall) item.vx = -item.vx || 60 * -hit.wall;
           if (hit.floor && item.kind === "star") item.vy = -260;
@@ -724,7 +760,7 @@
       const n = state.stompChain++;
       const score = COMBO[Math.min(n, COMBO.length - 1)];
       state.stats.stomps += 1;
-      p.vy = -(p.jumpHeld ? PHYS.stompHeld : PHYS.stomp);
+      p.vy = -(p.jumpHeld ? phys.stompHeld : phys.stomp);
       p.onGround = false;
       hooks.sfx?.("stomp");
       pump(210);
@@ -837,7 +873,7 @@
         }
         if (!e.alive) continue;
         if (e.flip) {
-          e.vy += PHYS.gravity * 0.6 * dt;
+          e.vy += phys.gravity * 0.6 * dt;
           e.x += e.vx * dt;
           e.y += e.vy * dt;
           if (e.y > WORLD_H + 40) e.alive = false;
@@ -859,7 +895,7 @@
           e.vx = p.x < e.x ? -1 : 1; // only used for facing
           continue;
         }
-        e.vy = Math.min(e.vy + PHYS.gravity * 0.7 * dt, PHYS.maxFall);
+        e.vy = Math.min(e.vy + phys.gravity * 0.7 * dt, phys.maxFall);
         const hit = moveBody(e, dt);
         if (hit.wall) {
           e.vx = -e.vx;
@@ -949,7 +985,7 @@
           if (falling) {
             stomp(e);
             kickBriefcase(e, p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1);
-            p.vy = -PHYS.stomp;
+            p.vy = -phys.stomp;
           } else if (p.kick <= 0)
             kickBriefcase(e, p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1);
           continue;
@@ -985,38 +1021,38 @@
       // Horizontal speed: walk, run, then P-speed once the meter is full.
       const flying = p.flying > 0;
       const max = flying
-        ? PHYS.run + 20
+        ? phys.run + 20
         : run
           ? p.pMeter >= P_FULL
-            ? PHYS.pSpeed
-            : PHYS.run
-          : PHYS.walk;
+            ? phys.pSpeed
+            : phys.run
+          : phys.walk;
       p.skid = false;
       if (dir) {
         if (p.onGround && p.vx * dir < -20) {
-          p.vx += dir * PHYS.skid * dt;
+          p.vx += dir * phys.skid * dt;
           p.skid = true;
         } else if (p.vx * dir < max) {
           p.vx =
             Math.min(
               max,
-              p.vx * dir + (p.onGround ? PHYS.accel : PHYS.airAccel) * dt,
+              p.vx * dir + (p.onGround ? phys.accel : phys.airAccel) * dt,
             ) * dir;
         } else if (p.onGround) {
-          p.vx = Math.max(max, p.vx * dir - PHYS.friction * dt) * dir;
+          p.vx = Math.max(max, p.vx * dir - phys.friction * dt) * dir;
         }
         if (p.onGround || flying) p.facing = dir;
       } else if (p.onGround) {
         p.vx =
-          Math.sign(p.vx) * Math.max(0, Math.abs(p.vx) - PHYS.friction * dt);
+          Math.sign(p.vx) * Math.max(0, Math.abs(p.vx) - phys.friction * dt);
       }
 
       // P-meter fills while sprinting on the ground and drains otherwise.
       p.pClock += dt;
       if (flying) {
         p.pMeter = P_FULL;
-      } else if (p.onGround && run && dir && Math.abs(p.vx) >= PHYS.run - 6) {
-        if (p.pClock > 0.12) {
+      } else if (p.onGround && run && dir && Math.abs(p.vx) >= phys.run - 6) {
+        if (p.pClock > phys.pStep) {
           p.pMeter = Math.min(P_FULL, p.pMeter + 1);
           p.pClock = 0;
         }
@@ -1030,33 +1066,33 @@
       else p.coyote = Math.max(0, p.coyote - dt);
       const hoodie = p.form === "hoodie";
       if (p.jumpBuffer > 0 && p.coyote > 0) {
-        p.vy = -(PHYS.jump + Math.abs(p.vx) * PHYS.jumpPerSpeed);
+        p.vy = -(phys.jump + Math.abs(p.vx) * phys.jumpPerSpeed);
         p.onGround = false;
         p.coyote = 0;
         p.jumpBuffer = 0;
         if (hoodie && p.pMeter >= P_FULL) {
-          p.flying = PHYS.flightTime;
+          p.flying = phys.flightTime;
           state.stats.flights += 1;
           hooks.sfx?.("crowd");
         } else hooks.sfx?.("jump");
       } else if (p.jumpBuffer > 0 && flying && !p.onGround) {
-        p.vy = Math.min(p.vy, -PHYS.flap);
+        p.vy = Math.min(p.vy, -phys.flap);
         p.jumpBuffer = 0;
         hooks.sfx?.("satshot");
       }
       if (flying) {
         p.flying = Math.max(0, p.flying - dt);
         if (p.flying === 0) p.pMeter = 0;
-        if (input.jump && p.vy > -PHYS.flap)
-          p.vy = Math.max(-PHYS.flap, p.vy - 1300 * dt);
+        if (input.jump && p.vy > -phys.flap)
+          p.vy = Math.max(-phys.flap, p.vy - 1300 * dt);
       }
       const rising = p.vy < 0 && (input.jump || flying);
       p.vy = Math.min(
-        PHYS.maxFall,
-        p.vy + (rising ? PHYS.gravityHeld : PHYS.gravity) * dt,
+        phys.maxFall,
+        p.vy + (rising ? phys.gravityHeld : phys.gravity) * dt,
       );
-      if (hoodie && !flying && input.jump && p.vy > PHYS.floatFall)
-        p.vy = PHYS.floatFall;
+      if (hoodie && !flying && input.jump && p.vy > phys.floatFall)
+        p.vy = phys.floatFall;
 
       p.prevBottom = p.y + p.h;
       const hit = moveBody(p, dt);
@@ -1219,9 +1255,9 @@
       if (state.goal) {
         // Walk off through the goal on autopilot.
         state.goal.time += dt;
-        p.vx = PHYS.walk;
+        p.vx = phys.walk;
         p.facing = 1;
-        p.vy = Math.min(PHYS.maxFall, p.vy + PHYS.gravity * dt);
+        p.vy = Math.min(phys.maxFall, p.vy + phys.gravity * dt);
         p.prevBottom = p.y + p.h;
         moveBody(p, dt);
         p.step += Math.abs(p.vx) * dt;
@@ -1290,5 +1326,6 @@
     ENEMY,
     PHYS,
     P_FULL,
+    CHARACTERS,
   };
 });

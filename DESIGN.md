@@ -132,7 +132,7 @@ Menu cards and panels remain rectangular with visible strokes. The touch pad is 
 
 ## Components
 
-- **Level picker:** wrapping button cards with number, title, and status. Level 6 fits three columns when space allows; selection remains visibly outlined.
+- **Start screen:** one layout for every level. A logo bar (8-BIT SATOSHI, Leaderboard, Sound) sits over the selected level's live preview; a bezel-bordered bottom panel shows "LEVEL N / 7 · status", the level name, pitch, green how-to line, optional satire note, numbered stage buttons (selected is solid orange and raised, cleared shows a green check, locked is dimmed), the fighter/runner picker on Levels 6–7, and a large glowing START.
 - **Buttons:** orange primary actions, dark secondary actions in arcade mode, brightness on hover, physical depression on press, and a visible paper-colored keyboard focus ring.
 - **Overlays and results:** centered, darkened backdrops with internal scrolling. Results retain the existing timer, splits, statistics, name field, and leaderboard patterns.
 - **Name field and leaderboard tabs:** paper strokes, dark surfaces, and orange focus or selected treatment; submission states keep their existing muted, green, orange, and red feedback.

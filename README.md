@@ -4,6 +4,11 @@ Playable static canvas game. No install step is required.
 
 ## Levels & Local Development
 
+The start screen is the same for every level: the selected level plays live
+behind the **8-BIT SATOSHI** logo, and one panel shows the level's name, pitch
+and controls, numbered stage buttons (arrow keys also move between them), the
+fighter/runner picker for Levels 6 and 7, and a big START (Enter / Space).
+
 Levels normally unlock in order — clearing a level unlocks the next. When the
 game is served from a loopback host (`npm start` → `127.0.0.1`) or opened from
 disk, **every level is unlocked** so any of them can be played or tested
@@ -79,6 +84,10 @@ city gate and the BTC price in the HUD keeps climbing.
   hoodie, run until the P-meter fills, then jump and hold (or tap) jump to fly.
   Holding jump while falling floats you down.
 - The **HODL star** makes you invincible: suits flip over and fall off screen.
+- Pick a runner on the start screen — the same four heroes as Level 6, each
+  with one perk: **Jack** fills the P-meter twice as fast, **Satoshi** starts
+  every life orange-pilled, the **Wizard** jumps higher and floats softer, and
+  the **Coder** flies 50% longer.
 - Hit the moving goal tape high for the 5,000 bonus.
 
 Simulation lives in `js/number-go-up.js` (plain JS, runs in Node for tests) and

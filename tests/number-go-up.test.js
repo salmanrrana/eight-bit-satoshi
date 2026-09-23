@@ -220,3 +220,38 @@ test("each checkpoint and the goal fail a bill, pump the price, and finish the r
   assert.deepEqual(bills, [0, 1, 2]);
   assert.equal(done, true);
 });
+
+test("each runner's perk changes the run", () => {
+  const sprint = (id) => {
+    const game = create({}, id);
+    game.state.enemies = [];
+    const p = game.state.player;
+    p.y = GROUND * TILE - p.h;
+    p.vx = 150;
+    p.onGround = true;
+    step(game, 30, { right: true, fire: true });
+    return p.pMeter;
+  };
+  assert.ok(sprint("jack") > sprint("wizard"), "Jack fills the P-meter faster");
+
+  const satoshi = create({ death: () => true }, "satoshi");
+  assert.equal(satoshi.state.player.form, "big");
+  satoshi.respawn();
+  assert.equal(satoshi.state.player.form, "big", "respawns orange-pilled");
+
+  const jump = (id) => {
+    const game = create({}, id);
+    game.state.enemies = [];
+    const p = game.state.player;
+    p.y = GROUND * TILE - p.h;
+    p.onGround = true;
+    let top = p.y;
+    game.update(1 / 60, { jump: true, jumpPressed: true });
+    for (let i = 0; i < 40; i++) {
+      game.update(1 / 60, { jump: true });
+      top = Math.min(top, p.y);
+    }
+    return GROUND * TILE - p.h - top;
+  };
+  assert.ok(jump("wizard") > jump("jack"), "the Wizard jumps higher");
+});

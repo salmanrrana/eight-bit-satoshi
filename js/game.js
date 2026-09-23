@@ -1135,6 +1135,9 @@
   const arcadeFields = Object.fromEntries(["name", "lives", "health", "hp", "power-name", "power", "power-state", "district", "wave", "time", "score", "dialogue", "item-hint"]
     .map((key) => [key, document.getElementById(`arcade-${key}`)]));
 
+  // One picker serves Level 6 (fighters) and Level 7 (runners); syncFighterPicker
+  // swaps its portraits and copy for the active level.
+  const fighterOptions = [];
   function renderFighterPicker() {
     const picker = document.getElementById("fighter-select");
     for (const [id, character] of Object.entries(window.SatoshiBrawler.CHARACTERS)) {
@@ -1150,12 +1153,11 @@
       portrait.width = 80;
       portrait.height = 104;
       portrait.setAttribute("aria-hidden", "true");
-      window.SatoshiBrawlerArt.create(portrait.getContext("2d")).portrait(id);
       const name = document.createElement("strong");
       name.textContent = character.short;
       const move = document.createElement("span");
-      move.textContent = character.move;
       option.append(radio, portrait, name, move);
+      fighterOptions.push({ id, radio, portrait, move });
       radio.addEventListener("change", () => {
         if (state.phase !== "title") return;
         selectedFighter = id;
@@ -1164,6 +1166,24 @@
       });
       picker.append(option);
     }
+  }
+
+  function syncFighterPicker(mode) {
+    const runners = mode === "platformer";
+    document.getElementById("fighter-picker").hidden = mode !== "brawler" && !runners;
+    document.getElementById("fighter-legend").textContent = runners ? "Choose your runner" : "Choose your fighter";
+    for (const { id, radio, portrait, move } of fighterOptions) {
+      const fighter = window.SatoshiBrawler.CHARACTERS[id];
+      const perk = window.NumberGoUp.CHARACTERS[id].perk;
+      move.textContent = runners ? perk : fighter.move;
+      radio.setAttribute("aria-label", `${fighter.name}. ${runners ? perk : fighter.description}`);
+      const portraitCtx = portrait.getContext("2d");
+      if (runners) window.NumberGoUpArt.portrait(portraitCtx, id);
+      else window.SatoshiBrawlerArt.create(portraitCtx).portrait(id);
+    }
+    document.getElementById("fighter-description").textContent = runners
+      ? `${window.SatoshiBrawler.CHARACTERS[selectedFighter].name}: ${window.NumberGoUp.CHARACTERS[selectedFighter].perk}.`
+      : window.SatoshiBrawler.CHARACTERS[selectedFighter].description;
   }
 
   // The important text lives in the DOM at screen resolution, independent of
@@ -1741,44 +1761,43 @@
   // best time, and completion/lock state; the selected card is the one START /
   // PLAY AGAIN / RESTART launch (state.levelIndex). Rebuilt whenever the title is
   // shown so a freshly cleared level reflects its new best and unlock immediately.
+  // A level's picker status: locked, best time, cleared, or not yet cleared.
+  function levelStatus(index) {
+    const level = LEVELS[index];
+    if (!isLevelUnlocked(index)) return `LOCKED · CLEAR ${LEVELS[index - 1].title}`;
+    // `cleared` is the durable completion flag; `best` is the current-ruleset
+    // best time (null after a rules-version bump even when still cleared).
+    const best = getLevelBest(level.id);
+    if (best) return `BEST ${formatTime(best.time)}`;
+    return isLevelCleared(level.id) ? "CLEARED" : "NOT CLEARED";
+  }
+
+  // Stage buttons 1..N (built from LEVELS, so the picker scales with the level
+  // list). The selected level's name and status show in the panel above; each
+  // button carries the full name for tooltips and screen readers.
   function renderLevelSelect() {
     if (!levelSelect) return;
     const cards = LEVELS.map((level, index) => {
       const unlocked = isLevelUnlocked(index);
-      // `cleared` is the durable completion flag; `best` is the current-ruleset
-      // best time (null after a rules-version bump even when still cleared).
-      const cleared = isLevelCleared(level.id);
-      const best = unlocked ? getLevelBest(level.id) : null;
       const selected = index === state.levelIndex;
-
+      const status = levelStatus(index);
       const card = document.createElement("button");
       card.type = "button";
       card.className = "level-card";
       card.classList.toggle("selected", selected);
       card.classList.toggle("locked", !unlocked);
-      card.classList.toggle("cleared", cleared);
+      card.classList.toggle("cleared", isLevelCleared(level.id));
       card.dataset.index = String(index);
       card.setAttribute("role", "radio");
       card.setAttribute("aria-checked", selected ? "true" : "false");
       card.disabled = !unlocked;
-
-      // One three-way status used for both the visible label and the aria-label,
-      // so the screen-reader text never drifts from what is shown.
-      let status;
-      if (!unlocked) status = `LOCKED · CLEAR ${LEVELS[index - 1].title}`;
-      else if (best) status = `BEST ${formatTime(best.time)}`;
-      else if (cleared) status = "CLEARED";
-      else status = "NOT CLEARED";
-
-      card.append(
-        makeSpan("level-card-num", `LEVEL ${index + 1}`),
-        makeSpan("level-card-title", level.title),
-        makeSpan("level-card-status", status)
-      );
+      card.title = `${level.title} · ${status}`;
+      card.append(makeSpan("level-card-num", String(index + 1)), makeSpan("level-card-status", unlocked ? (isLevelCleared(level.id) ? "✓" : "") : "LOCK"));
       card.setAttribute("aria-label", `Level ${index + 1}, ${level.title}. ${status}.`);
       return card;
     });
     levelSelect.replaceChildren(...cards);
+    document.getElementById("title-kicker").textContent = `LEVEL ${state.levelIndex + 1} / ${LEVELS.length} · ${levelStatus(state.levelIndex)}`;
   }
 
   // Select a level by 0-based index from the title screen. Refuses locked levels
@@ -1808,7 +1827,6 @@
   // Every level's intro uses the same layout: kicker, name, pitch, how to
   // play, and an optional satire note. Copy lives on the LEVELS entries.
   function renderTitleCopy(level) {
-    document.getElementById("title-kicker").textContent = `8-BIT SATOSHI · LEVEL ${LEVELS.indexOf(level) + 1}`;
     document.getElementById("title-heading").textContent = level.title;
     document.getElementById("title-tagline").textContent = level.description;
     document.getElementById("title-howto").textContent = level.howTo;
@@ -2059,8 +2077,7 @@
     document.getElementById("platformer-keys").hidden = !platformer;
     document.getElementById("arcade-status").hidden = !arcade;
     document.getElementById("arcade-readout").hidden = !arcade;
-    document.getElementById("fighter-picker").hidden = !arcade;
-    document.getElementById("fighter-description").textContent = window.SatoshiBrawler.CHARACTERS[selectedFighter].description;
+    syncFighterPicker(level.mode);
     renderTitleCopy(level);
     canvas.setAttribute("aria-label", arcade ? "For the People: arcade street brawler" : platformer ? "Number Go Up: side-scrolling platformer" : "8-Bit Satoshi game canvas");
     if (platformer) {
@@ -2083,7 +2100,7 @@
           return true;
         },
         complete: completeGame
-      });
+      }, selectedFighter);
       return;
     }
     platformGame = null;
@@ -2971,7 +2988,7 @@
     ];
     if (platformGame && state.subMode === "platformer") {
       const run = platformGame.state;
-      stats.push(["BTC PRICE", "$" + Math.round(run.btc).toLocaleString("en-US")],
+      stats.push(["RUNNER", window.SatoshiBrawler.CHARACTERS[run.characterId].name], ["BTC PRICE", "$" + Math.round(run.btc).toLocaleString("en-US")],
         ["SUITS STOMPED", String(run.stats.stomps)], ["SHITCOINS BLOCKED", String(run.stats.deflected)]);
     }
     if (brawler && state.subMode === "brawler") {
@@ -3507,6 +3524,8 @@
   }
 
   function update(dt) {
+    // Attract mode: Level 7's skyline keeps moving behind the start screen.
+    if (state.phase === "title" && platformGame) platformGame.state.time += dt;
     if (state.phase !== "playing" || state.paused) return;
 
     state.time += dt;
@@ -4186,7 +4205,8 @@
   function render() {
     if (state.subMode === "platformer") {
       platformArt.draw(platformGame.state, {
-        time: formatTime(state.time), lives: state.lives, score: state.score, coins: state.coins
+        time: formatTime(state.time), lives: state.lives, score: state.score, coins: state.coins,
+        menu: state.phase === "title" || state.phase === "leaderboard"
       }, platformGame.tileAt);
       return;
     }

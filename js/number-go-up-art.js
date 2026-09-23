@@ -328,6 +328,119 @@
   };
   const STAR_HUES = ["#ff5a5a", "#ffd23c", "#4cff8a", "#4cc8ff"];
 
+  // The four Level 6 heroes as runners. Satoshi keeps the hood; the others
+  // lay their own 8-row head over the shared body frames and recolour the
+  // outfit. Everyone's NO-BS hoodie is the same orange.
+  const RUNNER_HEADS = {
+    jack: [
+      "....yyyyyy....",
+      "...yyyyyyyyy..",
+      "..yyyyyyyyyyy.",
+      "..yYssssssss..",
+      "..Ysssssksks..",
+      "..ssssssssss..",
+      "...sssssskkk..",
+      "....ssssss....",
+    ],
+    wizard: [
+      "......tt......",
+      ".....tttt.....",
+      "....ttyttt....",
+      "..tttttttttttt",
+      "...ssssssss...",
+      "...sssskssks..",
+      "..WWWWWWWWWW..",
+      "...WWWWWWWW...",
+    ],
+    coder: [
+      "..............",
+      "....cccccc....",
+      "...cccccccc...",
+      "..ccccccccCCC.",
+      "..ssssssssss..",
+      "..ssgnngsgnng.",
+      "..ssssssssss..",
+      "...sssssksss..",
+    ],
+  };
+  const RUNNERS = {
+    satoshi: { name: "SATOSHI", color: "#ff9a2a", pal: HERO_PAL.normal },
+    jack: {
+      name: "JACK",
+      color: "#ffd24c",
+      pal: {
+        ...HERO_PAL.normal,
+        h: "#26262e",
+        H: "#484856",
+        d: "#141418",
+        o: "#f0f0f0",
+        w: "#f7931a",
+        b: "#1a1a1a",
+        y: "#e8c060",
+        Y: "#b08830",
+        k: INK,
+      },
+    },
+    wizard: {
+      name: "WIZARD",
+      color: "#7af0be",
+      pal: {
+        ...HERO_PAL.normal,
+        h: "#3a5ab8",
+        H: "#6a8ae0",
+        d: "#22357a",
+        o: "#ffd24c",
+        w: "#ffffff",
+        t: "#5a3ab0",
+        y: "#ffd24c",
+        W: "#f4f4f4",
+        k: INK,
+        b: "#5a3a20",
+      },
+    },
+    coder: {
+      name: "CODER",
+      color: "#94ceff",
+      pal: {
+        ...HERO_PAL.normal,
+        h: "#3c6c8c",
+        H: "#6aa0c0",
+        d: "#24445c",
+        o: "#1a1a2a",
+        w: "#7af0be",
+        c: "#e03a3a",
+        C: "#a82020",
+        g: INK,
+        n: "#9ce0ff",
+        k: INK,
+        b: "#2a2a3a",
+      },
+    },
+  };
+  function runnerPalette(id, paletteKey) {
+    const base = (RUNNERS[id] || RUNNERS.satoshi).pal;
+    if (paletteKey !== "hoodie") return base;
+    return id === "satoshi"
+      ? HERO_PAL.hoodie
+      : {
+          ...base,
+          h: "#f7931a",
+          H: "#ffc466",
+          d: "#c2620a",
+          o: "#1c1426",
+          w: "#fff6d6",
+        };
+  }
+  // Swap a frame's head rows for a runner's head, keeping raised hands ("s").
+  function withHead(rows, head) {
+    return rows.map((row, i) => {
+      if (i >= head.length) return row;
+      return [...head[i]]
+        .map((ch, x) => (ch !== "." ? ch : row[x] === "s" ? "s" : "."))
+        .join("");
+    });
+  }
+
   // Politicians (the goombas of this world) and bankers (the koopas).
   const POLITICIAN = [
     "....gggggg....",
@@ -646,15 +759,24 @@
       sprite(STAR, { y: "#ff9a1a", k: INK }),
     ],
   };
-  function heroSprite(form, frame, paletteKey, hue) {
-    const key = `${form}|${frame}|${paletteKey}|${hue || ""}`;
+  function heroSprite(runner, form, frame, paletteKey, hue) {
+    const key = `${runner}|${form}|${frame}|${paletteKey}|${hue || ""}`;
     if (!S.hero[key]) {
-      const pal = { ...HERO_PAL[paletteKey] };
+      const pal = { ...runnerPalette(runner, paletteKey) };
       if (hue) {
         pal.h = hue;
         pal.H = "#ffffff";
       }
-      S.hero[key] = sprite((form === "small" ? SMALL : BIG)[frame], pal);
+      let rows = (form === "small" ? SMALL : BIG)[frame];
+      const head = RUNNER_HEADS[runner];
+      if (head)
+        rows = withHead(
+          rows,
+          form === "small"
+            ? head
+            : [...head, "....ssssss....", "...HhhhhhhH..."],
+        );
+      S.hero[key] = sprite(rows, pal);
     }
     return S.hero[key];
   }
@@ -1835,7 +1957,13 @@
         p.star > 0
           ? STAR_HUES[Math.floor(state.time * 16) % STAR_HUES.length]
           : null;
-      const img = heroSprite(tall ? "big" : "small", frame, paletteKey, hue);
+      const img = heroSprite(
+        state.characterId,
+        tall ? "big" : "small",
+        frame,
+        paletteKey,
+        hue,
+      );
       const x = p.x + p.w / 2 - img.width / 2 - camX;
       const y = p.y + p.h + 1 - img.height - camY;
       const flip = p.facing < 0;
@@ -1882,7 +2010,8 @@
     function drawHud(state, hud) {
       const p = state.player;
       r(0, 0, W, 26, "#1a102880");
-      text("SATOSHI", 6, 3, "#ff9a2a");
+      const runner = RUNNERS[state.characterId] || RUNNERS.satoshi;
+      text(runner.name, 6, 3, runner.color);
       text("*" + String(hud.lives), 6, 13, "#ffffff");
       // P-meter
       for (let i = 0; i < P_FULL - 1; i++) {
@@ -1991,8 +2120,11 @@
       drawPlayer(state, camX, camY);
       drawGates(state, camX, camY, true);
       drawParticles(state, camX, camY);
-      drawHud(state, hud);
-      drawBanner(state);
+      // The start screen shows the city without the run HUD.
+      if (!hud.menu) {
+        drawHud(state, hud);
+        drawBanner(state);
+      }
       drawStamp(state);
       if (state.goal && state.goal.time > 1) {
         ctx.globalAlpha = Math.min(1, (state.goal.time - 1) / 2);
@@ -2023,5 +2155,23 @@
     return ((v % n) + n) % n;
   }
 
-  window.NumberGoUpArt = { create, SCALE };
+  // Menu portrait: the runner's big standing sprite, centred and scaled up.
+  function portrait(ctx, runner) {
+    const img = heroSprite(runner, "big", "stand", "normal");
+    const scale = Math.floor(
+      Math.min(ctx.canvas.width / img.width, ctx.canvas.height / img.height) *
+        0.9,
+    );
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      img,
+      Math.round((ctx.canvas.width - img.width * scale) / 2),
+      ctx.canvas.height - img.height * scale,
+      img.width * scale,
+      img.height * scale,
+    );
+  }
+
+  window.NumberGoUpArt = { create, portrait, SCALE };
 })();

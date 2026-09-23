@@ -31,22 +31,31 @@
 
       <div id="title-screen" class="overlay title-screen">
         <div class="title-stack">
-          <!-- Filled per level by renderTitleCopy so every level's intro shares one layout. -->
-          <p id="title-kicker" class="title-kicker">8-BIT SATOSHI · LEVEL 1</p>
-          <h1 id="title-heading">THE WHITEPAPER RUN</h1>
-          <p id="title-tagline">Build Bitcoin from the broken world to the whitepaper.</p>
-          <p id="title-howto" class="title-howto"></p>
-          <p id="title-note" class="title-note" hidden></p>
-          <fieldset id="fighter-picker" class="fighter-picker" hidden>
-            <legend>Choose your fighter</legend>
-            <div id="fighter-select" class="fighter-select"></div>
-            <p id="fighter-description"></p>
-          </fieldset>
-          <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
-          <button id="start-button" class="primary-button" type="button">START</button>
-          <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
-          <button id="sound-button" class="primary-button secondary-button sound-button" type="button" aria-pressed="true">TAP FOR SOUND</button>
-          <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
+          <!-- Start screen: the selected level plays behind as a live preview;
+               the panel below holds the level, stage picker, runner and START. -->
+          <header class="title-bar">
+            <p class="title-logo">8-BIT <span>SATOSHI</span></p>
+            <div class="title-utils">
+              <button id="leaderboard-button" class="primary-button secondary-button leaderboard-button" type="button">LEADERBOARD</button>
+              <button id="sound-button" class="primary-button secondary-button sound-button" type="button" aria-pressed="true">TAP FOR SOUND</button>
+            </div>
+          </header>
+          <section class="title-panel" aria-label="Choose a level and start">
+            <!-- Filled per level by renderTitleCopy / renderLevelSelect. -->
+            <p id="title-kicker" class="title-kicker">LEVEL 1 / 7</p>
+            <h1 id="title-heading">THE WHITEPAPER RUN</h1>
+            <p id="title-tagline">Build Bitcoin from the broken world to the whitepaper.</p>
+            <p id="title-howto" class="title-howto"></p>
+            <p id="title-note" class="title-note" hidden></p>
+            <div id="level-select" class="level-select" role="radiogroup" aria-label="Choose a level"></div>
+            <fieldset id="fighter-picker" class="fighter-picker" hidden>
+              <legend id="fighter-legend">Choose your fighter</legend>
+              <div id="fighter-select" class="fighter-select"></div>
+              <p id="fighter-description"></p>
+            </fieldset>
+            <button id="start-button" class="primary-button start-button" type="button">START</button>
+            <p id="title-rules" class="title-rules" aria-label="Timing rules"></p>
+          </section>
         </div>
       </div>
 
