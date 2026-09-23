@@ -19,7 +19,7 @@ export default [
     },
   },
   {
-    files: ["js/brawler.js", "js/leaderboard-rules.js"],
+    files: ["js/brawler.js", "js/leaderboard-rules.js", "js/number-go-up.js"],
     languageOptions: { globals: { module: "readonly" } },
   },
   {

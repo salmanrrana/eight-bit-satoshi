@@ -1105,7 +1105,22 @@
     layout: { pages: window.SatoshiBrawler.STAGES.map((_, index) => index) }
   });
 
+  LEVELS.push({
+    id: "number-go-up",
+    title: "NUMBER GO UP",
+    description: "Stomp the suits, fly the hoodie. Every crypto bill fails; Bitcoin keeps climbing.",
+    mode: "platformer",
+    theme: "platformer",
+    worldW: window.NumberGoUp.WORLD_W,
+    labels: { coin: "SATS", pageStat: "BILLS FAILED" },
+    zones: [{ x: 0, name: "NUMBER GO UP" }],
+    layout: { pages: window.NumberGoUp.SECTIONS.map((_, index) => index) }
+  });
+
   let brawler = null;
+  // Level 7's side-scroller. Simulation in number-go-up.js, art in number-go-up-art.js.
+  let platformGame = null;
+  const platformArt = window.NumberGoUpArt.create(ctx);
   let selectedFighter = "jack";
   const brawlerArt = window.SatoshiBrawlerArt.create(ctx);
   const arcadeFields = Object.fromEntries(["name", "lives", "health", "hp", "power-name", "power", "power-state", "district", "wave", "time", "score", "dialogue", "item-hint"]
@@ -1410,6 +1425,29 @@
     `)
   };
 
+  // Level 7: a bouncy original tune for the SMB-style run.
+  SONGS.platformer = {
+    bpm: 150, leadGain: 0.065, harmonyGain: 0.035, bassGain: 0.1,
+    lead: noteRow(`
+      C5 . E5 G5 . E5 C5 . D5 . F5 A5 . F5 D5 .
+      E5 . G5 C6 . B5 G5 . A5 G5 F5 E5 D5 . . .
+      C5 . E5 G5 . E5 C5 . D5 . F5 A5 . C6 B5 .
+      C6 . G5 E5 . C5 D5 E5 C5 . . . G4 . . .
+    `),
+    harmony: noteRow(`
+      . . C5 . . . G4 . . . D5 . . . A4 .
+      . . E5 . . . E5 . . . C5 . . . B4 .
+      . . C5 . . . G4 . . . D5 . . . F5 .
+      . . E5 . . . G4 . . . . . . . . .
+    `),
+    bass: noteRow(`
+      C3 . G3 . C3 . G3 . D3 . A3 . D3 . A3 .
+      E3 . B3 . E3 . B3 . F3 . C4 . G3 . B2 .
+      C3 . G3 . C3 . G3 . D3 . A3 . F3 . A3 .
+      G3 . D3 . G3 . B2 . C3 . G2 . C3 . . .
+    `)
+  };
+
   // The active level definition. Declared after `state` (which it reads) to avoid
   // any temporal-dead-zone hazard, and guarded so a bad levelIndex fails loudly
   // with an actionable message instead of throwing a cryptic TypeError frames
@@ -1610,6 +1648,7 @@
         paused: state.paused,
         time: state.time,
         brawler: state.subMode === "brawler" ? brawler.snapshot() : null,
+        platformer: state.subMode === "platformer" ? platformGame.snapshot() : null,
         venueKey: state.venueKey,
         venuesCleared: state.venuesCleared.slice(),
         floorIndex: state.floorIndex,
@@ -1629,6 +1668,16 @@
         lives: state.lives,
         deaths: state.deaths
       }),
+      // Drop the Level 7 runner at a world x (test aid for checking each city).
+      placeRunner: (x) => {
+        if (state.subMode !== "platformer") return false;
+        const runner = platformGame.state.player;
+        runner.x = x;
+        runner.y = 100;
+        runner.vy = 0;
+        platformGame.state.camera.x = Math.max(0, x - 150);
+        return true;
+      },
       placeWalker: (tx, ty) => {
         if (state.subMode !== "overworld" || owSolidAt(tx, ty)) return false;
         owPlayer.x = tx * TILE + (TILE - OW_PW) / 2;
@@ -1965,22 +2014,56 @@
   function initLevel() {
     const level = getCurrentLevel();
     const arcade = level.mode === "brawler";
-    canvas.width = arcade ? window.SatoshiBrawler.WIDTH * 2 : VIEW_W;
-    canvas.height = arcade ? window.SatoshiBrawler.HEIGHT * 2 : VIEW_H;
+    const platformer = level.mode === "platformer";
+    // Both late levels use the 16:9 arcade frame (body.brawler-mode);
+    // platformer-mode trims its controls down to move, run and jump.
+    const wide = arcade || platformer;
+    canvas.width = arcade ? window.SatoshiBrawler.WIDTH * 2 : platformer ? window.NumberGoUp.VIEW_W * window.NumberGoUpArt.SCALE : VIEW_W;
+    canvas.height = arcade ? window.SatoshiBrawler.HEIGHT * 2 : platformer ? window.NumberGoUp.VIEW_H * window.NumberGoUpArt.SCALE : VIEW_H;
     ctx.imageSmoothingEnabled = false;
-    document.body.classList.toggle("brawler-mode", arcade);
+    document.body.classList.toggle("brawler-mode", wide);
+    document.body.classList.toggle("platformer-mode", platformer);
     document.getElementById("arcade-brief").hidden = !arcade;
-    document.getElementById("arcade-controls").hidden = !arcade;
+    document.getElementById("platformer-brief").hidden = !platformer;
+    document.getElementById("arcade-controls").hidden = !wide;
+    document.getElementById("brawler-keys").hidden = !arcade;
+    document.getElementById("platformer-keys").hidden = !platformer;
     document.getElementById("arcade-status").hidden = !arcade;
     document.getElementById("arcade-readout").hidden = !arcade;
     document.getElementById("fighter-picker").hidden = !arcade;
     document.getElementById("fighter-description").textContent = window.SatoshiBrawler.CHARACTERS[selectedFighter].description;
-    document.querySelector(".title-stack > h1").textContent = arcade ? "FOR THE PEOPLE" : "8-BIT SATOSHI";
+    document.querySelector(".title-stack > h1").textContent = arcade ? "FOR THE PEOPLE" : platformer ? "NUMBER GO UP" : "8-BIT SATOSHI";
     document.getElementById("title-tagline").textContent = arcade
       ? "Pick your fighter. Take the people's route."
-      : "Build Bitcoin. Beat fiat. Reach the whitepaper.";
-    startButton.textContent = arcade ? "LET'S GO" : "START";
-    canvas.setAttribute("aria-label", arcade ? "For the People: arcade street brawler" : "8-Bit Satoshi game canvas");
+      : platformer
+        ? "Stomp the suits. Fly the hoodie. Every bill fails."
+        : "Build Bitcoin. Beat fiat. Reach the whitepaper.";
+    startButton.textContent = wide ? "LET'S GO" : "START";
+    canvas.setAttribute("aria-label", arcade ? "For the People: arcade street brawler" : platformer ? "Number Go Up: side-scrolling platformer" : "8-Bit Satoshi game canvas");
+    if (platformer) {
+      state.subMode = "platformer";
+      state.cameraX = 0;
+      state.currentZone = 0;
+      state.venueKey = null;
+      zones = level.zones.map((zone) => ({ ...zone }));
+      brawler = null;
+      platformGame = window.NumberGoUp.create({
+        sfx: playSfx,
+        reward: (sats, score) => { state.coins += sats; state.score += score; },
+        oneUp: () => { state.lives += 1; },
+        checkpoint: (index, name) => recordSplit({ index: index + 1, name }),
+        bill: () => { state.pages += 1; },
+        death: () => {
+          state.lives -= 1;
+          state.deaths += 1;
+          if (state.lives <= 0) { gameOver(); return false; }
+          return true;
+        },
+        complete: completeGame
+      });
+      return;
+    }
+    platformGame = null;
     if (arcade) {
       state.subMode = "brawler";
       state.cameraX = 0;
@@ -2775,7 +2858,7 @@
   // splits, run stats, and a personal-best marker. Reuses the shared message
   // screen so PLAY AGAIN (restartButton) keeps its existing wiring.
   function showResults(isNewBest, previousBest) {
-    messageTitle.textContent = state.subMode === "brawler" ? "THE PEOPLE WIN" : "BITCOIN LIVES";
+    messageTitle.textContent = state.subMode === "brawler" ? "THE PEOPLE WIN" : state.subMode === "platformer" ? "NUMBER WENT UP" : "BITCOIN LIVES";
     messageCopy.classList.add("hidden");
 
     messageResults.replaceChildren(
@@ -2862,6 +2945,11 @@
       ["DEATHS", String(state.deaths)],
       ["LIVES", String(state.lives)]
     ];
+    if (platformGame && state.subMode === "platformer") {
+      const run = platformGame.state;
+      stats.push(["BTC PRICE", "$" + Math.round(run.btc).toLocaleString("en-US")],
+        ["SUITS STOMPED", String(run.stats.stomps)], ["SHITCOINS BLOCKED", String(run.stats.deflected)]);
+    }
     if (brawler && state.subMode === "brawler") {
       stats.push(["FIGHTER", window.SatoshiBrawler.CHARACTERS[brawler.state.characterId].name],
         ["THROWS", String(brawler.state.throws)], ["PICKUPS", String(brawler.state.pickups)]);
@@ -3396,8 +3484,8 @@
     if (state.phase !== "playing" || state.paused) return;
 
     state.time += dt;
-    if (state.subMode === "brawler") {
-      brawler.update(dt, input);
+    if (state.subMode === "brawler" || state.subMode === "platformer") {
+      (brawler || platformGame).update(dt, input);
       input.throwPressed = false;
       input.specialPressed = false;
       input.jumpPressed = false;
@@ -4070,6 +4158,12 @@
   }
 
   function render() {
+    if (state.subMode === "platformer") {
+      platformArt.draw(platformGame.state, {
+        time: formatTime(state.time), lives: state.lives, score: state.score, coins: state.coins
+      }, platformGame.tileAt);
+      return;
+    }
     if (state.subMode === "brawler") {
       brawlerArt.draw(brawler.state);
       syncBrawlerHud();
@@ -6236,9 +6330,10 @@
     document.body.classList.toggle("overworld-mode", state.subMode === "overworld");
     document.body.classList.toggle("cannon-mode", hasSatCannon());
     const arcade = state.subMode === "brawler";
+    const platformer = state.subMode === "platformer";
     const fireButton = document.querySelector('[data-action="fire"]');
-    fireButton.textContent = arcade ? "ATTACK" : "FIRE";
-    fireButton.setAttribute("aria-label", arcade ? "Combo attack or jump kick" : "Fire sat cannon");
+    fireButton.textContent = arcade ? "ATTACK" : platformer ? "RUN" : "FIRE";
+    fireButton.setAttribute("aria-label", arcade ? "Combo attack or jump kick" : platformer ? "Hold to run" : "Fire sat cannon");
     if (arcade) document.querySelector('[data-action="special"]').setAttribute("aria-label", `${window.SatoshiBrawler.CHARACTERS[selectedFighter].special} special attack`);
     document.querySelector('[data-action="jump"]').textContent = "JUMP";
   }

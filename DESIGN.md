@@ -1,6 +1,6 @@
 ---
 name: 8-Bit Satoshi
-description: Five classic pixel levels and a distinct Level 6 street brawler, For the People.
+description: Five classic pixel levels, a Level 6 street brawler (For the People), and a Level 7 SMB3/SMW-style platformer (Number Go Up).
 colors:
   ink: "oklch(8% 0.01 255)"
   panel: "oklch(15% 0.02 255)"
@@ -138,6 +138,7 @@ Menu cards and panels remain rectangular with visible strokes. The touch pad is 
 - **Name field and leaderboard tabs:** paper strokes, dark surfaces, and orange focus or selected treatment; submission states keep their existing muted, green, orange, and red feedback.
 - **Fighter picker:** four portrait cards with native radio inputs, a selected gold stroke, visible keyboard focus, and a description of the selected fighter's moves. Two columns on portrait phones.
 - **Arcade HUD and controls:** gold health, mint special charge, labeled Attack/Jump/Power/Grab–Throw touch keys, and a separate Pause button. The throw key changes its label when an object is available. Gameplay labels stay clear of the fight.
+- **Level 7 (Number Go Up):** 384×216 logical pixels at 3× inside the same 16:9 frame (`body.brawler-mode` plus `body.platformer-mode`, which hides the Power/Throw/vertical touch keys and relabels Fire as RUN). Sprites are character grids with an automatic ink outline; the HUD, news banner and FAILED stamp use an in-canvas 5×7 pixel font. Skylines move from daytime D.C. to sunset New York to night-time Dubai, crossfading at each city gate. All of it lives in `js/number-go-up-art.js`.
 - **City and actors:** `assets/brawler/city.png` is the generated background plate; fighters, props, thrown objects, signs, and effects are drawn in `js/brawler-art.js`. Asset provenance and the prompt live in `assets/brawler/README.md`.
 
 ## Do's and Don'ts

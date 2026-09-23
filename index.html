@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>8-Bit Satoshi</title>
-  <meta name="description" content="Build Bitcoin through five pixel adventures and an arcade street brawl with four fighters, flying chairs, and shitcoins.">
+  <meta name="description" content="Build Bitcoin through five pixel adventures, an arcade street brawl, and a Mario-style run where every crypto bill fails.">
 
   <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -36,6 +36,10 @@
           <div id="arcade-brief" class="arcade-brief" hidden>
             <p>Eight districts. Sixteen street fights. Grab a chair, dodge the shitcoins, and fight for the people.</p>
             <p class="arcade-fiction">An alternate 2026. Fictional satire, imagined dialogue.</p>
+          </div>
+          <div id="platformer-brief" class="arcade-brief" hidden>
+            <p>Three cities. Three crypto bills. Every one fails. Stomp politicians, kick bankers' briefcases, grab the NO-BS hoodie and fly while Bitcoin keeps climbing.</p>
+            <p class="arcade-fiction">Fictional satire. Any resemblance to real bills is the joke.</p>
           </div>
           <fieldset id="fighter-picker" class="fighter-picker" hidden>
             <legend>Choose your fighter</legend>
@@ -83,7 +87,8 @@
     </section>
 
     <div id="arcade-controls" class="arcade-controls" hidden>
-      <p><kbd>WASD</kbd> move <kbd>X</kbd> attack <kbd>SPACE</kbd> jump <kbd>E</kbd> grab / throw <kbd>C</kbd> special</p>
+      <p id="platformer-keys" hidden><kbd>A/D</kbd> move <kbd>X</kbd> hold to run <kbd>SPACE</kbd> jump · with the hoodie, fill the P-meter then hold jump to fly</p>
+      <p id="brawler-keys"><kbd>WASD</kbd> move <kbd>X</kbd> attack <kbd>SPACE</kbd> jump <kbd>E</kbd> grab / throw <kbd>C</kbd> special</p>
       <button id="arcade-pause" type="button">PAUSE <kbd>P</kbd></button>
     </div>
 
@@ -114,6 +119,8 @@
   <script src="js/leaderboard-client.js"></script>
   <script src="js/brawler.js"></script>
   <script src="js/brawler-art.js"></script>
+  <script src="js/number-go-up.js"></script>
+  <script src="js/number-go-up-art.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
