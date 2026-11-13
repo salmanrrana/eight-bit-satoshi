@@ -38,11 +38,12 @@ export default [
       "js/leaderboard-rules.js",
       "js/number-go-up.js",
       "js/proof-of-work.js",
+      "js/first-light.js",
     ],
     languageOptions: { globals: { module: "readonly" } },
   },
   {
-    files: ["js/proof-of-work/**/*.js"],
+    files: ["js/proof-of-work/**/*.js", "js/first-light/**/*.js"],
     languageOptions: { sourceType: "module" },
   },
   {

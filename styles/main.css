@@ -1033,3 +1033,35 @@ body.fps-mode .action-cluster .jump-button { display: grid; font-size: 15px; }
   body.fps-mode .game-shell { height: 100dvh; overflow: hidden; }
   body.fps-mode #fps-hud { inset: 16px; font-size: 12px; }
 }
+
+/* First Light has separate jump and use actions; the mine keeps its USE key. */
+body.first-light-mode .action-cluster .throw-button { display: grid; font-size: 15px; }
+body.first-light-mode #fps-objective { max-width: min(65vw, 650px); }
+body.first-light-mode #fps-canvas { touch-action: none; }
+
+/* First Light's flight remains visible beside the existing menu on desktop. */
+body.first-light-mode .title-screen {
+  background: linear-gradient(180deg, #0b122026, #0b122000 40%, #0b122059);
+}
+@media (min-width: 900px) {
+  body.first-light-mode .title-panel {
+    width: 520px;
+    justify-self: start;
+    justify-items: start;
+    text-align: left;
+    gap: 7px;
+    padding: 14px 18px;
+  }
+  body.first-light-mode .title-panel h1 { font-size: 32px; }
+  body.first-light-mode #title-tagline { font-size: 13px; }
+  body.first-light-mode .title-howto { font-size: 12px; }
+  body.first-light-mode .level-select { gap: 6px; }
+  body.first-light-mode .level-card { width: 44px; height: 44px; }
+  body.first-light-mode .level-card-num { font-size: 18px; }
+  body.first-light-mode .start-button { width: 100%; min-height: 48px; animation: none; }
+}
+
+/* First Light keeps pause reachable above the touch movement deck. */
+@media (pointer: coarse), (max-width: 700px) {
+  body.first-light-mode .touch-pause { display: block; position: fixed; top: 48px; right: 16px; min-width: 64px; background: #17202be6; border: 1px solid #9ca4a7; border-radius: 4px; }
+}

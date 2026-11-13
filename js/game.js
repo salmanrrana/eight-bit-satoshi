@@ -1130,8 +1130,17 @@
     description: "The last honest mine. Restore the power. Find the next block.",
     howTo: "Click to look · WASD move · Shift sprint · E use · F flashlight · P pause",
     mode: "fps", theme: "fps", worldW: 25,
+    fps: {sim: "ProofOfWork", renderer: "./proof-of-work/renderer.js", loading: "Building the mine…", result: "BLOCK FOUND", breakers: true, flashlight: true},
     labels: {coin: "BLOCK", pageStat: "BREAKERS"},
     zones: [{x: 0, name: "PROOF OF WORK"}], layout: {pages: [0, 1, 2]}});
+  LEVELS.push({id: "first-light", title: "FIRST LIGHT",
+    description: "Level 1 through Satoshi's eyes. Cross the broken world of 2008 and carry the whitepaper into the dawn.",
+    howTo: "WASD move · Mouse look · Space jump · Shift sprint · E use · P pause",
+    mode: "fps", theme: "fps", worldW: 300,
+    fps: {sim: "FirstLight", renderer: "./first-light/renderer.js", loading: "Building the dawn…", result: "BITCOIN LIVES", jump: true},
+    labels: {coin: "BTC", pageStat: "PAGES"}, zones: window.FirstLight.ZONES.map(z => ({x:z.s0, name:z.name})),
+    layout: {pages: window.FirstLight.entities.pages}});
+  let fpsLevelId = null, fpsBuild = Promise.resolve();
   let fpsGame = null, fpsArt = null, fpsLoading = false, fpsGeneration = 0;
   const fpsCanvas = document.getElementById("fps-canvas");
   const fpsStatus = document.getElementById("fps-status");
@@ -1141,8 +1150,12 @@
     state.subMode = "fps";
     brawler = platformGame = null;
     zones = getCurrentLevel().zones.map(zone => ({...zone}));
-    fpsGame = window.ProofOfWork.create({
-      checkpoint: (index, name) => {state.pages++; recordSplit({index: index + 1, name});},
+    const config = getCurrentLevel().fps;
+    fpsLevelId = getCurrentLevel().id;
+    fpsGame = window[config.sim].create({
+      checkpoint: (index, name) => {if (config.breakers) state.pages++; recordSplit({index: config.breakers ? index + 1 : index, name});},
+      page: () => {state.pages++;},
+      death: () => {state.lives--; state.deaths++; if (state.lives <= 0) {gameOver(); return false;} return true;},
       reward: (coins, score) => {state.coins += coins; state.score += score;},
       sfx: (type, position) => fpsArt?.sfx(type, position),
       complete: () => {completeGame(); document.exitPointerLock?.();}
@@ -1150,9 +1163,9 @@
     if (fpsArt || fpsLoading) return;
     fpsLoading = true;
     const generation = ++fpsGeneration;
-    fpsStatus.textContent = "Building the mine…";
+    fpsStatus.textContent = config.loading;
     document.getElementById("start-button").disabled = true;
-    import("./proof-of-work/renderer.js").then(async module => {
+    fpsBuild = fpsBuild.catch(() => {}).then(() => import(config.renderer)).then(async module => {
       if (generation !== fpsGeneration) return;
       const art = await module.create(fpsCanvas, {
         progress: message => { if (generation === fpsGeneration) fpsStatus.textContent = message; },
@@ -1163,7 +1176,7 @@
         hud: (objective, target, time) => {
           fpsObjective.textContent = objective;
           const needsLook = state.phase === "playing" && !state.paused && !document.pointerLockElement && !matchMedia("(pointer: coarse)").matches;
-          const usePrompt = target ? `E / USE · ${target.id.length === 1 ? "BREAKER " : ""}${target.id.toUpperCase()}` : "";
+          const usePrompt = target ? `E / USE · ${config.breakers && target.id.length === 1 ? "BREAKER " : ""}${target.label || target.id.toUpperCase()}` : "";
           fpsPrompt.textContent = [needsLook ? "Click to look" : "", usePrompt].filter(Boolean).join(" · ");
           document.getElementById("fps-time").textContent = time;
         }
@@ -1723,12 +1736,22 @@
   // refused mid-venue so it cannot skip a fight.
   if (IS_DEV) {
     window.eightBitSatoshi.dev = {
-      fpsTeleport: (x, z, yaw = 0, pitch = 0, y = 1.68) => {
+      fpsTeleport: (x, z, yaw = 0, pitch = 0, y = getCurrentLevel().fps?.jump ? window.FirstLight.groundY(x,z) : 1.68) => {
         if (!fpsGame) return false;
-        Object.assign(fpsGame.state.player, {x, z, yaw, pitch, y, vx:0, vz:0}); return true;
+        Object.assign(fpsGame.state.player, {x, z, yaw, pitch, y, vx:0, vz:0, vy:0}); return true;
+      },
+      fpsTime: value => { if (!getCurrentLevel().fps?.jump || !fpsGame) return false; fpsGame.state.timeOverride = value === null ? null : clamp(value,0,1); return true; },
+      fpsZone: n => {
+        if (!getCurrentLevel().fps?.jump || !fpsGame || !Number.isInteger(n) || n<0 || n>6) return false;
+        const sim = window.FirstLight, q=sim.at(sim.ZONES[n].s0);
+        Object.assign(fpsGame.state.player, q, {y:sim.groundY(q.x,q.z), yaw:n===1?-Math.PI/2:0, pitch:0, vx:0, vy:0, vz:0, grounded:true});
+        Object.assign(fpsGame.state, {zone:n, progress:sim.ZONES[n].s0/300, checkpoint:n, genesisMined:n>=3, safety:1.5});
+        fpsGame.state.blocks.forEach(b => {b.risen=n>=3?1:0;});
+        fpsGame.state.nodes.forEach((b,i) => {b.lit=n>4 || (n===4 && i===0);});
+        return true;
       },
       fpsStage: stage => {
-        if (!fpsGame) return false;
+        if (!fpsGame || !getCurrentLevel().fps?.breakers) return false;
         fpsGame.state.breakers = [0,1,2].map(i => i < Math.min(3,stage));
         fpsGame.state.stage = Math.min(3,stage);
         fpsGame.state.mining = stage > 3 ? 6 : 0;
@@ -2136,7 +2159,8 @@
     const level = getCurrentLevel();
     const fps = level.mode === "fps";
     document.body.classList.toggle("fps-mode", fps);
-    if (!fps) {
+    document.body.classList.toggle("first-light-mode", level.id === "first-light");
+    if (!fps || fpsLevelId !== level.id) {
       fpsGeneration++; fpsArt?.dispose(); fpsArt = null; fpsGame = null;
       fpsLoading = false; fpsStatus.textContent = "";
       document.getElementById("start-button").disabled = false;
@@ -2957,7 +2981,7 @@
     for (const key of Object.keys(input)) input[key] = false;
     document.querySelectorAll(".touch-button.active").forEach((button) => button.classList.remove("active"));
     stopMusic();
-    showMessage("PAUSED", "Game paused.", "RESTART", true, true);
+    showMessage("PAUSED", state.subMode === "fps" && fpsLevelId === "first-light" ? "Click CONTINUE to return to First Light." : "Game paused.", "RESTART", true, true);
   }
 
   function resumeGame() {
@@ -2990,7 +3014,7 @@
   // splits, run stats, and a personal-best marker. Reuses the shared message
   // screen so PLAY AGAIN (restartButton) keeps its existing wiring.
   function showResults(isNewBest, previousBest) {
-    messageTitle.textContent = state.subMode === "fps" ? "BLOCK FOUND" : state.subMode === "brawler" ? "THE PEOPLE WIN" : state.subMode === "platformer" ? "NUMBER WENT UP" : "BITCOIN LIVES";
+    messageTitle.textContent = state.subMode === "fps" ? getCurrentLevel().fps.result : state.subMode === "brawler" ? "THE PEOPLE WIN" : state.subMode === "platformer" ? "NUMBER WENT UP" : "BITCOIN LIVES";
     messageCopy.classList.add("hidden");
 
     messageResults.replaceChildren(
@@ -3241,6 +3265,7 @@
 
   function gameOver() {
     state.phase = "gameover";
+    if (state.subMode === "fps" && fpsLevelId === "first-light") fpsArt?.releaseCapture();
     stopMusic();
     playSfx("gameover");
     showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN", false, true);
@@ -6482,7 +6507,12 @@
     fireButton.textContent = arcade ? "ATTACK" : platformer ? "RUN" : "FIRE";
     fireButton.setAttribute("aria-label", arcade ? "Combo attack or jump kick" : platformer ? "Hold to run" : "Fire sat cannon");
     if (arcade) document.querySelector('[data-action="special"]').setAttribute("aria-label", `${window.SatoshiBrawler.CHARACTERS[selectedFighter].special} special attack`);
-    document.querySelector('[data-action="jump"]').textContent = state.subMode === "fps" ? "USE" : "JUMP";
+    const useButton = document.querySelector('[data-action="throw"]');
+    if (!arcade) {
+      useButton.textContent = getCurrentLevel().fps?.jump ? "USE" : "THROW";
+      useButton.setAttribute("aria-label", getCurrentLevel().fps?.jump ? "Use" : "Pick up or throw an object");
+    }
+    document.querySelector('[data-action="jump"]').textContent = state.subMode === "fps" && !getCurrentLevel().fps.jump ? "USE" : "JUMP";
   }
 
   function syncHud(force = false) {
@@ -6670,7 +6700,8 @@
 
     if (state.subMode === "fps") {
       if (key === "e" && !event.repeat) setAction("throw", true);
-      if (key === "f" && !event.repeat) fpsGame.state.flashlight = !fpsGame.state.flashlight;
+      if (key === " " && getCurrentLevel().fps.jump) setAction("jump", true);
+      if (key === "f" && !event.repeat && getCurrentLevel().fps.flashlight) fpsGame.state.flashlight = !fpsGame.state.flashlight;
       if (key === "shift") setAction("fire", true);
       if (key === "a" || key === "arrowleft") setAction("left", true);
       if (key === "d" || key === "arrowright") setAction("right", true);
@@ -6708,6 +6739,7 @@
     const key = event.key.toLowerCase();
     if (key === "c") setAction("special", false);
     if (state.subMode === "fps") {
+      if (key === " " && getCurrentLevel().fps.jump) {setAction("jump", false); return;}
       if (key === "e") setAction("throw", false);
       if (key === "shift") setAction("fire", false);
     }

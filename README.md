@@ -277,3 +277,17 @@ all saved scores, run this in the browser console and reload:
 ```js
 localStorage.removeItem("8bit-satoshi:leaderboard:v1")
 ```
+
+## Level 9 — First Light
+
+A 300-metre first-person version of the Whitepaper Run, from a stormy financial
+street to sunrise on the hilltop. WASD moves, mouse looks, Space jumps, Shift
+sprints, E uses the genesis PC and whitepaper. Touch has a movement pad, look
+drag, JUMP and USE. Pages are optional (ANY%), with nine available. Three lives,
+six checkpoints, a mined block bridge, and nine stompable machine enemies.
+
+Static WebGL2, local three.js, no build or runtime network dependencies. The
+simulation is `js/first-light.js`; lazy rendering modules are in `js/first-light/`.
+On loopback use `/?level=9&q=high` and `eightBitSatoshi.dev.fpsZone(0..6)`,
+`fpsTeleport(x,z,yaw,pitch,y)` (feet height), `fpsTime(0..1|null)`, `fpsMetrics()`.
+`?mods=city,river,hills,story` isolates content modules for development.

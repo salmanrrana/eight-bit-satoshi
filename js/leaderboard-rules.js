@@ -33,7 +33,8 @@
     "wall-street": "WALL STREET",
     "for-the-people": "FOR THE PEOPLE",
     "number-go-up": "NUMBER GO UP",
-    "proof-of-work": "PROOF OF WORK"
+    "proof-of-work": "PROOF OF WORK",
+    "first-light": "FIRST LIGHT"
   };
 
   // The virtual combined board's levelId. It is never submitted; it is derived on
