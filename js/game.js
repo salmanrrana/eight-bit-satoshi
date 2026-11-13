@@ -1126,6 +1126,58 @@
     layout: { pages: window.NumberGoUp.SECTIONS.map((_, index) => index) }
   });
 
+  LEVELS.push({id: "proof-of-work", title: "PROOF OF WORK",
+    description: "The last honest mine. Restore the power. Find the next block.",
+    howTo: "Click to look · WASD move · Shift sprint · E use · F flashlight · P pause",
+    mode: "fps", theme: "fps", worldW: 25,
+    labels: {coin: "BLOCK", pageStat: "BREAKERS"},
+    zones: [{x: 0, name: "PROOF OF WORK"}], layout: {pages: [0, 1, 2]}});
+  let fpsGame = null, fpsArt = null, fpsLoading = false, fpsGeneration = 0;
+  const fpsCanvas = document.getElementById("fps-canvas");
+  const fpsStatus = document.getElementById("fps-status");
+  const fpsObjective = document.getElementById("fps-objective");
+  const fpsPrompt = document.getElementById("fps-prompt");
+  function initFps() {
+    state.subMode = "fps";
+    brawler = platformGame = null;
+    zones = getCurrentLevel().zones.map(zone => ({...zone}));
+    fpsGame = window.ProofOfWork.create({
+      checkpoint: (index, name) => {state.pages++; recordSplit({index: index + 1, name});},
+      reward: (coins, score) => {state.coins += coins; state.score += score;},
+      sfx: (type, position) => fpsArt?.sfx(type, position),
+      complete: () => {completeGame(); document.exitPointerLock?.();}
+    });
+    if (fpsArt || fpsLoading) return;
+    fpsLoading = true;
+    const generation = ++fpsGeneration;
+    fpsStatus.textContent = "Building the mine…";
+    document.getElementById("start-button").disabled = true;
+    import("./proof-of-work/renderer.js").then(async module => {
+      if (generation !== fpsGeneration) return;
+      const art = await module.create(fpsCanvas, {
+        progress: message => { if (generation === fpsGeneration) fpsStatus.textContent = message; },
+        prepareAudio: () => { ensureAudio(); return audio; },
+        active: () => state.phase === "playing" && !state.paused,
+        pause: pauseGame,
+        error: message => {fpsStatus.textContent = message;},
+        hud: (objective, target, time) => {
+          fpsObjective.textContent = objective;
+          const needsLook = state.phase === "playing" && !state.paused && !document.pointerLockElement && !matchMedia("(pointer: coarse)").matches;
+          const usePrompt = target ? `E / USE · ${target.id.length === 1 ? "BREAKER " : ""}${target.id.toUpperCase()}` : "";
+          fpsPrompt.textContent = [needsLook ? "Click to look" : "", usePrompt].filter(Boolean).join(" · ");
+          document.getElementById("fps-time").textContent = time;
+        }
+      });
+      if (generation !== fpsGeneration) {art.dispose(); return;}
+      fpsArt = art; fpsLoading = false; fpsStatus.textContent = "";
+      document.getElementById("start-button").disabled = false;
+    }).catch(error => {
+      if (generation !== fpsGeneration) return;
+      fpsStatus.textContent = error.message; fpsLoading = false;
+      console.error(error);
+    });
+  }
+
   let brawler = null;
   // Level 7's side-scroller. Simulation in number-go-up.js, art in number-go-up-art.js.
   let platformGame = null;
@@ -1671,7 +1723,27 @@
   // refused mid-venue so it cannot skip a fight.
   if (IS_DEV) {
     window.eightBitSatoshi.dev = {
+      fpsTeleport: (x, z, yaw = 0, pitch = 0, y = 1.68) => {
+        if (!fpsGame) return false;
+        Object.assign(fpsGame.state.player, {x, z, yaw, pitch, y, vx:0, vz:0}); return true;
+      },
+      fpsStage: stage => {
+        if (!fpsGame) return false;
+        fpsGame.state.breakers = [0,1,2].map(i => i < Math.min(3,stage));
+        fpsGame.state.stage = Math.min(3,stage);
+        fpsGame.state.mining = stage > 3 ? 6 : 0;
+        fpsGame.state.doorOpen = stage >= 3 ? 1 : 0;
+        fpsGame.state.leverPulled = stage > 3;
+        fpsGame.state.coinTrayOpen = stage > 3 ? 1 : 0;
+        fpsGame.state.coinCollected = false;
+        fpsGame.state.ending = 0;
+        fpsGame.state.complete = false;
+        return true;
+      },
+      fpsMetrics: () => fpsArt?.metrics() || null,
       getState: () => ({
+        fps: fpsGame ? {...fpsGame.snapshot(), ready: !!fpsArt, loading: fpsLoading} : null,
+        fpsReady: !!fpsArt,
         subMode: state.subMode,
         phase: state.phase,
         paused: state.paused,
@@ -1841,7 +1913,7 @@
   function syncFrame() {
     const mode = getCurrentLevel().mode;
     const menu = state.phase === "title" || state.phase === "leaderboard";
-    document.body.classList.toggle("brawler-mode", menu || mode === "brawler" || mode === "platformer");
+    document.body.classList.toggle("brawler-mode", menu || mode === "brawler" || mode === "platformer" || mode === "fps");
   }
 
   // Return to the title screen / level select from a finished or failed run.
@@ -2062,6 +2134,13 @@
 
   function initLevel() {
     const level = getCurrentLevel();
+    const fps = level.mode === "fps";
+    document.body.classList.toggle("fps-mode", fps);
+    if (!fps) {
+      fpsGeneration++; fpsArt?.dispose(); fpsArt = null; fpsGame = null;
+      fpsLoading = false; fpsStatus.textContent = "";
+      document.getElementById("start-button").disabled = false;
+    }
     const arcade = level.mode === "brawler";
     const platformer = level.mode === "platformer";
     // Both late levels play in the 16:9 arcade frame (see syncFrame);
@@ -2080,6 +2159,7 @@
     syncFighterPicker(level.mode);
     renderTitleCopy(level);
     canvas.setAttribute("aria-label", arcade ? "For the People: arcade street brawler" : platformer ? "Number Go Up: side-scrolling platformer" : "8-Bit Satoshi game canvas");
+    if (fps) { initFps(); return; }
     if (platformer) {
       state.subMode = "platformer";
       state.cameraX = 0;
@@ -2570,6 +2650,7 @@
   }
 
   function startMusic(restart) {
+    if (getCurrentLevel().mode === "fps") {ensureAudio(); return;}
     if (!ensureAudio()) return;
     const songId = getCurrentLevel().id;
     if (restart || audio.songId !== songId) {
@@ -2837,7 +2918,13 @@
     syncHud(true);
   }
 
+  function captureFpsMouse() {
+    if (state.subMode === "fps" && !matchMedia("(pointer: coarse)").matches)
+      fpsCanvas.requestPointerLock()?.catch(() => {});
+  }
+
   function startGame() {
+    if (getCurrentLevel().mode === "fps" && !fpsArt) return;
     titleScreen.classList.add("hidden");
     messageScreen.classList.add("hidden");
     state.phase = "playing";
@@ -2846,6 +2933,7 @@
     resetRun(true);
     startMusic(true);
     playSfx("start");
+    captureFpsMouse();
   }
 
   function showMessage(title, copy, restartLabel = "RESTART", canContinue = false, canMenu = false) {
@@ -2865,6 +2953,7 @@
   function pauseGame() {
     if (state.phase !== "playing") return;
     state.paused = true;
+    if (state.subMode === "fps") fpsArt?.releaseCapture();
     for (const key of Object.keys(input)) input[key] = false;
     document.querySelectorAll(".touch-button.active").forEach((button) => button.classList.remove("active"));
     stopMusic();
@@ -2875,11 +2964,13 @@
     state.paused = false;
     messageScreen.classList.add("hidden");
     startMusic(false);
+    captureFpsMouse();
   }
 
   function completeGame() {
     if (state.phase === "complete") return;
     state.phase = "complete";
+    if (state.subMode === "fps") fpsArt?.releaseCapture();
     stopMusic();
     playSfx("finish");
     state.completionTime = state.time;
@@ -2899,7 +2990,7 @@
   // splits, run stats, and a personal-best marker. Reuses the shared message
   // screen so PLAY AGAIN (restartButton) keeps its existing wiring.
   function showResults(isNewBest, previousBest) {
-    messageTitle.textContent = state.subMode === "brawler" ? "THE PEOPLE WIN" : state.subMode === "platformer" ? "NUMBER WENT UP" : "BITCOIN LIVES";
+    messageTitle.textContent = state.subMode === "fps" ? "BLOCK FOUND" : state.subMode === "brawler" ? "THE PEOPLE WIN" : state.subMode === "platformer" ? "NUMBER WENT UP" : "BITCOIN LIVES";
     messageCopy.classList.add("hidden");
 
     messageResults.replaceChildren(
@@ -3528,7 +3619,13 @@
     if (state.phase === "title" && platformGame) platformGame.state.time += dt;
     if (state.phase !== "playing" || state.paused) return;
 
+    if (state.subMode === "fps" && !fpsArt) return;
     state.time += dt;
+    if (state.subMode === "fps") {
+      fpsGame.update(dt, input);
+      input.throwPressed = input.jumpPressed = false;
+      return;
+    }
     if (state.subMode === "brawler" || state.subMode === "platformer") {
       (brawler || platformGame).update(dt, input);
       input.throwPressed = false;
@@ -4203,6 +4300,10 @@
   }
 
   function render() {
+    if (state.subMode === "fps") {
+      fpsArt?.draw(fpsGame, state.phase, formatTime(state.time), audio);
+      return;
+    }
     if (state.subMode === "platformer") {
       platformArt.draw(platformGame.state, {
         time: formatTime(state.time), lives: state.lives, score: state.score, coins: state.coins,
@@ -6373,7 +6474,7 @@
   // pad between the 2-button side-view layout and the 4-button overworld pad,
   // and show the FIRE key only while the sat cannon is armed.
   function syncControlMode() {
-    document.body.classList.toggle("overworld-mode", state.subMode === "overworld");
+    document.body.classList.toggle("overworld-mode", (state.subMode === "overworld" || state.subMode === "fps"));
     document.body.classList.toggle("cannon-mode", hasSatCannon());
     const arcade = state.subMode === "brawler";
     const platformer = state.subMode === "platformer";
@@ -6381,7 +6482,7 @@
     fireButton.textContent = arcade ? "ATTACK" : platformer ? "RUN" : "FIRE";
     fireButton.setAttribute("aria-label", arcade ? "Combo attack or jump kick" : platformer ? "Hold to run" : "Fire sat cannon");
     if (arcade) document.querySelector('[data-action="special"]').setAttribute("aria-label", `${window.SatoshiBrawler.CHARACTERS[selectedFighter].special} special attack`);
-    document.querySelector('[data-action="jump"]').textContent = "JUMP";
+    document.querySelector('[data-action="jump"]').textContent = state.subMode === "fps" ? "USE" : "JUMP";
   }
 
   function syncHud(force = false) {
@@ -6567,6 +6668,16 @@
 
     if (state.paused || state.phase !== "playing") return;
 
+    if (state.subMode === "fps") {
+      if (key === "e" && !event.repeat) setAction("throw", true);
+      if (key === "f" && !event.repeat) fpsGame.state.flashlight = !fpsGame.state.flashlight;
+      if (key === "shift") setAction("fire", true);
+      if (key === "a" || key === "arrowleft") setAction("left", true);
+      if (key === "d" || key === "arrowright") setAction("right", true);
+      if (key === "w" || key === "arrowup") setAction("up", true);
+      if (key === "s" || key === "arrowdown") setAction("down", true);
+      return;
+    }
     if (state.subMode === "brawler") {
       if (key === "e" || key === "q") setAction("throw", true);
       if (key === "a" || key === "arrowleft") setAction("left", true);
@@ -6596,6 +6707,10 @@
     if (isTextEntryTarget(event)) return;
     const key = event.key.toLowerCase();
     if (key === "c") setAction("special", false);
+    if (state.subMode === "fps") {
+      if (key === "e") setAction("throw", false);
+      if (key === "shift") setAction("fire", false);
+    }
     if (state.subMode === "brawler") {
       if (key === "e" || key === "q") setAction("throw", false);
       if (key === "a" || key === "arrowleft") setAction("left", false);
@@ -6632,7 +6747,7 @@
       const rect = pad.getBoundingClientRect();
       const x = (event.clientX - rect.left - rect.width / 2) / (rect.width / 2);
       const y = (event.clientY - rect.top - rect.height / 2) / (rect.height / 2);
-      const vertical = state.subMode === "overworld" || state.subMode === "brawler";
+      const vertical = ["overworld", "brawler", "fps"].includes(state.subMode);
       for (const button of directionButtons) {
         const action = button.dataset.action;
         const active = state.phase === "playing" && !state.paused && (

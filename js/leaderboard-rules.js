@@ -32,7 +32,8 @@
     "shitcoin-city": "SHITCOIN CITY",
     "wall-street": "WALL STREET",
     "for-the-people": "FOR THE PEOPLE",
-    "number-go-up": "NUMBER GO UP"
+    "number-go-up": "NUMBER GO UP",
+    "proof-of-work": "PROOF OF WORK"
   };
 
   // The virtual combined board's levelId. It is never submitted; it is derived on

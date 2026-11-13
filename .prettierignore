@@ -1,0 +1,9 @@
+# Third-party code, kept byte-for-byte as published.
+vendor/
+
+# Older files that have never been Prettier-formatted (they are also left out
+# of `npm run format:check`). Remove a line here once that file is formatted.
+index.html
+js/game.js
+js/leaderboard-rules.js
+styles/main.css

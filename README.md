@@ -4,6 +4,37 @@ Playable static canvas game. No install step is required.
 
 ## Levels & Local Development
 
+Level 8 (**PROOF OF WORK**) is a small first-person Bitcoin mine. Restore three
+breakers, enter the control room, pull the master lever, then collect the block.
+Open `/?level=8` locally. Click the scene for mouse look; WASD moves, Shift
+sprints, E uses, F toggles the flashlight, P/Esc pauses, M mutes and R restarts.
+Touch uses the movement pad, drag-to-look and USE button.
+
+The WebGL2 canvas, procedural PBR textures, room probes and synthesized sound
+load only on Level 8. Three.js 0.187.0 is vendored under `vendor/three`;
+there are no external assets or runtime network services. `?q=low|high|ultra`
+overrides automatic quality. Auto starts on low and adjusts resolution from
+sustained frame times after compilation; it does not promote into unprepared
+shader variants. Explicit ultra stays full-size; low/high allow resolution
+scaling. All five power states' room reflections and bounce-light volumes are
+baked before START. High/ultra add denoised GTAO, shadowed fixtures and refractive
+glass; low uses baked fill, simpler glass and unshadowed direct lights. All tiers
+use SMAA and clamped, asynchronous exposure metering.
+The run clock waits for loading. Results and named times use the existing local
+leaderboard. If graphics context creation fails, the start panel explains why.
+
+For Level 8 development, use `python3 -m http.server 5180 --bind 127.0.0.1`.
+Loopback-only hooks on `eightBitSatoshi.dev` are `fpsTeleport(x,z,yaw,pitch,y)`,
+`fpsStage(0..4)`, `fpsMetrics()`, and `getState().fps` / `.fpsReady`. Angles are
+radians; forward is negative Z. Stage 4 exposes the mined coin. The detached
+`getState().fps` snapshot includes `player`, `ready`, `loading`, `breakers`,
+`doorOpen` (0–1), `leverPulled`, `coinTrayOpen` (0–1), `coinCollected`,
+`satsCollected` (optional pickups are not implemented) and `interactable`. Local capture
+and verification artifacts live in `.impeccable/review/level-8/`. The round-three
+`capture.cjs`, `bench.cjs`, and `browser-tests.cjs` use a visible X11 Chromium on
+port 5181 with pointer capture disabled. `COLD=1` disables Mesa's shader cache;
+`WARM=1` benchmarks a reload. See `round-3/report.md` for measured limits.
+
 The start screen is the same for every level: the selected level plays live
 behind the **8-BIT SATOSHI** logo, and one panel shows the level's name, pitch
 and controls, numbered stage buttons (arrow keys also move between them), the
