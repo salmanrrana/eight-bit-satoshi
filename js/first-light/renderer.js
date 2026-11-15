@@ -118,7 +118,8 @@ export async function create(canvas, callbacks) {
     releasing = false,
     sound = null,
     audioFactory = null,
-    titleEpoch = 0;
+    titleEpoch = 0,
+    lastMode = "";
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches,
     controller = new AbortController(),
     opts = { signal: controller.signal };
@@ -225,7 +226,9 @@ export async function create(canvas, callbacks) {
     g.saturation.value = 1.02 + 0.1 * day;
     g.contrast.value = 0.2;
   }
-  function renderFrame(snapshot, dt, time, fade = 0) {
+  // Draws one frame. `prepare` runs after the world updates and before the
+  // draw; the warm-up uses it to switch hidden objects on for one frame.
+  function renderFrame(snapshot, dt, time, fade = 0, prepare) {
     renderer.info.autoReset = false;
     renderer.info.reset();
     // The camera is final here: jitter it before anything copies its matrices.
@@ -236,6 +239,7 @@ export async function create(canvas, callbacks) {
     camera.updateMatrixWorld();
     lighting.update(env, camera, dt);
     grade(env);
+    prepare?.();
     // Auto exposure: the lit street needs less gain than the open yard, and
     // daylight less than either. Blend by position and time, never by zone.
     const openNight = T.MathUtils.smoothstep(-camera.position.z, 36, 64),
@@ -260,6 +264,14 @@ export async function create(canvas, callbacks) {
     worst = Math.max(worst, elapsed);
     frames++;
     resize();
+    if (mode !== lastMode) {
+      // A run always opens on the night street: start its exposure settled there.
+      if (mode === "playing") {
+        post.seedExposure(1.95);
+        post.reset();
+      }
+      lastMode = mode;
+    }
     const s = sim.state,
       p = s.player;
     if (mode === "playing" && callbacks.active()) {
@@ -342,6 +354,11 @@ export async function create(canvas, callbacks) {
     );
   }
   await progress("Compiling all surfaces and shadow variants…");
+  // Thin transparent cards need one pass, not three.js's back-then-front pair.
+  scene.traverse((o) => {
+    for (const m of [o.material].flat())
+      if (m?.transparent && m.side === T.DoubleSide) m.forceSinglePass = true;
+  });
   world.showAll();
   // With every zone visible: bake where the sky can be seen from (skyvis.js).
   const skyVisibility = bakeSkyVisibility(renderer, scene, window.FirstLight);
@@ -367,9 +384,19 @@ export async function create(canvas, callbacks) {
   ];
   renderer.setRenderTarget(null);
   compiling.push(renderer.compileAsync(onscreen, camera));
+  // One long wait with no GPU calls to spare: tick the text so it never looks hung.
+  const since = performance.now();
+  const ticker = setInterval(
+    () =>
+      callbacks.progress?.(
+        `Compiling shaders… ${Math.round((performance.now() - since) / 1000)} s. Only the first visit is slow.`,
+      ),
+    1000,
+  );
   try {
     await Promise.all(compiling);
   } finally {
+    clearInterval(ticker);
     renderer.setRenderTarget(previousTarget);
     triangle.dispose();
   }
@@ -396,9 +423,25 @@ export async function create(canvas, callbacks) {
     renderFrame(preview, 1, 0);
     unseen.forEach((o) => (o.frustumCulled = true));
   }
+  // One black frame with every switched-off object shown (genesis block, node
+  // glows, finale, mid-run effects), so nothing is used for the first time in play.
+  const restore = [];
+  const show = (target, key) => {
+    restore.push([target, key, target[key]]);
+    target[key] = key === "visible";
+  };
+  renderFrame(preview, 1, 0, 1, () =>
+    scene.traverse((o) => {
+      if (!o.visible) show(o, "visible");
+      if (o.frustumCulled) show(o, "frustumCulled");
+      for (const m of [o.material].flat())
+        if (m && !m.visible) show(m, "visible");
+    }),
+  );
+  restore.forEach(([target, key, value]) => (target[key] = value));
   renderer.setRenderTarget(null);
-  // The run opens on the night street; start the exposure where it settles.
-  post.seedExposure(1.95);
+  // The title opens in daylight; draw() reseeds for the street when a run starts.
+  post.seedExposure(1.3);
   post.reset();
   await progress("Preparing sound…");
   try {
@@ -409,7 +452,7 @@ export async function create(canvas, callbacks) {
   }
   callbacks.prepareAudio?.();
   last = 0;
-  titleEpoch = performance.now();
+  titleEpoch = performance.now() - 0.56 * 40000; // open over the meadow at first light
   return {
     draw,
     releaseCapture() {

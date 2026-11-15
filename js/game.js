@@ -1136,6 +1136,7 @@
   LEVELS.push({id: "first-light", title: "FIRST LIGHT",
     description: "Level 1 through Satoshi's eyes. Cross the broken world of 2008 and carry the whitepaper into the dawn.",
     howTo: "WASD move · Mouse look · Space jump · Shift sprint · E use · P pause",
+    howToTouch: "Left pad move · Drag to look · JUMP · USE · PAUSE",
     mode: "fps", theme: "fps", worldW: 300,
     fps: {sim: "FirstLight", renderer: "./first-light/renderer.js", loading: "Building the dawn…", result: "BITCOIN LIVES", jump: true},
     labels: {coin: "BTC", pageStat: "PAGES"}, zones: window.FirstLight.ZONES.map(z => ({x:z.s0, name:z.name})),
@@ -1150,7 +1151,7 @@
     state.subMode = "fps";
     brawler = platformGame = null;
     zones = getCurrentLevel().zones.map(zone => ({...zone}));
-    const config = getCurrentLevel().fps;
+    const config = getCurrentLevel().fps, touchCopy = !!getCurrentLevel().howToTouch;
     fpsLevelId = getCurrentLevel().id;
     fpsGame = window[config.sim].create({
       checkpoint: (index, name) => {if (config.breakers) state.pages++; recordSplit({index: config.breakers ? index + 1 : index, name});},
@@ -1176,7 +1177,8 @@
         hud: (objective, target, time) => {
           fpsObjective.textContent = objective;
           const needsLook = state.phase === "playing" && !state.paused && !document.pointerLockElement && !matchMedia("(pointer: coarse)").matches;
-          const usePrompt = target ? `E / USE · ${config.breakers && target.id.length === 1 ? "BREAKER " : ""}${target.label || target.id.toUpperCase()}` : "";
+          const useKey = touchCopy && matchMedia("(pointer: coarse)").matches ? "" : "E / ";
+          const usePrompt = target ? `${useKey}USE · ${config.breakers && target.id.length === 1 ? "BREAKER " : ""}${target.label || target.id.toUpperCase()}` : "";
           fpsPrompt.textContent = [needsLook ? "Click to look" : "", usePrompt].filter(Boolean).join(" · ");
           document.getElementById("fps-time").textContent = time;
         }
@@ -1924,7 +1926,8 @@
   function renderTitleCopy(level) {
     document.getElementById("title-heading").textContent = level.title;
     document.getElementById("title-tagline").textContent = level.description;
-    document.getElementById("title-howto").textContent = level.howTo;
+    // Optional touch copy; only levels that set howToTouch change on phones.
+    document.getElementById("title-howto").textContent = (matchMedia("(pointer: coarse)").matches && level.howToTouch) || level.howTo;
     const note = document.getElementById("title-note");
     note.textContent = level.note || "";
     note.hidden = !level.note;

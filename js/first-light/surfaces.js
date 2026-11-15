@@ -257,10 +257,12 @@ vec2 flParallax(vec2 uv, vec3 viewT, float depth){
   return uv-delta*over/max(over+under,1e-4);
 }
 float flHash(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
+// Smooth value noise from kit.noiseMap: one filtered fetch, no mipmaps, so it
+// is safe inside the flFamily branches.
+uniform highp sampler3D flNoiseMap;
 float flNoise(vec3 p){
   vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-  return mix(mix(mix(flHash(i),flHash(i+vec3(1,0,0)),f.x),mix(flHash(i+vec3(0,1,0)),flHash(i+vec3(1,1,0)),f.x),f.y),
-    mix(mix(flHash(i+vec3(0,0,1)),flHash(i+vec3(1,0,1)),f.x),mix(flHash(i+vec3(0,1,1)),flHash(i+1.),f.x),f.y),f.z);
+  return texture(flNoiseMap,(i+f+.5)/64.).r;
 }
 // Reoriented projections have consistent handedness on all six box faces.
 void flSample(out vec4 colourAO,out vec4 normalRM,out vec3 relief){
@@ -397,6 +399,7 @@ export function surface(kit, name, options = {}) {
       flWeather: { value: wet ? 1 : 0 },
       flCorrugated: { value: name === "corrugated" ? 1 : 0 },
       flFamily: { value: family },
+      flNoiseMap: { value: kit.noiseMap },
       flMud: { value: name === "mud" ? 1 : 0 },
       flBlock: { value: name === "blockStone" ? 1 : 0 },
     });
@@ -668,14 +671,10 @@ if(flAgeStyle>3.5){float salt=smoothstep(.65,.8,flNoise(ageP*2.7))*(1.-smoothste
   };
   material.customProgramCacheKey = () =>
     `${kitProgramKey}|first-light-surface-v6|${space}|${name === "glass" ? "glass" : "opaque"}`;
-  material.userData.surface = {
-    name,
-    scale,
-    space,
-    weather: wet,
-    maps,
-    bakeMs: state.bakeMs,
-  };
+  // Not enumerable: Material.copy JSON-clones userData and must skip the maps.
+  Object.defineProperty(material.userData, "surface", {
+    value: { name, scale, space, weather: wet, maps, bakeMs: state.bakeMs },
+  });
   state.materials.set(key, material);
   return material;
 }

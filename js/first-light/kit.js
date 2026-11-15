@@ -1,6 +1,8 @@
 /** FIRST LIGHT shared content contract (metres, Y up; player.y = feet).
  * createKit(renderer, lighting, iblUniforms?) returns:
  * noiseGLSL: hash(vec3), noise3(vec3), fbm(vec3) GLSL functions.
+ * noiseMap: 64³ repeating random Data3DTexture (one red byte, linear, no
+ *   mipmaps). Sample at (cell+.5)/64 for smooth value noise; surfaces.js does.
  * uniforms: shared {time,rain,wetness,wind,skyAmbient}, each a three Uniform.
  *   Also flSkyVis/flSkyVisFloor: the baked sky-occlusion map (skyvis.js). Every
  *   kit material dims its sky light by it; custom shaders can include
@@ -58,6 +60,19 @@ export function createKit(renderer, lighting, iblUniforms = null) {
     flSkyVisFloor: { value: 0.38 },
   };
   uniforms.flSkyVis.value.needsUpdate = true;
+  // 64-cell repeating random lattice. surfaces.js reads it with one filtered
+  // fetch per noise call; hashing eight corners made its shaders slow to compile.
+  const noiseData = new Uint8Array(64 ** 3);
+  for (let i = 0, seed = 1; i < noiseData.length; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    noiseData[i] = seed >>> 24;
+  }
+  const noiseMap = own(new T.Data3DTexture(noiseData, 64, 64, 64));
+  noiseMap.format = T.RedFormat;
+  noiseMap.wrapS = noiseMap.wrapT = noiseMap.wrapR = T.RepeatWrapping;
+  noiseMap.minFilter = noiseMap.magFilter = T.LinearFilter;
+  noiseMap.unpackAlignment = 1;
+  noiseMap.needsUpdate = true;
   const bakeMaterials = new Map();
   function bake({
     fragment,
@@ -112,7 +127,8 @@ export function createKit(renderer, lighting, iblUniforms = null) {
   function material(options = {}) {
     const { weather = false, ...rest } = options;
     const m = own(new T.MeshStandardMaterial({ roughness: 0.8, ...rest }));
-    m.userData.environment = uniforms;
+    // Not enumerable: Material.copy JSON-clones userData and must skip textures.
+    Object.defineProperty(m.userData, "environment", { value: uniforms });
     m.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       if (lighting.materialUniforms) {
@@ -288,6 +304,7 @@ normal=normalize(normal+vec3(dFdx(ripple),dFdy(ripple),0.)*.04*rain*wetness);`,
   }
   return {
     noiseGLSL,
+    noiseMap,
     skyVisibilityGLSL,
     uniforms,
     bake,

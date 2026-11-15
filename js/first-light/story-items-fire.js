@@ -61,9 +61,10 @@ export function buildFire(ctx, own, root, w, d, reduced) {
         float radial=length((p-.5)*vec2(1.8,1.65));
         float alpha=smoothstep(.9,.12,radial)*smoothstep(.22,.65,n);
         alpha*=smoothstep(.15,.5,life)*(1.-smoothstep(1.4,3.1,life));
-        vec3 colour=mix(vec3(.014,.012,.010),ambient*.85,clamp(life*.38,0.,.85));
+        // Grey from the sky's brightness, not its colour: blue daylight made a flat band.
+        vec3 colour=mix(vec3(.014,.012,.010),vec3(dot(ambient,vec3(.2126,.7152,.0722)))*vec3(.86,.84,.8),clamp(life*.38,0.,.85));
         colour+=vec3(.08,.025,.006)*exp(-life*3.);
-        gl_FragColor=vec4(colour,alpha*.34);
+        gl_FragColor=vec4(colour,alpha*.3);
       `
             : `
         float n=noise3(vec3(p*12.,t*.3));
