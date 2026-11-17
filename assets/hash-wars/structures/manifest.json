@@ -1,0 +1,1687 @@
+{
+  "package": "structures",
+  "axes": "metres, +Y up; each piece's origin is on the ground at its centre; front faces +Z",
+  "materials": {
+    "surf:<name>": "engine tiling surface x COLOR_0 (baked AO, grime, tint)",
+    "tex:keeper": "baked tiling ceramic textures in the GLB (2 m repeat) x COLOR_0 paint and AO",
+    "emit:team": "Keeper station/causeway/gate/beacon lines and screens; engine drives cold red-white -> orange",
+    "emit:lamp": "steady warm-white lamp heads",
+    "emit:amber": "small steady amber readouts"
+  },
+  "solids": "collision shapes in each piece's own space: box {min,max} or upright cylinder {x,z,r,y0,y1}",
+  "stateContract": {
+    "weapon_rack": {
+      "node": "rack_door",
+      "axis": "X",
+      "openDegrees": -110,
+      "openRoot": "weapon_rack_open"
+    },
+    "weapon_case": {
+      "node": "case_lid",
+      "axis": "X",
+      "openDegrees": -105,
+      "openRoot": "weapon_case_open"
+    },
+    "pylon": {
+      "node": "pylon_screen",
+      "channel": "team"
+    },
+    "dam_sluice": {
+      "node": "sluice_gate",
+      "axis": "Y",
+      "raiseMetres": 9
+    },
+    "summit_beacon": {
+      "node": "beacon_emitter",
+      "axis": "Y",
+      "raiseMetres": 0.8,
+      "turnDegrees": 360,
+      "core": "beacon_core",
+      "beam": "beacon_beam",
+      "channel": "team"
+    }
+  },
+  "files": [
+    {
+      "file": "citadel.glb",
+      "bytes": 2015612,
+      "pieces": [
+        {
+          "name": "citadel_gate",
+          "note": "53.6 m high, 73 m across curtain wings; deep stepped portal and crown towers. Slab-free 24 m central passage; wings centred x\u00b116. Place at x0,z-389 on independent level retaining footings. Route support is untouched; personnel doors and maintenance shelves are in the solid wing envelopes.",
+          "min": [-36.85, -6.0, -4.85],
+          "max": [36.85, 53.68, 7.0],
+          "size": [73.7, 59.68, 11.85],
+          "triangles": 33631,
+          "materials": [
+            "emit:amber",
+            "emit:lamp",
+            "emit:team",
+            "surf:concrete",
+            "surf:cutStone",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["gate_lamp", "citadel_gate_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "citadel_gate_inscription_0",
+              "parent": "citadel_gate",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-20.0, 0.0, -4.0],
+              "max": [-12.0, 30.5, 3.2]
+            },
+            {
+              "shape": "box",
+              "min": [-19.9, 0.04, 0],
+              "max": [-18.1, 7.36, 7]
+            },
+            {
+              "shape": "box",
+              "min": [-19.75, 7.44, 0],
+              "max": [-18.25, 15.36, 6.2]
+            },
+            {
+              "shape": "box",
+              "min": [-19.6, 15.44, 0],
+              "max": [-18.4, 23.36, 5.4]
+            },
+            {
+              "shape": "box",
+              "min": [-19.475, 23.44, 0],
+              "max": [-18.525, 30.46, 4.6]
+            },
+            {
+              "shape": "box",
+              "min": [-13.9, 0.04, 0],
+              "max": [-12.1, 7.36, 7]
+            },
+            {
+              "shape": "box",
+              "min": [-13.75, 7.44, 0],
+              "max": [-12.25, 15.36, 6.2]
+            },
+            {
+              "shape": "box",
+              "min": [-13.6, 15.44, 0],
+              "max": [-12.4, 23.36, 5.4]
+            },
+            {
+              "shape": "box",
+              "min": [-13.475, 23.44, 0],
+              "max": [-12.525, 30.46, 4.6]
+            },
+            {
+              "shape": "box",
+              "min": [12.0, 0.0, -4.0],
+              "max": [20.0, 30.5, 3.2]
+            },
+            {
+              "shape": "box",
+              "min": [12.1, 0.04, 0],
+              "max": [13.9, 7.36, 7]
+            },
+            {
+              "shape": "box",
+              "min": [12.25, 7.44, 0],
+              "max": [13.75, 15.36, 6.2]
+            },
+            {
+              "shape": "box",
+              "min": [12.4, 15.44, 0],
+              "max": [13.6, 23.36, 5.4]
+            },
+            {
+              "shape": "box",
+              "min": [12.525, 23.44, 0],
+              "max": [13.475, 30.46, 4.6]
+            },
+            {
+              "shape": "box",
+              "min": [18.1, 0.04, 0],
+              "max": [19.9, 7.36, 7]
+            },
+            {
+              "shape": "box",
+              "min": [18.25, 7.44, 0],
+              "max": [19.75, 15.36, 6.2]
+            },
+            {
+              "shape": "box",
+              "min": [18.4, 15.44, 0],
+              "max": [19.6, 23.36, 5.4]
+            },
+            {
+              "shape": "box",
+              "min": [18.525, 23.44, 0],
+              "max": [19.475, 30.46, 4.6]
+            },
+            {
+              "shape": "box",
+              "min": [-20.0, 30.5, -4.0],
+              "max": [20.0, 39.5, 4.0]
+            },
+            {
+              "shape": "box",
+              "min": [-12.0, 30.1, 1.4],
+              "max": [12.0, 30.8, 3.8]
+            },
+            {
+              "shape": "box",
+              "min": [-11.4, 28.9, -1.2],
+              "max": [11.4, 30.8, 1.4]
+            },
+            {
+              "shape": "box",
+              "min": [-12.0, 0.0, -1.2],
+              "max": [-11.4, 28.9, 1.4]
+            },
+            {
+              "shape": "box",
+              "min": [11.4, 0.0, -1.2],
+              "max": [12.0, 28.9, 1.4]
+            },
+            {
+              "shape": "box",
+              "min": [-10.8, 27.7, -3.6],
+              "max": [10.8, 30.8, -1.2]
+            },
+            {
+              "shape": "box",
+              "min": [-12.0, 0.0, -3.6],
+              "max": [-10.8, 27.7, -1.2]
+            },
+            {
+              "shape": "box",
+              "min": [10.8, 0.0, -3.6],
+              "max": [12.0, 27.7, -1.2]
+            },
+            {
+              "shape": "box",
+              "min": [-11.9, 30.675, 3.7],
+              "max": [11.9, 30.925, 4.8]
+            },
+            {
+              "shape": "box",
+              "min": [-19.6, 39.5, -3.3],
+              "max": [-12.4, 46.9, 3.3]
+            },
+            {
+              "shape": "box",
+              "min": [-19.0, 46.9, -2.7],
+              "max": [-13.0, 50.5, 2.7]
+            },
+            {
+              "shape": "box",
+              "min": [-18.3, 15.3, 3.6],
+              "max": [-13.7, 15.5, 5.0]
+            },
+            {
+              "shape": "box",
+              "min": [-18.3, 23.3, 3.6],
+              "max": [-13.7, 23.5, 5.0]
+            },
+            {
+              "shape": "box",
+              "min": [-36.5, -6.0, -4.5],
+              "max": [-20.0, 24.0, 0.8]
+            },
+            {
+              "shape": "box",
+              "min": [12.4, 39.5, -3.3],
+              "max": [19.6, 46.9, 3.3]
+            },
+            {
+              "shape": "box",
+              "min": [13.0, 46.9, -2.7],
+              "max": [19.0, 50.5, 2.7]
+            },
+            {
+              "shape": "box",
+              "min": [13.7, 15.3, 3.6],
+              "max": [18.3, 15.5, 5.0]
+            },
+            {
+              "shape": "box",
+              "min": [13.7, 23.3, 3.6],
+              "max": [18.3, 23.5, 5.0]
+            },
+            {
+              "shape": "box",
+              "min": [20.0, -6.0, -4.5],
+              "max": [36.5, 24.0, 0.8]
+            }
+          ],
+          "lod1": {
+            "name": "citadel_gate_lod1",
+            "triangles": 10761
+          }
+        },
+        {
+          "name": "terrace_wall",
+          "note": "12 m module, height3; backfill rises behind wall. New forecourt solids needed: current sim only has cover/pylon/spire, no terrace boxes.",
+          "min": [-6.05, 0.0, -1.1],
+          "max": [6.05, 3.0, 1.3],
+          "size": [12.1, 3.0, 2.4],
+          "triangles": 408,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:cutStone",
+            "tex:keeper"
+          ],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-6.0, 0.0, -1.0],
+              "max": [6.0, 2.7, 1.0]
+            },
+            {
+              "shape": "box",
+              "min": [-5.98, 0.05, 0.96],
+              "max": [-3.02, 2.6, 1.24]
+            },
+            {
+              "shape": "box",
+              "min": [-2.98, 0.05, 0.96],
+              "max": [-0.02, 2.6, 1.24]
+            },
+            {
+              "shape": "box",
+              "min": [0.02, 0.05, 0.96],
+              "max": [2.98, 2.6, 1.24]
+            },
+            {
+              "shape": "box",
+              "min": [3.02, 0.05, 0.96],
+              "max": [5.98, 2.6, 1.24]
+            },
+            {
+              "shape": "box",
+              "min": [-6.05, 2.7, -1.1],
+              "max": [6.05, 3.0, 1.1]
+            }
+          ],
+          "lod1": {
+            "name": "terrace_wall_lod1",
+            "triangles": 134
+          }
+        },
+        {
+          "name": "summit_beacon",
+          "note": "7.525 m emitter. Place on platform; engine use target must follow beacon_use. beacon_emitter pivot local Y6.9: yaw Y, rise up to .8 m. beacon_core emits team.",
+          "min": [-1.3, 0.0, -1.3],
+          "max": [1.3, 7.525, 1.3],
+          "size": [2.6, 7.525, 2.6],
+          "triangles": 1389,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:cutStone",
+            "tex:keeper"
+          ],
+          "nodes": [
+            "beacon_use",
+            "beacon_core",
+            "beacon_emitter",
+            "beacon_beam",
+            "summit_beacon_inscription_2"
+          ],
+          "rigidNodes": [
+            {
+              "name": "beacon_core",
+              "parent": "summit_beacon",
+              "pivot": [0.0, 1.8, -0.0]
+            },
+            {
+              "name": "beacon_emitter",
+              "parent": "summit_beacon",
+              "pivot": [0.0, 6.9, -0.0]
+            },
+            {
+              "name": "summit_beacon_inscription_2",
+              "parent": "summit_beacon",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.3, 0.0, -1.3],
+              "max": [1.3, 0.3, 1.3]
+            },
+            {
+              "shape": "box",
+              "min": [-0.8, 0.3, -0.8],
+              "max": [0.8, 1.7, 0.8]
+            },
+            {
+              "shape": "box",
+              "min": [-0.85, 0.3, -0.85],
+              "max": [0.85, 7.85, 0.85]
+            }
+          ],
+          "lod1": {
+            "name": "summit_beacon_lod1",
+            "triangles": 478
+          }
+        },
+        {
+          "name": "whitepaper_monument",
+          "note": "3 m stone block. Actual cut title and author; monument_read is 5 m from engraved face. Front +Z.",
+          "min": [-3.0, 0.0, -1.25],
+          "max": [3.0, 3.0, 1.25],
+          "size": [6.0, 3.0, 2.5],
+          "triangles": 9620,
+          "materials": ["surf:cutStone", "tex:keeper"],
+          "nodes": [
+            "monument_read",
+            "whitepaper_monument_inscription_0",
+            "whitepaper_monument_inscription_1"
+          ],
+          "rigidNodes": [
+            {
+              "name": "whitepaper_monument_inscription_0",
+              "parent": "whitepaper_monument",
+              "pivot": [0.0, 0.0, -0.0]
+            },
+            {
+              "name": "whitepaper_monument_inscription_1",
+              "parent": "whitepaper_monument",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.0, 0.0, -1.25],
+              "max": [3.0, 0.25, 1.25]
+            },
+            {
+              "shape": "box",
+              "min": [-2.8, 0.25, -0.95],
+              "max": [2.8, 3.0, 0.95]
+            }
+          ],
+          "lod1": {
+            "name": "whitepaper_monument_lod1",
+            "triangles": 1274
+          }
+        }
+      ]
+    },
+    {
+      "file": "props.glb",
+      "bytes": 1027892,
+      "pieces": [
+        {
+          "name": "cover_wall",
+          "note": "",
+          "min": [-1.5, 0.0, -1.275],
+          "max": [1.5, 1.315, 1.325],
+          "size": [3.0, 1.315, 2.6],
+          "triangles": 623,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.5, 0, -1.25],
+              "max": [1.5, 1.3, 1.25]
+            }
+          ],
+          "lod1": {
+            "name": "cover_wall_lod1",
+            "triangles": 229
+          }
+        },
+        {
+          "name": "cover_wall_b",
+          "note": "",
+          "min": [-1.5, 0.0, -1.275],
+          "max": [1.5, 1.315, 1.325],
+          "size": [3.0, 1.315, 2.6],
+          "triangles": 1126,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.5, 0, -1.25],
+              "max": [1.5, 1.3, 1.25]
+            }
+          ],
+          "lod1": {
+            "name": "cover_wall_b_lod1",
+            "triangles": 344
+          }
+        },
+        {
+          "name": "barrier",
+          "note": "",
+          "min": [-1.5, 0.0, -0.415],
+          "max": [1.5, 1.215, 0.465],
+          "size": [3.0, 1.215, 0.88],
+          "triangles": 712,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.5, 0, -0.39],
+              "max": [1.5, 1.2, 0.39]
+            }
+          ],
+          "lod1": {
+            "name": "barrier_lod1",
+            "triangles": 201
+          }
+        },
+        {
+          "name": "ammo_crate",
+          "note": "",
+          "min": [-0.61, 0.0, -0.392],
+          "max": [0.61, 0.81, 0.418],
+          "size": [1.22, 0.81, 0.81],
+          "triangles": 1270,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.54, 0, -0.38],
+              "max": [0.54, 0.81, 0.38]
+            }
+          ]
+        },
+        {
+          "name": "ammo_crate_b",
+          "note": "",
+          "min": [-0.61, 0.0, -0.38],
+          "max": [0.61, 0.81, 0.426],
+          "size": [1.22, 0.81, 0.806],
+          "triangles": 1395,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.54, 0, -0.38],
+              "max": [0.54, 0.81, 0.38]
+            }
+          ]
+        },
+        {
+          "name": "weapon_rack",
+          "note": "",
+          "min": [-1.25, 0.0, -0.5],
+          "max": [1.25, 2.52, 0.63],
+          "size": [2.5, 2.52, 1.13],
+          "triangles": 1974,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [
+            "rack_socket_-0.67",
+            "rack_socket_0",
+            "rack_socket_0.67",
+            "rack_door"
+          ],
+          "rigidNodes": [
+            {
+              "name": "rack_door",
+              "parent": "weapon_rack",
+              "pivot": [0.0, 2.27, 0.45]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.25, 0, -0.5],
+              "max": [1.25, 2.52, 0.5]
+            }
+          ]
+        },
+        {
+          "name": "weapon_rack_open",
+          "note": "",
+          "min": [-1.25, 0.0, -0.5],
+          "max": [1.25, 2.986, 2.317],
+          "size": [2.5, 2.986, 2.817],
+          "triangles": 1974,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [
+            "rack_socket_-0.001",
+            "rack_socket_0.001",
+            "rack_socket_0.002",
+            "rack_door_open"
+          ],
+          "rigidNodes": [
+            {
+              "name": "rack_door_open",
+              "parent": "weapon_rack_open",
+              "pivot": [0.0, 2.27, 0.45]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.03, 2.228, 0.435],
+              "max": [1.03, 2.986, 2.317]
+            },
+            {
+              "shape": "box",
+              "min": [-1.25, 0, -0.5],
+              "max": [1.25, 2.52, 0.5]
+            }
+          ]
+        },
+        {
+          "name": "weapon_case",
+          "note": "",
+          "min": [-0.9, 0.0, -0.425],
+          "max": [0.9, 0.537, 0.518],
+          "size": [1.8, 0.537, 0.943],
+          "triangles": 1478,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": ["case_socket", "case_lid"],
+          "rigidNodes": [
+            {
+              "name": "case_lid",
+              "parent": "weapon_case",
+              "pivot": [0.0, 0.36, -0.36]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.9, 0, -0.43],
+              "max": [0.9, 0.52, 0.43]
+            }
+          ]
+        },
+        {
+          "name": "weapon_case_open",
+          "note": "",
+          "min": [-0.9, 0.0, -0.711],
+          "max": [0.9, 1.139, 0.518],
+          "size": [1.8, 1.139, 1.229],
+          "triangles": 1478,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": ["case_socket.001", "case_lid_open"],
+          "rigidNodes": [
+            {
+              "name": "case_lid_open",
+              "parent": "weapon_case_open",
+              "pivot": [0.0, 0.36, -0.36]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.89, 0.28, -0.711],
+              "max": [0.89, 1.139, -0.35]
+            },
+            {
+              "shape": "box",
+              "min": [-0.9, 0, -0.43],
+              "max": [0.9, 0.52, 0.43]
+            }
+          ]
+        },
+        {
+          "name": "cargo_sled",
+          "note": "",
+          "min": [-1.375, 0.0, -2.25],
+          "max": [1.375, 1.315, 2.345],
+          "size": [2.75, 1.315, 4.595],
+          "triangles": 2376,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.35, 0, -2.25],
+              "max": [1.35, 1.3, 2.25]
+            }
+          ],
+          "lod1": {
+            "name": "cargo_sled_lod1",
+            "triangles": 926
+          }
+        },
+        {
+          "name": "drop_pod",
+          "note": "",
+          "min": [-1.36, 0.0, -1.35],
+          "max": [1.36, 3.725, 3.662],
+          "size": [2.72, 3.725, 5.012],
+          "triangles": 7674,
+          "materials": ["emit:team", "surf:galvanized", "tex:keeper"],
+          "nodes": ["pod_smoke", "pod_hatch"],
+          "rigidNodes": [
+            {
+              "name": "pod_hatch",
+              "parent": "drop_pod",
+              "pivot": [0.0, 0.3, 1.2]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "cyl",
+              "x": 0,
+              "z": 0,
+              "r": 1.35,
+              "y0": 0,
+              "y1": 0.65
+            },
+            {
+              "shape": "box",
+              "min": [-1.3, 0.65, -0.75],
+              "max": [-0.7, 3.0, 0.75]
+            },
+            {
+              "shape": "box",
+              "min": [0.7, 0.65, -0.75],
+              "max": [1.3, 3.0, 0.75]
+            },
+            {
+              "shape": "box",
+              "min": [-0.8, 0.65, -1.2],
+              "max": [0.8, 3.3, -0.65]
+            },
+            {
+              "shape": "box",
+              "min": [-1.048, 0.037, 0.838],
+              "max": [1.048, 0.343, 3.662]
+            }
+          ],
+          "lod1": {
+            "name": "drop_pod_lod1",
+            "triangles": 2684
+          }
+        }
+      ]
+    },
+    {
+      "file": "route.glb",
+      "bytes": 1607280,
+      "pieces": [
+        {
+          "name": "pipeline_segment",
+          "note": "",
+          "min": [-1.04, 1.96, -4.06],
+          "max": [1.263, 4.04, 4.0],
+          "size": [2.303, 2.08, 8.06],
+          "triangles": 4852,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.93, 2.07, -4],
+              "max": [0.93, 3.93, 4]
+            }
+          ],
+          "lod1": {
+            "name": "pipeline_segment_lod1",
+            "triangles": 978
+          }
+        },
+        {
+          "name": "pipeline_segment_b",
+          "note": "",
+          "min": [-1.04, 1.96, -4.06],
+          "max": [1.263, 4.28, 4.0],
+          "size": [2.303, 2.32, 8.06],
+          "triangles": 4495,
+          "materials": ["surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.93, 2.07, -4],
+              "max": [0.93, 3.93, 4]
+            }
+          ],
+          "lod1": {
+            "name": "pipeline_segment_b_lod1",
+            "triangles": 835
+          }
+        },
+        {
+          "name": "pipeline_pier",
+          "note": "",
+          "min": [-1.7, 0.0, -1.3],
+          "max": [1.7, 3.02, 1.313],
+          "size": [3.4, 3.02, 2.613],
+          "triangles": 907,
+          "materials": [
+            "surf:concrete",
+            "surf:cutStone",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.7, 0, -1.3],
+              "max": [1.7, 0.4, 1.3]
+            },
+            {
+              "shape": "box",
+              "min": [-1.3, 0.4, -0.975],
+              "max": [1.3, 2.15, 0.975]
+            },
+            {
+              "shape": "box",
+              "min": [-1.24, 2.15, -0.75],
+              "max": [-1.08, 2.9, 0.75]
+            },
+            {
+              "shape": "box",
+              "min": [1.08, 2.15, -0.75],
+              "max": [1.24, 2.9, 0.75]
+            }
+          ],
+          "lod1": {
+            "name": "pipeline_pier_lod1",
+            "triangles": 363
+          }
+        },
+        {
+          "name": "causeway_segment",
+          "note": "15 m repeat along Z; top local Y=1. Place y=21, z=-157.5-15*i; five bays reach -225.",
+          "min": [-4.5, 0.0, -7.5],
+          "max": [4.5, 1.045, 7.5],
+          "size": [9.0, 1.045, 15.0],
+          "triangles": 1180,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-4.5, 0.0, -7.5],
+              "max": [4.5, 1.0, 7.5]
+            }
+          ],
+          "lod1": {
+            "name": "causeway_segment_lod1",
+            "triangles": 412
+          }
+        },
+        {
+          "name": "causeway_segment_b",
+          "note": "15 m repeat along Z; top local Y=1. Place y=21, z=-157.5-15*i; five bays reach -225.",
+          "min": [-4.5, 0.0, -7.5],
+          "max": [4.5, 1.045, 7.5],
+          "size": [9.0, 1.045, 15.0],
+          "triangles": 1196,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-4.5, 0.0, -7.5],
+              "max": [4.5, 1.0, 7.5]
+            }
+          ],
+          "lod1": {
+            "name": "causeway_segment_b_lod1",
+            "triangles": 418
+          }
+        },
+        {
+          "name": "causeway_segment_c",
+          "note": "15 m repeat along Z; top local Y=1. Place y=21, z=-157.5-15*i; five bays reach -225.",
+          "min": [-4.5, 0.0, -7.5],
+          "max": [4.5, 1.045, 7.5],
+          "size": [9.0, 1.045, 15.0],
+          "triangles": 1196,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-4.5, 0.0, -7.5],
+              "max": [4.5, 1.0, 7.5]
+            }
+          ],
+          "lod1": {
+            "name": "causeway_segment_c_lod1",
+            "triangles": 418
+          }
+        },
+        {
+          "name": "causeway_parapet",
+          "note": "Matches layout: x +/-5, y22, z=-155-10*i (i 0..6). 1 x 1.25 x 10.2 m.",
+          "min": [-0.525, 0.0, -5.1],
+          "max": [0.525, 1.271, 5.1],
+          "size": [1.05, 1.271, 10.2],
+          "triangles": 544,
+          "materials": ["emit:team", "surf:concrete", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.5, 0.0, -5.1],
+              "max": [0.5, 1.25, 5.1]
+            }
+          ],
+          "lod1": {
+            "name": "causeway_parapet_lod1",
+            "triangles": 182
+          }
+        },
+        {
+          "name": "causeway_pier",
+          "note": "37 m foot-to-bearing. Place at y=-16 (top y21), z=-165,-187.5,-210; do not bottom-align to deck.",
+          "min": [-6.0, 0.0, -4.0],
+          "max": [6.0, 37.0, 4.0],
+          "size": [12.0, 37.0, 8.0],
+          "triangles": 2241,
+          "materials": [
+            "surf:concrete",
+            "surf:cutStone",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["causeway_pier_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "causeway_pier_inscription_0",
+              "parent": "causeway_pier",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-6.0, 0.0, -4.0],
+              "max": [6.0, 1.2, 4.0]
+            },
+            {
+              "shape": "box",
+              "min": [-5.15, 1.2, -2.8],
+              "max": [-1.65, 5.2, 2.8]
+            },
+            {
+              "shape": "box",
+              "min": [-4.8, 5, -2.25],
+              "max": [-2.0, 33, 2.25]
+            },
+            {
+              "shape": "box",
+              "min": [1.65, 1.2, -2.8],
+              "max": [5.15, 5.2, 2.8]
+            },
+            {
+              "shape": "box",
+              "min": [2.0, 5, -2.25],
+              "max": [4.8, 33, 2.25]
+            },
+            {
+              "shape": "box",
+              "min": [-5.4, 33.0, -2.5],
+              "max": [5.4, 35.5, 2.5]
+            },
+            {
+              "shape": "box",
+              "min": [-5.0, 35.9, -1.0],
+              "max": [-1.8, 37.0, 1.0]
+            },
+            {
+              "shape": "box",
+              "min": [1.8, 35.9, -1.0],
+              "max": [5.0, 37.0, 1.0]
+            }
+          ],
+          "lod1": {
+            "name": "causeway_pier_lod1",
+            "triangles": 765
+          }
+        },
+        {
+          "name": "dam_sluice",
+          "note": "Off-lane dam bay; pivot sluice_gate local Y=2; raise max 9 m. Needs new layout solids.",
+          "min": [-3.8, 0.0, -1.5],
+          "max": [4.582, 15.35, 1.56],
+          "size": [8.382, 15.35, 3.06],
+          "triangles": 7288,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": ["sluice_winch_mount", "sluice_gate"],
+          "rigidNodes": [
+            {
+              "name": "sluice_gate",
+              "parent": "dam_sluice",
+              "pivot": [0.0, 2.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.8, 0.0, -1.5],
+              "max": [-2.4, 14.0, 1.5]
+            },
+            {
+              "shape": "box",
+              "min": [2.4, 0.0, -1.5],
+              "max": [3.8, 14.0, 1.5]
+            },
+            {
+              "shape": "box",
+              "min": [-3.8, 13.9, -1.5],
+              "max": [3.8, 15.0, 1.5]
+            },
+            {
+              "shape": "box",
+              "min": [-2.4, 2, -0.4],
+              "max": [2.4, 13.8, 0.4]
+            }
+          ],
+          "lod1": {
+            "name": "dam_sluice_lod1",
+            "triangles": 1868
+          }
+        },
+        {
+          "name": "dam_winch",
+          "note": "Separate winch housing for sluice top or deck-side cover; needs layout solids.",
+          "min": [-1.75, 0.0, -1.2],
+          "max": [1.75, 2.15, 1.2],
+          "size": [3.5, 2.15, 2.4],
+          "triangles": 3939,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.75, 0.0, -1.2],
+              "max": [1.75, 0.25, 1.2]
+            },
+            {
+              "shape": "box",
+              "min": [-1.75, 0, -1.2],
+              "max": [1.75, 2.15, 1.2]
+            }
+          ],
+          "lod1": {
+            "name": "dam_winch_lod1",
+            "triangles": 745
+          }
+        },
+        {
+          "name": "dam_control_hut",
+          "note": "Off-lane control shelter; needs layout solids.",
+          "min": [-2.5, 0.0, -2.4],
+          "max": [2.5, 3.78, 2.4],
+          "size": [5.0, 3.78, 4.8],
+          "triangles": 1705,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:cutStone",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["hut_lamp", "dam_control_hut_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "dam_control_hut_inscription_0",
+              "parent": "dam_control_hut",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.5, 0.0, -2.4],
+              "max": [2.5, 0.25, 2.4]
+            },
+            {
+              "shape": "box",
+              "min": [-2.15, 0.25, -1.9],
+              "max": [2.15, 3.45, 1.9]
+            }
+          ],
+          "lod1": {
+            "name": "dam_control_hut_lod1",
+            "triangles": 557
+          }
+        },
+        {
+          "name": "watcher_tower",
+          "note": "Two far-bank towers; watcher_stand at local Y11.8. Watchers currently spawn on deck; STATIONS/LEAD must place actors and solids together.",
+          "min": [-3.0, 0.0, -3.0],
+          "max": [3.0, 12.45, 3.035],
+          "size": [6.0, 12.45, 6.035],
+          "triangles": 6254,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:cutStone",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["watcher_stand", "watcher_tower_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "watcher_tower_inscription_0",
+              "parent": "watcher_tower",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.0, 0.0, -3.0],
+              "max": [3.0, 0.8, 3.0]
+            },
+            {
+              "shape": "box",
+              "min": [-1.9, 0.8, -1.9],
+              "max": [1.9, 11.3, 1.9]
+            },
+            {
+              "shape": "box",
+              "min": [-3.0, 11.3, -3.0],
+              "max": [3.0, 11.8, 3.0]
+            },
+            {
+              "shape": "box",
+              "min": [-3.0, 11.8, -3.0],
+              "max": [-2.6, 12.45, 3.0]
+            },
+            {
+              "shape": "box",
+              "min": [2.6, 11.8, -3.0],
+              "max": [3.0, 12.45, 3.0]
+            },
+            {
+              "shape": "box",
+              "min": [-2.6, 11.8, -3.0],
+              "max": [2.6, 12.45, -2.6]
+            }
+          ],
+          "lod1": {
+            "name": "watcher_tower_lod1",
+            "triangles": 1578
+          }
+        }
+      ]
+    },
+    {
+      "file": "station.glb",
+      "bytes": 3293404,
+      "pieces": [
+        {
+          "name": "spire",
+          "note": "33 m including mast; shaft crown at 31 m; spire_steam marker, team light lines",
+          "min": [-3.5, 0.0, -4.61],
+          "max": [3.5, 32.74, 4.12],
+          "size": [7.0, 32.74, 8.73],
+          "triangles": 27951,
+          "materials": [
+            "emit:lamp",
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["spire_steam", "spire_balcony"],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.184, 12.92, 1.934],
+              "max": [3.184, 13.0, 3.184]
+            },
+            {
+              "shape": "box",
+              "min": [-3.184, 12.92, -3.184],
+              "max": [3.184, 13.0, -1.934]
+            },
+            {
+              "shape": "box",
+              "min": [1.934, 12.92, -1.934],
+              "max": [3.184, 13.0, 1.934]
+            },
+            {
+              "shape": "box",
+              "min": [-3.184, 12.92, -1.934],
+              "max": [-1.934, 13.0, 1.934]
+            },
+            {
+              "shape": "box",
+              "min": [-3.5, 0, -3.5],
+              "max": [3.5, 1.0, 3.5]
+            },
+            {
+              "shape": "box",
+              "min": [-1.3, 0, 3.5],
+              "max": [1.3, 0.33, 4.3]
+            },
+            {
+              "shape": "box",
+              "min": [-1.3, 0, 3.5],
+              "max": [1.3, 0.66, 3.9]
+            },
+            {
+              "shape": "box",
+              "min": [-2.4, 1.0, -2.4],
+              "max": [2.4, 4.0, 2.4]
+            },
+            {
+              "shape": "box",
+              "min": [-2.1, 4.0, -2.1],
+              "max": [2.1, 31.2, 2.1]
+            }
+          ],
+          "lod1": {
+            "name": "spire_lod1",
+            "triangles": 8391
+          }
+        },
+        {
+          "name": "pylon",
+          "note": "2 m control body; antenna at 2.35 m; rigid pylon_screen child",
+          "min": [-0.65, -0.1, -0.675],
+          "max": [0.65, 2.35, 0.62],
+          "size": [1.3, 2.45, 1.295],
+          "triangles": 1395,
+          "materials": [
+            "emit:amber",
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["pylon_screen"],
+          "rigidNodes": [
+            {
+              "name": "pylon_screen",
+              "parent": "pylon",
+              "pivot": [0.0, 1.43, 0.54]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.5, 0, -0.5],
+              "max": [0.5, 2.0, 0.5]
+            }
+          ]
+        },
+        {
+          "name": "fin_row",
+          "note": "",
+          "min": [-3.632, 0.0, -1.0],
+          "max": [3.632, 3.207, 1.022],
+          "size": [7.265, 3.207, 2.022],
+          "triangles": 6257,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["fin_row_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "fin_row_inscription_0",
+              "parent": "fin_row",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.56, 2.74, -0.76],
+              "max": [-1.04, 3.17, 0.76]
+            },
+            {
+              "shape": "box",
+              "min": [1.04, 2.74, -0.76],
+              "max": [2.56, 3.17, 0.76]
+            },
+            {
+              "shape": "box",
+              "min": [-3.6, 0, -1],
+              "max": [3.6, 2.85, 1]
+            }
+          ],
+          "lod1": {
+            "name": "fin_row_lod1",
+            "triangles": 2217
+          }
+        },
+        {
+          "name": "fin_row_b",
+          "note": "",
+          "min": [-3.632, 0.0, -1.0],
+          "max": [3.632, 3.207, 1.09],
+          "size": [7.265, 3.207, 2.09],
+          "triangles": 7137,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["fin_row_b_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "fin_row_b_inscription_0",
+              "parent": "fin_row_b",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.56, 2.74, -0.76],
+              "max": [-1.04, 3.17, 0.76]
+            },
+            {
+              "shape": "box",
+              "min": [1.04, 2.74, -0.76],
+              "max": [2.56, 3.17, 0.76]
+            },
+            {
+              "shape": "box",
+              "min": [-3.6, 0, -1],
+              "max": [3.6, 2.85, 1]
+            }
+          ],
+          "lod1": {
+            "name": "fin_row_b_lod1",
+            "triangles": 2459
+          }
+        },
+        {
+          "name": "immersion_tank",
+          "note": "",
+          "min": [-1.8, 0.0, -1.25],
+          "max": [2.35, 2.292, 1.25],
+          "size": [4.15, 2.292, 2.5],
+          "triangles": 4276,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["immersion_tank_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "immersion_tank_inscription_0",
+              "parent": "immersion_tank",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.8, 0, -1.25],
+              "max": [1.8, 2.18, 1.25]
+            }
+          ],
+          "lod1": {
+            "name": "immersion_tank_lod1",
+            "triangles": 1816
+          }
+        },
+        {
+          "name": "immersion_tank_b",
+          "note": "",
+          "min": [-1.8, 0.0, -1.393],
+          "max": [2.35, 2.292, 1.25],
+          "size": [4.15, 2.292, 2.643],
+          "triangles": 4988,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["immersion_tank_b_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "immersion_tank_b_inscription_0",
+              "parent": "immersion_tank_b",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.8, 0, -1.25],
+              "max": [1.8, 2.18, 1.25]
+            }
+          ],
+          "lod1": {
+            "name": "immersion_tank_b_lod1",
+            "triangles": 1990
+          }
+        },
+        {
+          "name": "wellhead",
+          "note": "",
+          "min": [-2.4, 0.0, -2.4],
+          "max": [2.4, 3.95, 2.4],
+          "size": [4.8, 3.95, 4.8],
+          "triangles": 4586,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:cutStone",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["wellhead_steam", "wellhead_inscription_0"],
+          "rigidNodes": [
+            {
+              "name": "wellhead_inscription_0",
+              "parent": "wellhead",
+              "pivot": [0.0, 0.0, -0.0]
+            }
+          ],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.4, 0, -2.4],
+              "max": [2.4, 0.28, 2.4]
+            },
+            {
+              "shape": "cyl",
+              "x": 0,
+              "z": 0,
+              "r": 0.94,
+              "y0": 0.28,
+              "y1": 3.95
+            },
+            {
+              "shape": "box",
+              "min": [-2.1, 0.28, -0.3],
+              "max": [-1.5, 2.34, 0.3]
+            },
+            {
+              "shape": "box",
+              "min": [1.5, 0.28, -0.3],
+              "max": [2.1, 2.34, 0.3]
+            }
+          ],
+          "lod1": {
+            "name": "wellhead_lod1",
+            "triangles": 1114
+          }
+        },
+        {
+          "name": "pipe_run",
+          "note": "",
+          "min": [-2.8, 0.0, -0.8],
+          "max": [2.8, 0.87, 0.32],
+          "size": [5.6, 0.87, 1.12],
+          "triangles": 1358,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.8, 0, -0.7],
+              "max": [2.8, 0.8, 0.32]
+            }
+          ],
+          "lod1": {
+            "name": "pipe_run_lod1",
+            "triangles": 344
+          }
+        },
+        {
+          "name": "pipe_run_b",
+          "note": "",
+          "min": [-2.8, 0.0, -2.56],
+          "max": [1.03, 0.87, 0.32],
+          "size": [3.83, 0.87, 2.88],
+          "triangles": 1610,
+          "materials": ["surf:concrete", "surf:galvanized", "tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.8, 0, -0.7],
+              "max": [1.12, 0.8, 0.32]
+            },
+            {
+              "shape": "box",
+              "min": [0.48, 0, -2.1],
+              "max": [1.12, 0.8, 0.32]
+            }
+          ],
+          "lod1": {
+            "name": "pipe_run_b_lod1",
+            "triangles": 416
+          }
+        },
+        {
+          "name": "lamp_mast",
+          "note": "",
+          "min": [-0.45, 0.0, -0.35],
+          "max": [0.45, 5.915, 1.45],
+          "size": [0.9, 5.915, 1.8],
+          "triangles": 504,
+          "materials": [
+            "emit:lamp",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": ["lamp_light"],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.35, 0, -0.35],
+              "max": [0.35, 0.35, 0.35]
+            },
+            {
+              "shape": "box",
+              "min": [-0.09, 0.35, -0.09],
+              "max": [0.09, 5.6, 0.09]
+            }
+          ],
+          "lod1": {
+            "name": "lamp_mast_lod1",
+            "triangles": 204
+          }
+        },
+        {
+          "name": "fin_fan",
+          "note": "",
+          "min": [-0.55, -0.06, -0.508],
+          "max": [0.55, 0.06, 0.508],
+          "size": [1.1, 0.12, 1.016],
+          "triangles": 132,
+          "materials": ["tex:keeper"],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": []
+        },
+        {
+          "name": "pipe_rack",
+          "note": "",
+          "min": [-6.25, 0.0, -1.05],
+          "max": [6.25, 5.93, 1.05],
+          "size": [12.5, 5.93, 2.1],
+          "triangles": 4385,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-6.25, 0, -1.05],
+              "max": [-5.15, 0.35, 1.05]
+            },
+            {
+              "shape": "box",
+              "min": [-5.9, 0.35, -0.9],
+              "max": [-5.5, 5.02, 0.9]
+            },
+            {
+              "shape": "box",
+              "min": [5.15, 0, -1.05],
+              "max": [6.25, 0.35, 1.05]
+            },
+            {
+              "shape": "box",
+              "min": [5.5, 0.35, -0.9],
+              "max": [5.9, 5.02, 0.9]
+            },
+            {
+              "shape": "box",
+              "min": [-6.05, 4.7, -1.0],
+              "max": [6.05, 5.67, 1.0]
+            }
+          ],
+          "lod1": {
+            "name": "pipe_rack_lod1",
+            "triangles": 1557
+          }
+        },
+        {
+          "name": "pipe_rack_drop",
+          "note": "",
+          "min": [-6.25, 0.0, -1.05],
+          "max": [7.1, 5.93, 1.05],
+          "size": [13.35, 5.93, 2.1],
+          "triangles": 5669,
+          "materials": [
+            "emit:team",
+            "surf:concrete",
+            "surf:galvanized",
+            "tex:keeper"
+          ],
+          "nodes": [],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [5.95, 0, -0.7],
+              "max": [7.15, 5.65, 0.65]
+            },
+            {
+              "shape": "box",
+              "min": [-6.25, 0, -1.05],
+              "max": [-5.15, 0.35, 1.05]
+            },
+            {
+              "shape": "box",
+              "min": [-5.9, 0.35, -0.9],
+              "max": [-5.5, 5.02, 0.9]
+            },
+            {
+              "shape": "box",
+              "min": [5.15, 0, -1.05],
+              "max": [6.25, 0.35, 1.05]
+            },
+            {
+              "shape": "box",
+              "min": [5.5, 0.35, -0.9],
+              "max": [5.9, 5.02, 0.9]
+            },
+            {
+              "shape": "box",
+              "min": [-6.05, 4.7, -1.0],
+              "max": [6.05, 5.67, 1.0]
+            }
+          ],
+          "lod1": {
+            "name": "pipe_rack_drop_lod1",
+            "triangles": 1917
+          }
+        },
+        {
+          "name": "control_kiosk",
+          "note": "",
+          "min": [-1.75, -0.5, -1.4],
+          "max": [1.75, 3.24, 1.313],
+          "size": [3.5, 3.74, 2.713],
+          "triangles": 1731,
+          "materials": [
+            "emit:amber",
+            "emit:lamp",
+            "emit:team",
+            "surf:concrete",
+            "tex:keeper"
+          ],
+          "nodes": ["kiosk_light"],
+          "rigidNodes": [],
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.6, 0, -1.35],
+              "max": [1.6, 0.14, 1.25]
+            },
+            {
+              "shape": "box",
+              "min": [-1.5, 0.14, -1.22],
+              "max": [1.5, 3.02, -0.88]
+            },
+            {
+              "shape": "box",
+              "min": [-1.66, 0.14, -1.22],
+              "max": [-1.5, 2.72, -0.88]
+            },
+            {
+              "shape": "box",
+              "min": [1.5, 0.14, -1.22],
+              "max": [1.66, 2.72, -0.88]
+            },
+            {
+              "shape": "box",
+              "min": [-1.75, 3.02, -1.3],
+              "max": [1.75, 3.24, 1.3]
+            }
+          ],
+          "lod1": {
+            "name": "control_kiosk_lod1",
+            "triangles": 827
+          }
+        }
+      ]
+    }
+  ]
+}

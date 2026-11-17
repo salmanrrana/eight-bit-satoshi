@@ -1,0 +1,227 @@
+{
+  "files": [
+    {
+      "file": "basalt.glb",
+      "bytes": 4638780,
+      "triangles": 71124,
+      "lod1Triangles": 14976,
+      "nodes": {
+        "escarpment_0": {
+          "nodes": ["escarpment_0", "escarpment_0_lod1"],
+          "sizeMetres": [18.44, 27.028, 16.202],
+          "triangles": 20178,
+          "lod1Triangles": 3976,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-9.22, 0, -8.101],
+              "max": [9.22, 27.028, 8.101]
+            }
+          ]
+        },
+        "escarpment_1": {
+          "nodes": ["escarpment_1", "escarpment_1_lod1"],
+          "sizeMetres": [18.73, 27.138, 15.912],
+          "triangles": 20788,
+          "lod1Triangles": 4066,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-9.365, 0, -7.956],
+              "max": [9.365, 27.138, 7.956]
+            }
+          ]
+        },
+        "gorge_mass": {
+          "nodes": ["gorge_mass", "gorge_mass_lod1"],
+          "sizeMetres": [16.634, 41.653, 14.313],
+          "triangles": 18178,
+          "lod1Triangles": 2742,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.317, 0, -7.1565],
+              "max": [8.317, 41.653, 7.1565]
+            }
+          ]
+        },
+        "wall_broken": {
+          "nodes": ["wall_broken", "wall_broken_lod1"],
+          "sizeMetres": [7.372, 12.99, 4.327],
+          "triangles": 2096,
+          "lod1Triangles": 384,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.686, 0, -2.1635],
+              "max": [3.686, 12.99, 2.1635]
+            }
+          ]
+        },
+        "buttress": {
+          "nodes": ["buttress", "buttress_lod1"],
+          "sizeMetres": [6.87, 13.16, 4.223],
+          "triangles": 2200,
+          "lod1Triangles": 382,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.435, 0, -2.1115],
+              "max": [3.435, 13.16, 2.1115]
+            }
+          ]
+        },
+        "stair_tread": {
+          "nodes": ["stair_tread", "stair_tread_lod1"],
+          "sizeMetres": [6.006, 2.397, 0.756],
+          "triangles": 464,
+          "lod1Triangles": 128,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.003, 0, -0.378],
+              "max": [3.003, 2.397, 0.378]
+            }
+          ]
+        },
+        "stair_tread_b": {
+          "nodes": ["stair_tread_b", "stair_tread_b_lod1"],
+          "sizeMetres": [6.009, 2.396, 0.755],
+          "triangles": 464,
+          "lod1Triangles": 128,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-3.0045, 0, -0.3775],
+              "max": [3.0045, 2.396, 0.3775]
+            }
+          ]
+        },
+        "boulder_0": {
+          "nodes": ["boulder_0", "boulder_0_lod1"],
+          "sizeMetres": [1.165, 1.119, 1.202],
+          "triangles": 186,
+          "lod1Triangles": 60,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.5825, 0, -0.601],
+              "max": [0.5825, 1.119, 0.601]
+            }
+          ]
+        },
+        "boulder_1": {
+          "nodes": ["boulder_1", "boulder_1_lod1"],
+          "sizeMetres": [2.328, 1.157, 1.856],
+          "triangles": 420,
+          "lod1Triangles": 144,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.164, 0, -0.928],
+              "max": [1.164, 1.157, 0.928]
+            }
+          ]
+        },
+        "boulder_2": {
+          "nodes": ["boulder_2", "boulder_2_lod1"],
+          "sizeMetres": [2.068, 2.01, 2.371],
+          "triangles": 598,
+          "lod1Triangles": 200,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-1.034, 0, -1.1855],
+              "max": [1.034, 2.01, 1.1855]
+            }
+          ]
+        },
+        "boulder_3": {
+          "nodes": ["boulder_3", "boulder_3_lod1"],
+          "sizeMetres": [4.14, 2.643, 2.587],
+          "triangles": 894,
+          "lod1Triangles": 286,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.07, 0, -1.2935],
+              "max": [2.07, 2.643, 1.2935]
+            }
+          ]
+        },
+        "crown_field": {
+          "nodes": ["crown_field", "crown_field_lod1"],
+          "sizeMetres": [5.521, 1.219, 5.0],
+          "triangles": 1800,
+          "lod1Triangles": 730,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-2.7605, 0, -2.5],
+              "max": [2.7605, 1.219, 2.5]
+            }
+          ]
+        },
+        "scree_0": {
+          "nodes": ["scree_0", "scree_0_lod1"],
+          "sizeMetres": [0.437, 0.532, 0.616],
+          "triangles": 20,
+          "lod1Triangles": 20,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.2185, 0, -0.308],
+              "max": [0.2185, 0.532, 0.308]
+            }
+          ]
+        },
+        "scree_1": {
+          "nodes": ["scree_1", "scree_1_lod1"],
+          "sizeMetres": [0.496, 0.572, 0.567],
+          "triangles": 20,
+          "lod1Triangles": 20,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-0.248, 0, -0.2835],
+              "max": [0.248, 0.572, 0.2835]
+            }
+          ]
+        },
+        "sea_stack_0": {
+          "nodes": ["sea_stack_0", "sea_stack_0_lod1"],
+          "sizeMetres": [12.071, 35.307, 12.347],
+          "triangles": 1438,
+          "lod1Triangles": 854,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-6.0355, 0, -6.1735],
+              "max": [6.0355, 35.307, 6.1735]
+            }
+          ]
+        },
+        "sea_stack_1": {
+          "nodes": ["sea_stack_1", "sea_stack_1_lod1"],
+          "sizeMetres": [12.6, 34.989, 12.251],
+          "triangles": 1380,
+          "lod1Triangles": 856,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-6.3, 0, -6.1255],
+              "max": [6.3, 34.989, 6.1255]
+            }
+          ]
+        }
+      },
+      "textures": {
+        "atlas": 2048,
+        "channels": ["baseColor", "normal", "occlusion+roughness"],
+        "format": "WebP",
+        "layout": "u<.75: four 0.75 m column-face variants tiling every 4 m in v; u>=.75: four 1 m crowns"
+      },
+      "axis": "+Y up; metres; origin at ground centre"
+    }
+  ]
+}

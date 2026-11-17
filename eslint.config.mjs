@@ -39,11 +39,16 @@ export default [
       "js/number-go-up.js",
       "js/proof-of-work.js",
       "js/first-light.js",
+      "js/hash-wars.js",
     ],
     languageOptions: { globals: { module: "readonly" } },
   },
   {
-    files: ["js/proof-of-work/**/*.js", "js/first-light/**/*.js"],
+    files: [
+      "js/proof-of-work/**/*.js",
+      "js/first-light/**/*.js",
+      "js/hash-wars/**/*.js",
+    ],
     languageOptions: { sourceType: "module" },
   },
   {

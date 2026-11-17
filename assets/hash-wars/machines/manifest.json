@@ -1,0 +1,1782 @@
+{
+  "about": "Level 10 Cartel machines. glTF, metres, +Y up, facing +Z, origin on the ground under the centre (flyers: their centre). +X is the machine's left; _l legs are on +X. Nodes are rigid, pivots at joints, identity rotation in the neutral pose. <name>_lod1 is the same hierarchy at about a third of the triangles; its nodes end in _lod1.",
+  "machines": {
+    "gnat": {
+      "file": "gnat.glb",
+      "bytes": 396252,
+      "triangles": 6108,
+      "budget": 8000,
+      "lod1": "gnat_lod1",
+      "lod1_triangles": 1712,
+      "texture": 1024,
+      "size": [0.75, 0.314, 0.704],
+      "bounds": {
+        "min": [-0.375, -0.1692, -0.331],
+        "max": [0.375, 0.1447, 0.373]
+      },
+      "lod1_nodes": [
+        {
+          "name": "gnat_lod1",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "body_lod1",
+          "parent": "gnat_lod1",
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "gun_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, -0.105, 0.16]
+        },
+        {
+          "name": "muzzle_lod1",
+          "parent": "gun_lod1",
+          "pivot": [0.0, -0.105, 0.331]
+        },
+        {
+          "name": "sensor_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, -0.015, 0.37]
+        },
+        {
+          "name": "thruster_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.13, -0.095, -0.13]
+        },
+        {
+          "name": "thruster_1_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.13, -0.095, -0.13]
+        },
+        {
+          "name": "vent_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 0.03, -0.31]
+        }
+      ],
+      "origin": "flyer centre",
+      "axes": {
+        "gun": "x (pitch)",
+        "thruster_*": "x (vectoring)"
+      },
+      "knee": null,
+      "legs": {},
+      "weak_points": ["vent_0"],
+      "extra": {
+        "sim_centre_y": 2.5,
+        "sim_radius": 0.38,
+        "role": "vector-thrust scout",
+        "range_read": "56mm flat sensor diffuser, wider rear heat face and 27% wider engine diffuser; original node pivots and exact bounds retained"
+      },
+      "nodes": [
+        {
+          "name": "gnat",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "body",
+          "parent": "gnat",
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 3080,
+          "materials": ["tex:gnat"]
+        },
+        {
+          "name": "gun",
+          "parent": "body",
+          "pivot": [0.0, -0.105, 0.16],
+          "tris": 516,
+          "materials": ["tex:gnat"]
+        },
+        {
+          "name": "muzzle",
+          "parent": "gun",
+          "pivot": [0.0, -0.105, 0.331],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "sensor",
+          "parent": "body",
+          "pivot": [0.0, -0.015, 0.37],
+          "tris": 164,
+          "materials": ["emit:sensor"]
+        },
+        {
+          "name": "thruster_0",
+          "parent": "body",
+          "pivot": [-0.13, -0.095, -0.13],
+          "tris": 904,
+          "materials": ["tex:gnat", "emit:engine"]
+        },
+        {
+          "name": "thruster_1",
+          "parent": "body",
+          "pivot": [0.13, -0.095, -0.13],
+          "tris": 904,
+          "materials": ["tex:gnat", "emit:engine"]
+        },
+        {
+          "name": "vent_0",
+          "parent": "body",
+          "pivot": [0.0, 0.03, -0.31],
+          "tris": 540,
+          "materials": ["tex:gnat", "emit:heat"]
+        }
+      ],
+      "verify": "ok",
+      "open_edges": {}
+    },
+    "strider": {
+      "file": "strider.glb",
+      "bytes": 1875200,
+      "triangles": 29088,
+      "budget": 30000,
+      "lod1": "strider_lod1",
+      "lod1_triangles": 9542,
+      "texture": 2048,
+      "size": [1.405, 2.414, 2.32],
+      "bounds": {
+        "min": [-0.7027, 0.0, -1.04],
+        "max": [0.7027, 2.414, 1.2803]
+      },
+      "lod1_nodes": [
+        {
+          "name": "strider_lod1",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "body_lod1",
+          "parent": "strider_lod1",
+          "pivot": [0.0, 1.92, -0.0]
+        },
+        {
+          "name": "gun_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 1.62, 0.62]
+        },
+        {
+          "name": "muzzle_lod1",
+          "parent": "gun_lod1",
+          "pivot": [0.0, 1.62, 1.28]
+        },
+        {
+          "name": "hip_l_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.46, 1.5, 0.0]
+        },
+        {
+          "name": "thigh_l_lod1",
+          "parent": "hip_l_lod1",
+          "pivot": [0.46, 1.5, 0.0]
+        },
+        {
+          "name": "shin_l_lod1",
+          "parent": "thigh_l_lod1",
+          "pivot": [0.5, 0.98, -0.36]
+        },
+        {
+          "name": "foot_l_lod1",
+          "parent": "shin_l_lod1",
+          "pivot": [0.5, 0.17, 0.12]
+        },
+        {
+          "name": "hip_r_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.46, 1.5, 0.0]
+        },
+        {
+          "name": "thigh_r_lod1",
+          "parent": "hip_r_lod1",
+          "pivot": [-0.46, 1.5, 0.0]
+        },
+        {
+          "name": "shin_r_lod1",
+          "parent": "thigh_r_lod1",
+          "pivot": [-0.5, 0.98, -0.36]
+        },
+        {
+          "name": "foot_r_lod1",
+          "parent": "shin_r_lod1",
+          "pivot": [-0.5, 0.17, 0.12]
+        },
+        {
+          "name": "sensor_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 1.87, 0.98]
+        },
+        {
+          "name": "vent_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 2.06, -0.93]
+        }
+      ],
+      "origin": "ground under centre",
+      "axes": {
+        "hip": "y (yaw), z (roll)",
+        "thigh": "x",
+        "shin": "x",
+        "foot": "x"
+      },
+      "knee": "knee behind hip (-Z), ankle forward; flexion about +X",
+      "legs": {
+        "l": {
+          "hip": [0.46, 1.5, 0.0],
+          "knee": [0.5, 0.98, -0.36],
+          "ankle": [0.5, 0.17, 0.12],
+          "sole_y": 0.0,
+          "thigh": 0.6337,
+          "shin": 0.9415,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1, 0, 0],
+            "shin": [1, 0, 0],
+            "foot": [1, 0, 0]
+          }
+        },
+        "r": {
+          "hip": [-0.46, 1.5, 0.0],
+          "knee": [-0.5, 0.98, -0.36],
+          "ankle": [-0.5, 0.17, 0.12],
+          "sole_y": 0.0,
+          "thigh": 0.6337,
+          "shin": 0.9415,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1, 0, 0],
+            "shin": [1, 0, 0],
+            "foot": [1, 0, 0]
+          }
+        }
+      },
+      "weak_points": ["vent_0"],
+      "extra": {
+        "sim_centre_y": 1.35,
+        "sim_radius": 0.65,
+        "sim_height": 2.4
+      },
+      "nodes": [
+        {
+          "name": "strider",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "body",
+          "parent": "strider",
+          "pivot": [0.0, 1.92, -0.0],
+          "tris": 13088,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "gun",
+          "parent": "body",
+          "pivot": [0.0, 1.62, 0.62],
+          "tris": 2146,
+          "materials": ["tex:strider", "emit:charge"]
+        },
+        {
+          "name": "muzzle",
+          "parent": "gun",
+          "pivot": [0.0, 1.62, 1.28],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "hip_l",
+          "parent": "body",
+          "pivot": [0.46, 1.5, 0.0],
+          "tris": 936,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "thigh_l",
+          "parent": "hip_l",
+          "pivot": [0.46, 1.5, 0.0],
+          "tris": 2574,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "shin_l",
+          "parent": "thigh_l",
+          "pivot": [0.5, 0.98, -0.36],
+          "tris": 1512,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "foot_l",
+          "parent": "shin_l",
+          "pivot": [0.5, 0.17, 0.12],
+          "tris": 1216,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "hip_r",
+          "parent": "body",
+          "pivot": [-0.46, 1.5, 0.0],
+          "tris": 936,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "thigh_r",
+          "parent": "hip_r",
+          "pivot": [-0.46, 1.5, 0.0],
+          "tris": 2574,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "shin_r",
+          "parent": "thigh_r",
+          "pivot": [-0.5, 0.98, -0.36],
+          "tris": 1512,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "foot_r",
+          "parent": "shin_r",
+          "pivot": [-0.5, 0.17, 0.12],
+          "tris": 1216,
+          "materials": ["tex:strider"]
+        },
+        {
+          "name": "sensor",
+          "parent": "body",
+          "pivot": [0.0, 1.87, 0.98],
+          "tris": 190,
+          "materials": ["emit:sensor"]
+        },
+        {
+          "name": "vent_0",
+          "parent": "body",
+          "pivot": [0.0, 2.06, -0.93],
+          "tris": 1188,
+          "materials": ["tex:strider", "emit:heat"]
+        }
+      ],
+      "verify": "ok",
+      "open_edges": {}
+    },
+    "bulwark": {
+      "file": "bulwark.glb",
+      "bytes": 1526764,
+      "triangles": 25682,
+      "budget": 45000,
+      "lod1": "bulwark_lod1",
+      "lod1_triangles": 7722,
+      "texture": 2048,
+      "size": [3.12, 3.86, 4.415],
+      "bounds": {
+        "min": [-1.56, 0.0, -2.074],
+        "max": [1.56, 3.8596, 2.3409]
+      },
+      "lod1_nodes": [
+        {
+          "name": "bulwark_lod1",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "body_lod1",
+          "parent": "bulwark_lod1",
+          "pivot": [0.0, 1.95, -0.0]
+        },
+        {
+          "name": "gun_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 2.6, 0.1]
+        },
+        {
+          "name": "muzzle_lod1",
+          "parent": "gun_lod1",
+          "pivot": [0.0, 3.71, 0.72]
+        },
+        {
+          "name": "hip_fl_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.98, 1.7, 1.05]
+        },
+        {
+          "name": "thigh_fl_lod1",
+          "parent": "hip_fl_lod1",
+          "pivot": [0.98, 1.7, 1.05]
+        },
+        {
+          "name": "shin_fl_lod1",
+          "parent": "thigh_fl_lod1",
+          "pivot": [1.23, 0.88, 1.45]
+        },
+        {
+          "name": "foot_fl_lod1",
+          "parent": "shin_fl_lod1",
+          "pivot": [1.25, 0.22, 1.12]
+        },
+        {
+          "name": "hip_fr_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.98, 1.7, 1.05]
+        },
+        {
+          "name": "thigh_fr_lod1",
+          "parent": "hip_fr_lod1",
+          "pivot": [-0.98, 1.7, 1.05]
+        },
+        {
+          "name": "shin_fr_lod1",
+          "parent": "thigh_fr_lod1",
+          "pivot": [-1.23, 0.88, 1.45]
+        },
+        {
+          "name": "foot_fr_lod1",
+          "parent": "shin_fr_lod1",
+          "pivot": [-1.25, 0.22, 1.12]
+        },
+        {
+          "name": "hip_rl_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.98, 1.7, -1.05]
+        },
+        {
+          "name": "thigh_rl_lod1",
+          "parent": "hip_rl_lod1",
+          "pivot": [0.98, 1.7, -1.05]
+        },
+        {
+          "name": "shin_rl_lod1",
+          "parent": "thigh_rl_lod1",
+          "pivot": [1.23, 0.88, -1.45]
+        },
+        {
+          "name": "foot_rl_lod1",
+          "parent": "shin_rl_lod1",
+          "pivot": [1.25, 0.22, -1.12]
+        },
+        {
+          "name": "hip_rr_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.98, 1.7, -1.05]
+        },
+        {
+          "name": "thigh_rr_lod1",
+          "parent": "hip_rr_lod1",
+          "pivot": [-0.98, 1.7, -1.05]
+        },
+        {
+          "name": "shin_rr_lod1",
+          "parent": "thigh_rr_lod1",
+          "pivot": [-1.23, 0.88, -1.45]
+        },
+        {
+          "name": "foot_rr_lod1",
+          "parent": "shin_rr_lod1",
+          "pivot": [-1.25, 0.22, -1.12]
+        },
+        {
+          "name": "sensor_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 2.17, 2.24]
+        },
+        {
+          "name": "vent_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.47, 2.5, -1.83]
+        },
+        {
+          "name": "vent_1_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.47, 2.5, -1.83]
+        },
+        {
+          "name": "vent_belly_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 1.35, -0.0]
+        }
+      ],
+      "origin": "ground under centre",
+      "axes": {
+        "hip": "y (yaw)",
+        "thigh": "x",
+        "shin": "x",
+        "foot": "x",
+        "gun": "y (yaw), x (elevation)"
+      },
+      "knee": "front knees forward, rear knees backward",
+      "legs": {
+        "fl": {
+          "hip": [0.98, 1.7, 1.05],
+          "knee": [1.23, 0.88, 1.45],
+          "ankle": [1.25, 0.22, 1.12],
+          "sole_y": 0,
+          "thigh": 0.9459916110861416,
+          "shin": 0.7381734062239808,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1, 0, 0],
+            "shin": [1, 0, 0],
+            "foot": [1, 0, 0]
+          }
+        },
+        "rl": {
+          "hip": [0.98, 1.7, -1.05],
+          "knee": [1.23, 0.88, -1.45],
+          "ankle": [1.25, 0.22, -1.12],
+          "sole_y": 0,
+          "thigh": 0.9459916110861416,
+          "shin": 0.7381734062239808,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1, 0, 0],
+            "shin": [1, 0, 0],
+            "foot": [1, 0, 0]
+          }
+        },
+        "fr": {
+          "hip": [-0.98, 1.7, 1.05],
+          "knee": [-1.23, 0.88, 1.45],
+          "ankle": [-1.25, 0.22, 1.12],
+          "sole_y": 0,
+          "thigh": 0.9459916110861416,
+          "shin": 0.7381734062239808,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1, 0, 0],
+            "shin": [1, 0, 0],
+            "foot": [1, 0, 0]
+          }
+        },
+        "rr": {
+          "hip": [-0.98, 1.7, -1.05],
+          "knee": [-1.23, 0.88, -1.45],
+          "ankle": [-1.25, 0.22, -1.12],
+          "sole_y": 0,
+          "thigh": 0.9459916110861416,
+          "shin": 0.7381734062239808,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1, 0, 0],
+            "shin": [1, 0, 0],
+            "foot": [1, 0, 0]
+          }
+        }
+      },
+      "weak_points": ["vent_0", "vent_1", "vent_belly"],
+      "extra": {
+        "sim_centre_y": 1.5,
+        "sim_radius": 1.5,
+        "armour": "front shield",
+        "role": "armoured mortar"
+      },
+      "nodes": [
+        {
+          "name": "bulwark",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "body",
+          "parent": "bulwark",
+          "pivot": [0.0, 1.95, -0.0],
+          "tris": 5850,
+          "materials": ["tex:bulwark", "emit:heat"]
+        },
+        {
+          "name": "gun",
+          "parent": "body",
+          "pivot": [0.0, 2.6, 0.1],
+          "tris": 1948,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "muzzle",
+          "parent": "gun",
+          "pivot": [0.0, 3.71, 0.72],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "hip_fl",
+          "parent": "body",
+          "pivot": [0.98, 1.7, 1.05],
+          "tris": 456,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "thigh_fl",
+          "parent": "hip_fl",
+          "pivot": [0.98, 1.7, 1.05],
+          "tris": 1732,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "shin_fl",
+          "parent": "thigh_fl",
+          "pivot": [1.23, 0.88, 1.45],
+          "tris": 898,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "foot_fl",
+          "parent": "shin_fl",
+          "pivot": [1.25, 0.22, 1.12],
+          "tris": 522,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "hip_fr",
+          "parent": "body",
+          "pivot": [-0.98, 1.7, 1.05],
+          "tris": 456,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "thigh_fr",
+          "parent": "hip_fr",
+          "pivot": [-0.98, 1.7, 1.05],
+          "tris": 1732,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "shin_fr",
+          "parent": "thigh_fr",
+          "pivot": [-1.23, 0.88, 1.45],
+          "tris": 898,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "foot_fr",
+          "parent": "shin_fr",
+          "pivot": [-1.25, 0.22, 1.12],
+          "tris": 522,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "hip_rl",
+          "parent": "body",
+          "pivot": [0.98, 1.7, -1.05],
+          "tris": 456,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "thigh_rl",
+          "parent": "hip_rl",
+          "pivot": [0.98, 1.7, -1.05],
+          "tris": 1732,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "shin_rl",
+          "parent": "thigh_rl",
+          "pivot": [1.23, 0.88, -1.45],
+          "tris": 898,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "foot_rl",
+          "parent": "shin_rl",
+          "pivot": [1.25, 0.22, -1.12],
+          "tris": 522,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "hip_rr",
+          "parent": "body",
+          "pivot": [-0.98, 1.7, -1.05],
+          "tris": 456,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "thigh_rr",
+          "parent": "hip_rr",
+          "pivot": [-0.98, 1.7, -1.05],
+          "tris": 1732,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "shin_rr",
+          "parent": "thigh_rr",
+          "pivot": [-1.23, 0.88, -1.45],
+          "tris": 898,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "foot_rr",
+          "parent": "shin_rr",
+          "pivot": [-1.25, 0.22, -1.12],
+          "tris": 522,
+          "materials": ["tex:bulwark"]
+        },
+        {
+          "name": "sensor",
+          "parent": "body",
+          "pivot": [0.0, 2.17, 2.24],
+          "tris": 86,
+          "materials": ["emit:sensor"]
+        },
+        {
+          "name": "vent_0",
+          "parent": "body",
+          "pivot": [-0.47, 2.5, -1.83],
+          "tris": 1218,
+          "materials": ["tex:bulwark", "emit:heat"]
+        },
+        {
+          "name": "vent_1",
+          "parent": "body",
+          "pivot": [0.47, 2.5, -1.83],
+          "tris": 1218,
+          "materials": ["tex:bulwark", "emit:heat"]
+        },
+        {
+          "name": "vent_belly",
+          "parent": "body",
+          "pivot": [0.0, 1.35, -0.0],
+          "tris": 930,
+          "materials": ["tex:bulwark", "emit:heat"]
+        }
+      ],
+      "verify": "ok",
+      "open_edges": {}
+    },
+    "watcher": {
+      "file": "watcher.glb",
+      "bytes": 655320,
+      "triangles": 11140,
+      "budget": 20000,
+      "lod1": "watcher_lod1",
+      "lod1_triangles": 3250,
+      "texture": 1024,
+      "size": [2.727, 2.997, 2.68],
+      "bounds": {
+        "min": [-1.3634, 0.0, -1.39],
+        "max": [1.3634, 2.9975, 1.29]
+      },
+      "lod1_nodes": [
+        {
+          "name": "watcher_lod1",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "body_lod1",
+          "parent": "watcher_lod1",
+          "pivot": [0.0, 1.6, -0.0]
+        },
+        {
+          "name": "head_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 2.58, -0.0]
+        },
+        {
+          "name": "gun_lod1",
+          "parent": "head_lod1",
+          "pivot": [0.0, 2.76, -0.0]
+        },
+        {
+          "name": "muzzle_lod1",
+          "parent": "gun_lod1",
+          "pivot": [0.0, 2.62, 1.3]
+        },
+        {
+          "name": "sensor_lod1",
+          "parent": "gun_lod1",
+          "pivot": [0.0, 2.76, 0.61]
+        },
+        {
+          "name": "hip_l_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.1393, 1.35, 0.0975]
+        },
+        {
+          "name": "thigh_l_lod1",
+          "parent": "hip_l_lod1",
+          "pivot": [0.1393, 1.35, 0.0975]
+        },
+        {
+          "name": "shin_l_lod1",
+          "parent": "thigh_l_lod1",
+          "pivot": [0.5734, 0.79, 0.4015]
+        },
+        {
+          "name": "foot_l_lod1",
+          "parent": "shin_l_lod1",
+          "pivot": [0.9011, 0.12, 0.6309]
+        },
+        {
+          "name": "hip_r_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.1393, 1.35, 0.0975]
+        },
+        {
+          "name": "thigh_r_lod1",
+          "parent": "hip_r_lod1",
+          "pivot": [-0.1393, 1.35, 0.0975]
+        },
+        {
+          "name": "shin_r_lod1",
+          "parent": "thigh_r_lod1",
+          "pivot": [-0.5734, 0.79, 0.4015]
+        },
+        {
+          "name": "foot_r_lod1",
+          "parent": "shin_r_lod1",
+          "pivot": [-0.9011, 0.12, 0.6309]
+        },
+        {
+          "name": "hip_rear_lod1",
+          "parent": "body_lod1",
+          "pivot": [-0.0, 1.35, -0.17]
+        },
+        {
+          "name": "thigh_rear_lod1",
+          "parent": "hip_rear_lod1",
+          "pivot": [-0.0, 1.35, -0.17]
+        },
+        {
+          "name": "shin_rear_lod1",
+          "parent": "thigh_rear_lod1",
+          "pivot": [-0.0, 0.79, -0.7]
+        },
+        {
+          "name": "foot_rear_lod1",
+          "parent": "shin_rear_lod1",
+          "pivot": [-0.0, 0.12, -1.1]
+        },
+        {
+          "name": "vent_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 1.75, -0.21]
+        }
+      ],
+      "origin": "ground under centre",
+      "axes": {
+        "head": "Y yaw / X pitch",
+        "gun": "X optional optical cradle pitch"
+      },
+      "knee": null,
+      "legs": {
+        "l": {
+          "hip": [0.1393, 1.35, 0.0975],
+          "knee": [0.5734, 0.79, 0.4015],
+          "ankle": [0.9011, 0.12, 0.6309],
+          "sole_y": 0.02,
+          "thigh": 0.7710382610480494,
+          "shin": 0.7803204469959762,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [-0.573576436351046, 0, 0.8191520442889918],
+            "shin": [-0.573576436351046, 0, 0.8191520442889918],
+            "foot": [-0.573576436351046, 0, 0.8191520442889918]
+          }
+        },
+        "r": {
+          "hip": [-0.1393, 1.35, 0.0975],
+          "knee": [-0.5734, 0.79, 0.4015],
+          "ankle": [-0.9011, 0.12, 0.6309],
+          "sole_y": 0.02,
+          "thigh": 0.7710382610480494,
+          "shin": 0.7803204469959762,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [-0.5735764363510459, 0, -0.8191520442889919],
+            "shin": [-0.5735764363510459, 0, -0.8191520442889919],
+            "foot": [-0.5735764363510459, 0, -0.8191520442889919]
+          }
+        },
+        "rear": {
+          "hip": [-0.0, 1.35, -0.17],
+          "knee": [-0.0, 0.79, -0.7],
+          "ankle": [-0.0, 0.12, -1.1],
+          "sole_y": 0.02,
+          "thigh": 0.7710382610480494,
+          "shin": 0.7803204469959762,
+          "axes": {
+            "hip_yaw": [0, 1, 0],
+            "hip_roll": [0, 0, 1],
+            "thigh": [1.0, 0, -1.8369701987210297e-16],
+            "shin": [1.0, 0, -1.8369701987210297e-16],
+            "foot": [1.0, 0, -1.8369701987210297e-16]
+          }
+        }
+      },
+      "weak_points": ["vent_0"],
+      "extra": {
+        "sim_centre_y": 1.9,
+        "sim_radius": 0.5,
+        "height": 3,
+        "aim": "head yaw/pitch or head yaw then gun pitch; muzzle +Z; sensor aperture emit:sensor",
+        "tripod": "wide unarmoured support, narrow hittable mast"
+      },
+      "nodes": [
+        {
+          "name": "watcher",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "body",
+          "parent": "watcher",
+          "pivot": [0.0, 1.6, -0.0],
+          "tris": 1204,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "head",
+          "parent": "body",
+          "pivot": [0.0, 2.58, -0.0],
+          "tris": 382,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "gun",
+          "parent": "head",
+          "pivot": [0.0, 2.76, -0.0],
+          "tris": 2584,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "muzzle",
+          "parent": "gun",
+          "pivot": [0.0, 2.62, 1.3],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "sensor",
+          "parent": "gun",
+          "pivot": [0.0, 2.76, 0.61],
+          "tris": 996,
+          "materials": ["tex:watcher", "emit:sensor"]
+        },
+        {
+          "name": "hip_l",
+          "parent": "body",
+          "pivot": [0.1393, 1.35, 0.0975],
+          "tris": 152,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "thigh_l",
+          "parent": "hip_l",
+          "pivot": [0.1393, 1.35, 0.0975],
+          "tris": 148,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "shin_l",
+          "parent": "thigh_l",
+          "pivot": [0.5734, 0.79, 0.4015],
+          "tris": 740,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "foot_l",
+          "parent": "shin_l",
+          "pivot": [0.9011, 0.12, 0.6309],
+          "tris": 776,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "hip_r",
+          "parent": "body",
+          "pivot": [-0.1393, 1.35, 0.0975],
+          "tris": 152,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "thigh_r",
+          "parent": "hip_r",
+          "pivot": [-0.1393, 1.35, 0.0975],
+          "tris": 148,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "shin_r",
+          "parent": "thigh_r",
+          "pivot": [-0.5734, 0.79, 0.4015],
+          "tris": 740,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "foot_r",
+          "parent": "shin_r",
+          "pivot": [-0.9011, 0.12, 0.6309],
+          "tris": 776,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "hip_rear",
+          "parent": "body",
+          "pivot": [-0.0, 1.35, -0.17],
+          "tris": 152,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "thigh_rear",
+          "parent": "hip_rear",
+          "pivot": [-0.0, 1.35, -0.17],
+          "tris": 148,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "shin_rear",
+          "parent": "thigh_rear",
+          "pivot": [-0.0, 0.79, -0.7],
+          "tris": 740,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "foot_rear",
+          "parent": "shin_rear",
+          "pivot": [-0.0, 0.12, -1.1],
+          "tris": 776,
+          "materials": ["tex:watcher"]
+        },
+        {
+          "name": "vent_0",
+          "parent": "body",
+          "pivot": [0.0, 1.75, -0.21],
+          "tris": 526,
+          "materials": ["tex:watcher", "emit:heat"]
+        }
+      ],
+      "verify": "ok",
+      "open_edges": {}
+    },
+    "siege": {
+      "file": "siege.glb",
+      "bytes": 2492712,
+      "triangles": 46540,
+      "budget": 150000,
+      "lod1": "siege_lod1",
+      "lod1_triangles": 15332,
+      "texture": 2048,
+      "size": [38.855, 31.017, 25.91],
+      "bounds": {
+        "min": [-35.705, -0.1173, -6.68],
+        "max": [3.15, 30.9, 19.23]
+      },
+      "lod1_nodes": [
+        {
+          "name": "siege_lod1",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "body_lod1",
+          "parent": "siege_lod1",
+          "pivot": [-5.3, 16.0, -0.0]
+        },
+        {
+          "name": "clamp_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [-26.0, 1.5596, 12.0]
+        },
+        {
+          "name": "clamp_0_coupling_lod1",
+          "parent": "clamp_0_lod1",
+          "pivot": [-26.0, 1.5596, 12.0]
+        },
+        {
+          "name": "clamp_0_jaw_lod1",
+          "parent": "clamp_0_lod1",
+          "pivot": [2.57, 7.0, -2.57]
+        },
+        {
+          "name": "drain_0_lod1",
+          "parent": "clamp_0_lod1",
+          "pivot": [-26.0, 1.5596, 12.0]
+        },
+        {
+          "name": "clamp_1_lod1",
+          "parent": "body_lod1",
+          "pivot": [-21.0, 1.5394, 5.0]
+        },
+        {
+          "name": "clamp_1_coupling_lod1",
+          "parent": "clamp_1_lod1",
+          "pivot": [-21.0, 1.5394, 5.0]
+        },
+        {
+          "name": "clamp_1_jaw_lod1",
+          "parent": "clamp_1_lod1",
+          "pivot": [2.57, 14.3, -2.57]
+        },
+        {
+          "name": "drain_1_lod1",
+          "parent": "clamp_1_lod1",
+          "pivot": [-21.0, 1.5394, 5.0]
+        },
+        {
+          "name": "clamp_2_lod1",
+          "parent": "body_lod1",
+          "pivot": [-16.0, 1.933, -3.0]
+        },
+        {
+          "name": "clamp_2_coupling_lod1",
+          "parent": "clamp_2_lod1",
+          "pivot": [-16.0, 1.933, -3.0]
+        },
+        {
+          "name": "clamp_2_jaw_lod1",
+          "parent": "clamp_2_lod1",
+          "pivot": [2.57, 21.6, -2.57]
+        },
+        {
+          "name": "drain_2_lod1",
+          "parent": "clamp_2_lod1",
+          "pivot": [-16.0, 1.933, -3.0]
+        },
+        {
+          "name": "gun_lod1",
+          "parent": "body_lod1",
+          "pivot": [-5.3, 25.6, 2.4]
+        },
+        {
+          "name": "muzzle_lod1",
+          "parent": "gun_lod1",
+          "pivot": [-5.3, 25.6, 2.5]
+        },
+        {
+          "name": "head_lod1",
+          "parent": "body_lod1",
+          "pivot": [-5.3, 28.5, -0.0]
+        },
+        {
+          "name": "sensor_lod1",
+          "parent": "body_lod1",
+          "pivot": [-8.9, 28.6, -0.0]
+        },
+        {
+          "name": "track_front_lod1",
+          "parent": "body_lod1",
+          "pivot": [-2.77, 16.0, 1.48]
+        },
+        {
+          "name": "track_rear_lod1",
+          "parent": "body_lod1",
+          "pivot": [-2.77, 16.0, -1.48]
+        },
+        {
+          "name": "vent_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [-5.5, 6.0, -2.44]
+        },
+        {
+          "name": "turret_0_lod1",
+          "parent": "siege_lod1",
+          "pivot": [-8.0, 0.3927, 17.0]
+        },
+        {
+          "name": "turret_0_head_lod1",
+          "parent": "turret_0_lod1",
+          "pivot": [-8.0, 1.2727, 17.0]
+        },
+        {
+          "name": "turret_0_muzzle_lod1",
+          "parent": "turret_0_head_lod1",
+          "pivot": [-8.0, 1.2927, 19.25]
+        },
+        {
+          "name": "turret_1_lod1",
+          "parent": "siege_lod1",
+          "pivot": [-35.0, -0.1273, -1.0]
+        },
+        {
+          "name": "turret_1_head_lod1",
+          "parent": "turret_1_lod1",
+          "pivot": [-35.0, 0.7527, -1.0]
+        },
+        {
+          "name": "turret_1_muzzle_lod1",
+          "parent": "turret_1_head_lod1",
+          "pivot": [-35.0, 0.7727, 1.25]
+        }
+      ],
+      "origin": "Station Three spire origin; no scale/rotation/centre offset",
+      "axes": {
+        "turret_*_head": "Y yaw, X pitch",
+        "clamp_*_jaw": "Y hinge"
+      },
+      "knee": null,
+      "legs": {},
+      "weak_points": [
+        "clamp_0_coupling",
+        "clamp_1_coupling",
+        "clamp_2_coupling"
+      ],
+      "extra": {
+        "placement": {
+          "world": {
+            "s": 377,
+            "x": 21,
+            "z": -377,
+            "y": 48.83713472696438,
+            "zone": 4,
+            "index": 2
+          },
+          "relative_to_spire": [0, 0, 0],
+          "yaw": 0
+        },
+        "body_length_m": 22,
+        "body_axis": "Y (vertical, climbed west face)",
+        "fit": "4.48m ceramic opening; rubber contact planes x=-2.14 / +2.10m (4.24m clear) around 4.2m shaft; jaws at 7 / 14.3 / 21.6m, above base",
+        "coupling_hit_fit": "emissive face radius .69m, forward depth .77m; inside sim \u00b1.8m XZ / \u00b1.7m Y box",
+        "clamp_centres": [
+          [-26, 1.5596080458905917, 12],
+          [-21, 1.5394046701044672, 5],
+          [-16, 1.932958241730347, -3]
+        ],
+        "clamp_centres_space": "glTF, relative to spire origin; equals sim entities.clamps",
+        "tracks": "track_front / track_rear are closed vertical traction belts; contact plane x=-2.14m",
+        "breakaway": {
+          "0": "clamp_0_jaw",
+          "1": "clamp_1_jaw",
+          "2": "clamp_2_jaw"
+        },
+        "turrets": [
+          {
+            "root": "turret_0",
+            "head": "turret_0_head",
+            "muzzle": "turret_0_muzzle",
+            "world_anchor": {
+              "s": 360,
+              "x": 13,
+              "z": -360,
+              "y": 49.229850888805004,
+              "zone": 4
+            }
+          },
+          {
+            "root": "turret_1",
+            "head": "turret_1_head",
+            "muzzle": "turret_1_muzzle",
+            "world_anchor": {
+              "s": 378,
+              "x": -14,
+              "z": -378,
+              "y": 48.709832920167116,
+              "zone": 4
+            }
+          }
+        ],
+        "turret_note": "1.2m high; detach each turret subtree preserving world transform, then animate at sim ground anchor. Unique scoped head/muzzle names.",
+        "envelope_note": "22m crawler body; wide envelope includes authored low drain couplings and remote defending turrets; do not rescale whole file to 22m."
+      },
+      "nodes": [
+        {
+          "name": "siege",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "body",
+          "parent": "siege",
+          "pivot": [-5.3, 16.0, -0.0],
+          "tris": 20784,
+          "materials": ["tex:siege", "emit:charge"]
+        },
+        {
+          "name": "clamp_0",
+          "parent": "body",
+          "pivot": [-26.0, 1.5596, 12.0],
+          "tris": 3312,
+          "materials": ["tex:siege", "emit:charge"]
+        },
+        {
+          "name": "clamp_0_coupling",
+          "parent": "clamp_0",
+          "pivot": [-26.0, 1.5596, 12.0],
+          "tris": 676,
+          "materials": ["tex:siege", "emit:heat"]
+        },
+        {
+          "name": "clamp_0_jaw",
+          "parent": "clamp_0",
+          "pivot": [2.57, 7.0, -2.57],
+          "tris": 496,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "drain_0",
+          "parent": "clamp_0",
+          "pivot": [-26.0, 1.5596, 12.0],
+          "tris": 816,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "clamp_1",
+          "parent": "body",
+          "pivot": [-21.0, 1.5394, 5.0],
+          "tris": 3312,
+          "materials": ["tex:siege", "emit:charge"]
+        },
+        {
+          "name": "clamp_1_coupling",
+          "parent": "clamp_1",
+          "pivot": [-21.0, 1.5394, 5.0],
+          "tris": 676,
+          "materials": ["tex:siege", "emit:heat"]
+        },
+        {
+          "name": "clamp_1_jaw",
+          "parent": "clamp_1",
+          "pivot": [2.57, 14.3, -2.57],
+          "tris": 496,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "drain_1",
+          "parent": "clamp_1",
+          "pivot": [-21.0, 1.5394, 5.0],
+          "tris": 816,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "clamp_2",
+          "parent": "body",
+          "pivot": [-16.0, 1.933, -3.0],
+          "tris": 3312,
+          "materials": ["tex:siege", "emit:charge"]
+        },
+        {
+          "name": "clamp_2_coupling",
+          "parent": "clamp_2",
+          "pivot": [-16.0, 1.933, -3.0],
+          "tris": 676,
+          "materials": ["tex:siege", "emit:heat"]
+        },
+        {
+          "name": "clamp_2_jaw",
+          "parent": "clamp_2",
+          "pivot": [2.57, 21.6, -2.57],
+          "tris": 496,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "drain_2",
+          "parent": "clamp_2",
+          "pivot": [-16.0, 1.933, -3.0],
+          "tris": 816,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "gun",
+          "parent": "body",
+          "pivot": [-5.3, 25.6, 2.4],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "muzzle",
+          "parent": "gun",
+          "pivot": [-5.3, 25.6, 2.5],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "head",
+          "parent": "body",
+          "pivot": [-5.3, 28.5, -0.0],
+          "tris": 928,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "sensor",
+          "parent": "body",
+          "pivot": [-8.9, 28.6, -0.0],
+          "tris": 1942,
+          "materials": ["tex:siege", "emit:sensor"]
+        },
+        {
+          "name": "track_front",
+          "parent": "body",
+          "pivot": [-2.77, 16.0, 1.48],
+          "tris": 1536,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "track_rear",
+          "parent": "body",
+          "pivot": [-2.77, 16.0, -1.48],
+          "tris": 1536,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "vent_0",
+          "parent": "body",
+          "pivot": [-5.5, 6.0, -2.44],
+          "tris": 706,
+          "materials": ["tex:siege", "emit:heat"]
+        },
+        {
+          "name": "turret_0",
+          "parent": "siege",
+          "pivot": [-8.0, 0.3927, 17.0],
+          "tris": 424,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "turret_0_head",
+          "parent": "turret_0",
+          "pivot": [-8.0, 1.2727, 17.0],
+          "tris": 1180,
+          "materials": ["tex:siege", "emit:sensor"]
+        },
+        {
+          "name": "turret_0_muzzle",
+          "parent": "turret_0_head",
+          "pivot": [-8.0, 1.2927, 19.25],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "turret_1",
+          "parent": "siege",
+          "pivot": [-35.0, -0.1273, -1.0],
+          "tris": 424,
+          "materials": ["tex:siege"]
+        },
+        {
+          "name": "turret_1_head",
+          "parent": "turret_1",
+          "pivot": [-35.0, 0.7527, -1.0],
+          "tris": 1180,
+          "materials": ["tex:siege", "emit:sensor"]
+        },
+        {
+          "name": "turret_1_muzzle",
+          "parent": "turret_1_head",
+          "pivot": [-35.0, 0.7727, 1.25],
+          "tris": 0,
+          "materials": []
+        }
+      ],
+      "verify": "ok",
+      "open_edges": {}
+    },
+    "hauler": {
+      "file": "hauler.glb",
+      "bytes": 1577316,
+      "triangles": 29920,
+      "budget": 40000,
+      "lod1": "hauler_lod1",
+      "lod1_triangles": 9930,
+      "texture": 2048,
+      "size": [10.32, 2.608, 14.0],
+      "bounds": {
+        "min": [-5.16, -1.04, -7.0],
+        "max": [5.16, 1.5678, 7.0]
+      },
+      "lod1_nodes": [
+        {
+          "name": "hauler_lod1",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "body_lod1",
+          "parent": "hauler_lod1",
+          "pivot": [0.0, 0.0, -0.0]
+        },
+        {
+          "name": "bay_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, -0.38, -0.0]
+        },
+        {
+          "name": "bay_door_0_lod1",
+          "parent": "bay_lod1",
+          "pivot": [-1.48, -0.38, -0.0]
+        },
+        {
+          "name": "bay_door_1_lod1",
+          "parent": "bay_lod1",
+          "pivot": [1.48, -0.38, -0.0]
+        },
+        {
+          "name": "bay_release_lod1",
+          "parent": "bay_lod1",
+          "pivot": [0.0, -0.75, -0.0]
+        },
+        {
+          "name": "sling_0_lod1",
+          "parent": "bay_lod1",
+          "pivot": [-1.04, -0.3, -2.35]
+        },
+        {
+          "name": "sling_1_lod1",
+          "parent": "bay_lod1",
+          "pivot": [1.04, -0.3, -2.35]
+        },
+        {
+          "name": "sling_2_lod1",
+          "parent": "bay_lod1",
+          "pivot": [-1.04, -0.3, 2.35]
+        },
+        {
+          "name": "sling_3_lod1",
+          "parent": "bay_lod1",
+          "pivot": [1.04, -0.3, 2.35]
+        },
+        {
+          "name": "winch_0_lod1",
+          "parent": "bay_lod1",
+          "pivot": [-1.2, 0.39, -2.35]
+        },
+        {
+          "name": "winch_1_lod1",
+          "parent": "bay_lod1",
+          "pivot": [1.2, 0.39, -2.35]
+        },
+        {
+          "name": "winch_2_lod1",
+          "parent": "bay_lod1",
+          "pivot": [-1.2, 0.39, 2.35]
+        },
+        {
+          "name": "winch_3_lod1",
+          "parent": "bay_lod1",
+          "pivot": [1.2, 0.39, 2.35]
+        },
+        {
+          "name": "gun_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 0.0, 5.3]
+        },
+        {
+          "name": "muzzle_lod1",
+          "parent": "gun_lod1",
+          "pivot": [0.0, 0.0, 5.5]
+        },
+        {
+          "name": "sensor_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 0.28, 6.43]
+        },
+        {
+          "name": "thruster_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [-4.08, 0.0, -4.9]
+        },
+        {
+          "name": "thruster_1_lod1",
+          "parent": "body_lod1",
+          "pivot": [4.08, 0.0, -4.9]
+        },
+        {
+          "name": "thruster_2_lod1",
+          "parent": "body_lod1",
+          "pivot": [-4.08, 0.0, 4.4]
+        },
+        {
+          "name": "thruster_3_lod1",
+          "parent": "body_lod1",
+          "pivot": [4.08, 0.0, 4.4]
+        },
+        {
+          "name": "vent_0_lod1",
+          "parent": "body_lod1",
+          "pivot": [0.0, 0.25, -5.6]
+        }
+      ],
+      "origin": "flyer centre",
+      "axes": {
+        "thruster_*": "X vectoring at nacelle axle",
+        "bay_door_0": "Z hinge, outward +",
+        "bay_door_1": "Z hinge, outward -"
+      },
+      "knee": null,
+      "legs": {},
+      "weak_points": [],
+      "extra": {
+        "role": "unshootable squad carrier",
+        "hover_origin_y": 6,
+        "length_m": 14,
+        "bay_release": "bay_release marks belly exit; lower passengers along -Y",
+        "winches": "winch_0..3 turn about local Z (forward); sling_0..3 are capped cables and closed shackles",
+        "doors": "bay_door_0 and bay_door_1 use local Z (forward) hinges; open \u00b175 degrees",
+        "thrusters": "four separate rigid pods, emit:engine, tilt about local X"
+      },
+      "nodes": [
+        {
+          "name": "hauler",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "body",
+          "parent": "hauler",
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 6964,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "bay",
+          "parent": "body",
+          "pivot": [0.0, -0.38, -0.0],
+          "tris": 432,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "bay_door_0",
+          "parent": "bay",
+          "pivot": [-1.48, -0.38, -0.0],
+          "tris": 756,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "bay_door_1",
+          "parent": "bay",
+          "pivot": [1.48, -0.38, -0.0],
+          "tris": 756,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "bay_release",
+          "parent": "bay",
+          "pivot": [0.0, -0.75, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "sling_0",
+          "parent": "bay",
+          "pivot": [-1.04, -0.3, -2.35],
+          "tris": 268,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "sling_1",
+          "parent": "bay",
+          "pivot": [1.04, -0.3, -2.35],
+          "tris": 268,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "sling_2",
+          "parent": "bay",
+          "pivot": [-1.04, -0.3, 2.35],
+          "tris": 268,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "sling_3",
+          "parent": "bay",
+          "pivot": [1.04, -0.3, 2.35],
+          "tris": 268,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "winch_0",
+          "parent": "bay",
+          "pivot": [-1.2, 0.39, -2.35],
+          "tris": 556,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "winch_1",
+          "parent": "bay",
+          "pivot": [1.2, 0.39, -2.35],
+          "tris": 556,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "winch_2",
+          "parent": "bay",
+          "pivot": [-1.2, 0.39, 2.35],
+          "tris": 556,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "winch_3",
+          "parent": "bay",
+          "pivot": [1.2, 0.39, 2.35],
+          "tris": 556,
+          "materials": ["tex:hauler"]
+        },
+        {
+          "name": "gun",
+          "parent": "body",
+          "pivot": [0.0, 0.0, 5.3],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "muzzle",
+          "parent": "gun",
+          "pivot": [0.0, 0.0, 5.5],
+          "tris": 0,
+          "materials": []
+        },
+        {
+          "name": "sensor",
+          "parent": "body",
+          "pivot": [0.0, 0.28, 6.43],
+          "tris": 108,
+          "materials": ["emit:sensor"]
+        },
+        {
+          "name": "thruster_0",
+          "parent": "body",
+          "pivot": [-4.08, 0.0, -4.9],
+          "tris": 4348,
+          "materials": ["tex:hauler", "emit:engine"]
+        },
+        {
+          "name": "thruster_1",
+          "parent": "body",
+          "pivot": [4.08, 0.0, -4.9],
+          "tris": 4348,
+          "materials": ["tex:hauler", "emit:engine"]
+        },
+        {
+          "name": "thruster_2",
+          "parent": "body",
+          "pivot": [-4.08, 0.0, 4.4],
+          "tris": 4348,
+          "materials": ["tex:hauler", "emit:engine"]
+        },
+        {
+          "name": "thruster_3",
+          "parent": "body",
+          "pivot": [4.08, 0.0, 4.4],
+          "tris": 4348,
+          "materials": ["tex:hauler", "emit:engine"]
+        },
+        {
+          "name": "vent_0",
+          "parent": "body",
+          "pivot": [0.0, 0.25, -5.6],
+          "tris": 216,
+          "materials": ["tex:hauler", "emit:heat"]
+        }
+      ],
+      "verify": "ok",
+      "open_edges": {}
+    }
+  },
+  "total_bytes": 8523564,
+  "pending": []
+}

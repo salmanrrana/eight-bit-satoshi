@@ -1,0 +1,483 @@
+{
+  "files": {
+    "carbine": {
+      "file": "carbine.glb",
+      "bytes": 2294372,
+      "texture": 2048,
+      "triangles": {
+        "first_person": 29958,
+        "world": 5396
+      },
+      "nodes": {
+        "carbine": {
+          "type": "empty",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        "arm_l": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [-0.026, 0.037, -0.25],
+          "tris": 5878,
+          "materials": ["tex:carbine"]
+        },
+        "arm_r": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [0.026, 0.004, 0.03],
+          "tris": 5878,
+          "materials": ["tex:carbine"]
+        },
+        "body": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 16758,
+          "materials": ["tex:carbine"]
+        },
+        "bolt": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [-0.022, 0.086, -0.108],
+          "tris": 322,
+          "materials": ["tex:carbine"]
+        },
+        "eject": {
+          "type": "empty",
+          "parent": "carbine",
+          "pivot": [0.017, 0.084, -0.036],
+          "tris": 0,
+          "materials": []
+        },
+        "lens": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [0.0, 0.123, 0.0115],
+          "tris": 60,
+          "materials": ["tex:lens"]
+        },
+        "mag": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [0.0, 0.046, -0.096],
+          "tris": 554,
+          "materials": ["tex:carbine"]
+        },
+        "muzzle": {
+          "type": "empty",
+          "parent": "carbine",
+          "pivot": [0.0, 0.084, -0.432],
+          "tris": 0,
+          "materials": []
+        },
+        "reticle": {
+          "type": "mesh",
+          "parent": "carbine",
+          "pivot": [0.0, 0.123, 0.0108],
+          "tris": 508,
+          "materials": ["emit:reticle"]
+        },
+        "sight": {
+          "type": "empty",
+          "parent": "carbine",
+          "pivot": [0.0, 0.123, 0.373],
+          "tris": 0,
+          "materials": []
+        },
+        "carbine_world": {
+          "type": "mesh",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 5396,
+          "materials": ["tex:carbine", "emit:reticle", "tex:lens"]
+        }
+      },
+      "size_m": {
+        "length": 0.764,
+        "height": 0.26,
+        "width": 0.052
+      },
+      "view": {
+        "position": [-0.105, 0.19, 0.43],
+        "target": [-0.105, 0.19, -0.5],
+        "fov": 52,
+        "note": "camera in weapon space; the weapon origin is the right-hand grip"
+      },
+      "aim": {
+        "position": [0.0, 0.123, 0.373],
+        "forward": [0, 0, -1]
+      },
+      "review_views": {
+        "three": {
+          "position": [-0.95, 0.43, -0.48],
+          "target": [0.0, 0.02, -0.055],
+          "fov": 30
+        },
+        "close": {
+          "position": [-0.24, 0.16, 0.16],
+          "target": [0.0, 0.025, -0.04],
+          "fov": 40
+        }
+      },
+      "problems": []
+    },
+    "scatter": {
+      "file": "scatter.glb",
+      "bytes": 1931356,
+      "texture": 2048,
+      "triangles": {
+        "first_person": 21854,
+        "world": 3024
+      },
+      "nodes": {
+        "scatter": {
+          "type": "empty",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        "arm_l": {
+          "type": "mesh",
+          "parent": "scatter",
+          "pivot": [-0.027, 0.0, -0.239],
+          "tris": 5878,
+          "materials": ["tex:scatter"]
+        },
+        "arm_r": {
+          "type": "mesh",
+          "parent": "scatter",
+          "pivot": [0.026, 0.004, 0.03],
+          "tris": 5878,
+          "materials": ["tex:scatter"]
+        },
+        "body": {
+          "type": "mesh",
+          "parent": "scatter",
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 7474,
+          "materials": ["tex:scatter"]
+        },
+        "bolt": {
+          "type": "mesh",
+          "parent": "scatter",
+          "pivot": [0.0, 0.116, 0.025],
+          "tris": 222,
+          "materials": ["tex:scatter"]
+        },
+        "drum": {
+          "type": "mesh",
+          "parent": "scatter",
+          "pivot": [0.0, 0.045, -0.094],
+          "tris": 2358,
+          "materials": ["tex:scatter"]
+        },
+        "eject": {
+          "type": "empty",
+          "parent": "scatter",
+          "pivot": [0.055, 0.049, -0.068],
+          "tris": 0,
+          "materials": []
+        },
+        "muzzle": {
+          "type": "empty",
+          "parent": "scatter",
+          "pivot": [0.0, 0.087, -0.338],
+          "tris": 0,
+          "materials": []
+        },
+        "reticle": {
+          "type": "mesh",
+          "parent": "scatter",
+          "pivot": [0.0, 0.133, -0.298],
+          "tris": 44,
+          "materials": ["emit:reticle"]
+        },
+        "sight": {
+          "type": "empty",
+          "parent": "scatter",
+          "pivot": [0.0, 0.133, 0.415],
+          "tris": 0,
+          "materials": []
+        },
+        "scatter_world": {
+          "type": "mesh",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 3024,
+          "materials": ["tex:scatter", "emit:reticle"]
+        }
+      },
+      "size_m": {
+        "length": 0.557,
+        "height": 0.191,
+        "width": 0.114
+      },
+      "view": {
+        "position": [-0.115, 0.207, 0.46],
+        "target": [-0.115, 0.207, -0.5],
+        "fov": 52,
+        "note": "camera in weapon space; the weapon origin is the right-hand grip"
+      },
+      "aim": {
+        "position": [0.0, 0.133, 0.415],
+        "forward": [0, 0, -1]
+      },
+      "review_views": {
+        "three": {
+          "position": [-0.87, 0.44, -0.54],
+          "target": [0.0, 0.032, -0.055],
+          "fov": 30
+        },
+        "close": {
+          "position": [-0.32, 0.235, 0.22],
+          "target": [0.0, 0.056, -0.065],
+          "fov": 40
+        }
+      },
+      "problems": []
+    },
+    "arc": {
+      "file": "arc.glb",
+      "bytes": 1983368,
+      "texture": 2048,
+      "triangles": {
+        "first_person": 27898,
+        "world": 5052
+      },
+      "nodes": {
+        "arc": {
+          "type": "empty",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        "arm_l": {
+          "type": "mesh",
+          "parent": "arc",
+          "pivot": [-0.034, 0.024, -0.195],
+          "tris": 5878,
+          "materials": ["tex:arc"]
+        },
+        "arm_r": {
+          "type": "mesh",
+          "parent": "arc",
+          "pivot": [0.026, 0.004, 0.03],
+          "tris": 5878,
+          "materials": ["tex:arc"]
+        },
+        "body": {
+          "type": "mesh",
+          "parent": "arc",
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 14686,
+          "materials": ["tex:arc"]
+        },
+        "core": {
+          "type": "mesh",
+          "parent": "arc",
+          "pivot": [0.0, 0.111, -0.12],
+          "tris": 864,
+          "materials": ["emit:heat"]
+        },
+        "muzzle": {
+          "type": "empty",
+          "parent": "arc",
+          "pivot": [0.0, 0.085, -0.42],
+          "tris": 0,
+          "materials": []
+        },
+        "reticle": {
+          "type": "mesh",
+          "parent": "arc",
+          "pivot": [0.0, 0.147, -0.298],
+          "tris": 60,
+          "materials": ["emit:reticle"]
+        },
+        "sight": {
+          "type": "empty",
+          "parent": "arc",
+          "pivot": [0.0, 0.147, 0.373],
+          "tris": 0,
+          "materials": []
+        },
+        "vent": {
+          "type": "mesh",
+          "parent": "arc",
+          "pivot": [0.0, 0.133, -0.045],
+          "tris": 532,
+          "materials": ["tex:arc"]
+        },
+        "arc_world": {
+          "type": "mesh",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 5052,
+          "materials": ["tex:arc", "emit:heat", "emit:reticle"]
+        }
+      },
+      "size_m": {
+        "length": 0.501,
+        "height": 0.207,
+        "width": 0.112
+      },
+      "view": {
+        "position": [-0.1, 0.21, 0.4],
+        "target": [-0.1, 0.21, -0.5],
+        "fov": 52,
+        "note": "camera in weapon space; the weapon origin is the right-hand grip"
+      },
+      "aim": {
+        "position": [0.0, 0.147, 0.373],
+        "forward": [0, 0, -1]
+      },
+      "review_views": {
+        "three": {
+          "position": [-0.85, 0.4, -0.45],
+          "target": [0.0, 0.03, -0.1],
+          "fov": 30
+        },
+        "close": {
+          "position": [-0.25, 0.185, 0.15],
+          "target": [0.0, 0.065, -0.065],
+          "fov": 40
+        }
+      },
+      "problems": []
+    },
+    "rail": {
+      "file": "rail.glb",
+      "bytes": 2037748,
+      "texture": 2048,
+      "triangles": {
+        "first_person": 26500,
+        "world": 4232
+      },
+      "nodes": {
+        "rail": {
+          "type": "empty",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 0,
+          "materials": []
+        },
+        "arm_l": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [-0.026, -0.014, -0.289],
+          "tris": 5878,
+          "materials": ["tex:rail"]
+        },
+        "arm_r": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [0.026, 0.004, 0.03],
+          "tris": 5878,
+          "materials": ["tex:rail"]
+        },
+        "body": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 12568,
+          "materials": ["tex:rail"]
+        },
+        "bolt": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [-0.027, 0.092, -0.062],
+          "tris": 74,
+          "materials": ["tex:rail"]
+        },
+        "coil": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [0.0, 0.091, -0.452],
+          "tris": 960,
+          "materials": ["emit:charge"]
+        },
+        "eject": {
+          "type": "empty",
+          "parent": "rail",
+          "pivot": [0.026, 0.094, -0.091],
+          "tris": 0,
+          "materials": []
+        },
+        "lens": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [0.0, 0.165, 0.075],
+          "tris": 248,
+          "materials": ["tex:lens"]
+        },
+        "mag": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [0.0, 0.035, -0.085],
+          "tris": 458,
+          "materials": ["tex:rail"]
+        },
+        "muzzle": {
+          "type": "empty",
+          "parent": "rail",
+          "pivot": [0.0, 0.091, -0.85],
+          "tris": 0,
+          "materials": []
+        },
+        "reticle": {
+          "type": "mesh",
+          "parent": "rail",
+          "pivot": [0.0, 0.165, 0.079],
+          "tris": 436,
+          "materials": ["emit:reticle"]
+        },
+        "sight": {
+          "type": "empty",
+          "parent": "rail",
+          "pivot": [0.0, 0.165, 0.454],
+          "tris": 0,
+          "materials": []
+        },
+        "rail_world": {
+          "type": "mesh",
+          "parent": null,
+          "pivot": [0.0, 0.0, -0.0],
+          "tris": 4232,
+          "materials": ["tex:rail", "emit:charge", "emit:reticle", "tex:lens"]
+        }
+      },
+      "size_m": {
+        "length": 1.16,
+        "height": 0.278,
+        "width": 0.09
+      },
+      "view": {
+        "position": [-0.125, 0.232, 0.5],
+        "target": [-0.125, 0.232, -0.6],
+        "fov": 52,
+        "note": "camera in weapon space; the weapon origin is the right-hand grip"
+      },
+      "aim": {
+        "position": [0.0, 0.165, 0.454],
+        "forward": [0, 0, -1]
+      },
+      "review_views": {
+        "three": {
+          "position": [-1.24, 0.71, -0.88],
+          "target": [0.0, 0.048, -0.26],
+          "fov": 30
+        },
+        "close": {
+          "position": [-0.305, 0.281, 0.24],
+          "target": [0.0, 0.105, -0.01],
+          "fov": 40
+        }
+      },
+      "problems": []
+    }
+  },
+  "contract": "glTF binary, metres, +Y up. Weapons point down -Z, origin at the right-hand grip. arm_r / arm_l pivot at the palm centre. Materials: tex:<weapon> (baked base colour, normal, ORM), tex:lens (blended glass), emit:<channel>."
+}

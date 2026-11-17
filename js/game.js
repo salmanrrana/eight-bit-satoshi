@@ -1141,26 +1141,49 @@
     fps: {sim: "FirstLight", renderer: "./first-light/renderer.js", loading: "Building the dawn…", result: "BITCOIN LIVES", jump: true},
     labels: {coin: "BTC", pageStat: "PAGES"}, zones: window.FirstLight.ZONES.map(z => ({x:z.s0, name:z.name})),
     layout: {pages: window.FirstLight.entities.pages}});
+  LEVELS.push({id: "hash-wars", title: "HASH WARS",
+    description: "2140. Bitcoin powers the world, and the world is at war over it. Take back the hash stations before the Cartel holds 51%.",
+    howTo: "WASD move · Mouse look · Left fire · Right aim · R reload · Q swap · G charge · Space jump · Shift sprint · Hold E use · P pause",
+    howToTouch: "Left pad move · Drag to look · Auto fire · JUMP · Hold USE · SWAP · PAUSE",
+    mode: "fps", theme: "fps", worldW: 430,
+    fps: {sim: "HashWars", script: "js/hash-wars.js", renderer: "./hash-wars/renderer.js", loading: "Dropping in…", result: "THE CHAIN HOLDS", jump: true, shooter: true},
+    labels: {coin: "BTC", pageStat: "PAGES"}, zones: ["LANDFALL","THE PIPELINE","THE CAUSEWAY","THE FINS","THE GATE","THE CHAIN HOLDS"].map((name,i)=>({x:[0,60,150,230,310,390][i],name})),
+    layout: {pages: Array(9).fill(0)}});
   let fpsLevelId = null, fpsBuild = Promise.resolve();
+  let preparedHashRun = null;
   let fpsGame = null, fpsArt = null, fpsLoading = false, fpsGeneration = 0;
   const fpsCanvas = document.getElementById("fps-canvas");
   const fpsStatus = document.getElementById("fps-status");
   const fpsObjective = document.getElementById("fps-objective");
   const fpsPrompt = document.getElementById("fps-prompt");
+  let shooterScript = null;
   function initFps() {
+    const pending=getCurrentLevel().fps;
+    if (!window[pending.sim] && pending.script) {
+      state.subMode="fps";fpsLevelId=getCurrentLevel().id;fpsLoading=true;
+      document.getElementById("start-button").disabled=true;fpsStatus.textContent=pending.loading;
+      const generation=fpsGeneration;
+      shooterScript ||= new Promise((resolve,reject)=>{const script=document.createElement("script");script.src=pending.script;script.onload=resolve;script.onerror=()=>reject(new Error("Unable to load shooter simulation. Reload to retry."));document.head.appendChild(script);});
+      shooterScript.then(()=>{if(generation===fpsGeneration){fpsLoading=false;initFps();}}).catch(error=>{if(generation===fpsGeneration){fpsStatus.textContent=error.message;fpsLoading=false;}shooterScript=null;});
+      return;
+    }
     state.subMode = "fps";
     brawler = platformGame = null;
     zones = getCurrentLevel().zones.map(zone => ({...zone}));
     const config = getCurrentLevel().fps, touchCopy = !!getCurrentLevel().howToTouch;
     fpsLevelId = getCurrentLevel().id;
-    fpsGame = window[config.sim].create({
+    fpsGame = config.sim === "HashWars" && state.phase === "playing" && preparedHashRun
+      ? preparedHashRun : window[config.sim].create({
       checkpoint: (index, name) => {if (config.breakers) state.pages++; recordSplit({index: config.breakers ? index + 1 : index, name});},
       page: () => {state.pages++;},
       death: () => {state.lives--; state.deaths++; if (state.lives <= 0) {gameOver(); return false;} return true;},
       reward: (coins, score) => {state.coins += coins; state.score += score;},
-      sfx: (type, position) => fpsArt?.sfx(type, position),
+      sfx: (type, position, detail) => fpsArt?.sfx(type, position, detail),
       complete: () => {completeGame(); document.exitPointerLock?.();}
-    });
+    }, config.sim === "HashWars"
+      ? {seed: crypto.getRandomValues(new Uint32Array(1))[0]} : undefined);
+    if (config.sim === "HashWars") preparedHashRun = state.phase === "playing" ? null : fpsGame;
+    else preparedHashRun = null;
     if (fpsArt || fpsLoading) return;
     fpsLoading = true;
     const generation = ++fpsGeneration;
@@ -1173,12 +1196,15 @@
         prepareAudio: () => { ensureAudio(); return audio; },
         active: () => state.phase === "playing" && !state.paused,
         pause: pauseGame,
+        swap: () => {input.swap=true;},
+        weaponInput: (fire, aim) => { input.shoot = fire; input.aim = aim; },
         error: message => {fpsStatus.textContent = message;},
-        hud: (objective, target, time) => {
-          fpsObjective.textContent = objective;
-          const needsLook = state.phase === "playing" && !state.paused && !document.pointerLockElement && !matchMedia("(pointer: coarse)").matches;
+        hud: (objective, target, time, shooter) => {
+          if (config.shooter && shooter) updateShooterHud(shooter);
+          fpsObjective.textContent = config.shooter && matchMedia("(pointer: coarse)").matches ? objective.replaceAll("HOLD E", "HOLD USE") : objective;
+          const needsLook = !shooter?.ending && state.phase === "playing" && !state.paused && !document.pointerLockElement && !matchMedia("(pointer: coarse)").matches;
           const useKey = touchCopy && matchMedia("(pointer: coarse)").matches ? "" : "E / ";
-          const usePrompt = target ? `${useKey}USE · ${config.breakers && target.id.length === 1 ? "BREAKER " : ""}${target.label || target.id.toUpperCase()}` : "";
+          const usePrompt = config.shooter && target ? `HOLD ${matchMedia("(pointer: coarse)").matches ? "USE" : "E"} · ${target.label || target.kind}` : target ? `${useKey}USE · ${config.breakers && target.id.length === 1 ? "BREAKER " : ""}${target.label || target.id.toUpperCase()}` : "";
           fpsPrompt.textContent = [needsLook ? "Click to look" : "", usePrompt].filter(Boolean).join(" · ");
           document.getElementById("fps-time").textContent = time;
         }
@@ -1191,6 +1217,74 @@
       fpsStatus.textContent = error.message; fpsLoading = false;
       console.error(error);
     });
+  }
+
+  // Cache HUD nodes; only change text when its displayed value changes.
+  const combatHud = Object.fromEntries([
+    "hud", "shield-value", "health-value", "shield-meter", "health-meter",
+    "weapon-name", "rounds", "reserve", "weapon-meter", "weapon-status",
+    "secondary", "charges", "share", "share-fill", "network-state", "relight-cue", "boss",
+    "marker", "crosshair", "damage", "lives", "warning",
+  ].map(key => [key, document.getElementById(`shooter-${key}`)]));
+  const clampMeters = combatHud.boss.querySelectorAll("meter");
+  let shareTarget = 51.3, shareFrom = 51.3, shareShown = 51.3,
+    shareAt = -10, shareTime = -1, relightCue = "";
+  function updateShooterHud(s) {
+    const p=s.player, w=s.weapon, hud=combatHud.hud;
+    const text=(key,value)=>{if(combatHud[key].textContent!==value) combatHud[key].textContent=value;};
+    const held=s.weapons[s.held], spec=window.HashWars.WEAPONS[held.kind];
+    hud.classList.toggle("disarmed", !p.armed);
+    hud.classList.toggle("ending", s.ending > 0);
+    text("shield-value", String(Math.ceil(p.shield)));
+    text("lives", `${state.lives} ${state.lives===1 ? "LIFE" : "LIVES"} LEFT`);
+    text("health-value", String(Math.ceil(p.health)));
+    combatHud["shield-meter"].value=p.shield;
+    combatHud["health-meter"].value=p.health;
+    text("weapon-name",spec.name);
+    text("rounds",held.kind==="arc" ? `${Math.ceil(held.battery)}%` : String(held.ammo).padStart(2,"0"));
+    text("reserve",held.kind==="arc" ? " BATTERY" : ` / ${held.spare}`);
+    combatHud["weapon-meter"].value=w.reload || (held.kind==="arc" ? held.heat : held.ammo/spec.mag);
+    text("weapon-status",w.reload ? "RELOADING" : w.venting ? "VENTING" : held.kind==="arc" ? `${Math.ceil(held.heat*100)}% HEAT` : "");
+    const touch=matchMedia("(pointer: coarse)").matches;
+    text("secondary",s.weapons[1-s.held] ? `${touch ? "SWAP" : "Q"} · `+window.HashWars.WEAPONS[s.weapons[1-s.held].kind].name : "EMPTY");
+    text("charges",`${touch ? "" : "G "}${s.charges}`);
+    if (s.time < shareTime || s.hashrate > shareTarget) {
+      shareTarget = shareFrom = shareShown = s.hashrate;
+      shareAt = -10; relightCue = "";
+    }
+    if (s.hashrate < shareTarget) {
+      const station = s.stations.findLastIndex(a=>a.state==="keeper");
+      relightCue = `STATION ${["ONE","TWO","THREE"][station]} RELIT · −${(shareTarget-s.hashrate).toFixed(1)}%`;
+      shareFrom = shareShown; shareTarget = s.hashrate; shareAt = s.time;
+    }
+    shareTime = s.time;
+    const shareAge = s.time-shareAt, progress = Math.min(1, Math.max(0, shareAge/1.8));
+    shareShown = shareFrom+(shareTarget-shareFrom)*(1-(1-progress)**3);
+    text("share",`${shareShown.toFixed(1)}%`);
+    text("network-state",shareShown>=51 ? "CONTESTED" : "CHAIN SECURED");
+    text("relight-cue",shareAge<4 ? relightCue : "");
+    hud.classList.toggle("hashrate-dropping",shareAge<1.8);
+    combatHud["share-fill"].style.width=`${Math.max(0,Math.min(100,shareShown))}%`;
+    combatHud.boss.hidden=s.zone!==4 || !s.boss.alive;
+    s.boss.clamps.forEach((c,i)=>{clampMeters[i].value=c.alive ? c.hp+c.shield : 0;});
+    hud.dataset.weapon=held.kind;
+    hud.classList.toggle("scope",held.kind==="rail" && !w.reload && s.pose!=="reload-mid" && (w.aim>.8 || s.pose==="aim"));
+    hud.classList.toggle("shield-down",p.shield===0);
+    const goal=s.stations.findIndex(a=>a.state!=="keeper"),
+      clamp=s.boss.clamps.findIndex(c=>c.alive),
+      target=s.zone===4 && goal===2 && clamp>=0 ? window.HashWars.entities.clamps[clamp]
+        : goal<0 ? window.HashWars.entities.beacon : window.HashWars.entities.stations[goal];
+    combatHud.marker.style.transform=`rotate(${Math.atan2(target.x-p.x,p.z-target.z)+p.yaw}rad)`;
+    hud.style.setProperty("--spread", `${5+w.spread*500}px`);
+    hud.style.setProperty("--hurt", p.health<30 ? ".3" : "0");
+    combatHud.crosshair.classList.toggle("hit", s.hitTick>0);
+    combatHud.crosshair.classList.toggle("kill",s.killTick>0);
+    const watcher=s.enemies.filter(e=>e.hp>0 && e.kind==="watcher" && e.charge>0).sort((a,b)=>b.charge-a.charge)[0];
+    combatHud.warning.style.opacity=watcher ? 1 : 0;
+    combatHud.warning.style.setProperty("--lock", `${(watcher?.charge??0)*100}%`);
+    combatHud.warning.style.transform=`translate(-50%, -50%) rotate(${watcher ? Math.atan2(watcher.x-p.x,p.z-watcher.z)+p.yaw : 0}rad)`;
+    combatHud.damage.style.opacity=Math.max(0,1-s.lastDamage.age/1.2);
+    combatHud.damage.style.transform=`translate(-50%, -50%) rotate(${s.lastDamage.angle}rad)`;
   }
 
   let brawler = null;
@@ -1738,13 +1832,14 @@
   // refused mid-venue so it cannot skip a fight.
   if (IS_DEV) {
     window.eightBitSatoshi.dev = {
-      fpsTeleport: (x, z, yaw = 0, pitch = 0, y = getCurrentLevel().fps?.jump ? window.FirstLight.groundY(x,z) : 1.68) => {
+      fpsTeleport: (x, z, yaw = 0, pitch = 0, y = getCurrentLevel().fps?.jump ? window[getCurrentLevel().fps.sim].groundY(x,z) : 1.68) => {
         if (!fpsGame) return false;
         Object.assign(fpsGame.state.player, {x, z, yaw, pitch, y, vx:0, vz:0, vy:0}); return true;
       },
       fpsTime: value => { if (!getCurrentLevel().fps?.jump || !fpsGame) return false; fpsGame.state.timeOverride = value === null ? null : clamp(value,0,1); return true; },
       fpsZone: n => {
         if (!getCurrentLevel().fps?.jump || !fpsGame || !Number.isInteger(n) || n<0 || n>6) return false;
+        if (getCurrentLevel().fps.shooter) return fpsGame.setZone(n);
         const sim = window.FirstLight, q=sim.at(sim.ZONES[n].s0);
         Object.assign(fpsGame.state.player, q, {y:sim.groundY(q.x,q.z), yaw:n===1?-Math.PI/2:0, pitch:0, vx:0, vy:0, vz:0, grounded:true});
         Object.assign(fpsGame.state, {zone:n, progress:sim.ZONES[n].s0/300, checkpoint:n, genesisMined:n>=3, safety:1.5});
@@ -1765,6 +1860,12 @@
         fpsGame.state.complete = false;
         return true;
       },
+      fpsGod: on => {if (!getCurrentLevel().fps?.shooter || !fpsGame) return false; fpsGame.state.god=!!on; return true;},
+      fpsQuiet: on => {if (!getCurrentLevel().fps?.shooter || !fpsGame) return false; fpsGame.state.quiet=!!on; return true;},
+      fpsSpawn: (kind,x,z,y) => getCurrentLevel().fps?.shooter ? fpsGame?.spawn(kind,x,z,y) : null,
+      fpsKillAll: () => {if (!getCurrentLevel().fps?.shooter || !fpsGame) return false;fpsGame.killAll();return true;},
+      fpsGive: kind => getCurrentLevel().fps?.shooter ? fpsGame?.give(kind) : false,
+      fpsPose: name => {if (!getCurrentLevel().fps?.shooter || !fpsGame || ![null,"idle","aim","fire","reload-mid","sprint","swap","down"].includes(name)) return false;fpsGame.state.pose=name;return true;},
       fpsMetrics: () => fpsArt?.metrics() || null,
       getState: () => ({
         fps: fpsGame ? {...fpsGame.snapshot(), ready: !!fpsArt, loading: fpsLoading} : null,
@@ -2163,6 +2264,7 @@
     const fps = level.mode === "fps";
     document.body.classList.toggle("fps-mode", fps);
     document.body.classList.toggle("first-light-mode", level.id === "first-light");
+    document.body.classList.toggle("shooter-mode", !!level.fps?.shooter);
     if (!fps || fpsLevelId !== level.id) {
       fpsGeneration++; fpsArt?.dispose(); fpsArt = null; fpsGame = null;
       fpsLoading = false; fpsStatus.textContent = "";
@@ -2898,6 +3000,7 @@
     input.jumpPressed = false;
     input.jumpReleased = false;
     input.fire = false;
+    input.shoot = input.aim = input.reload = false;
     input.firePressed = false;
     input.special = false;
     input.throw = false;
@@ -3113,6 +3216,7 @@
       stats.push(["FIGHTER", window.SatoshiBrawler.CHARACTERS[brawler.state.characterId].name],
         ["THROWS", String(brawler.state.throws)], ["PICKUPS", String(brawler.state.pickups)]);
     }
+    if (fpsGame && getCurrentLevel().fps?.sim === "HashWars") stats.push(["RUN SEED", String(fpsGame.state.runSeed)]);
     const dl = document.createElement("dl");
     dl.className = "results-stats";
     for (const [label, value] of stats) {
@@ -3268,7 +3372,7 @@
 
   function gameOver() {
     state.phase = "gameover";
-    if (state.subMode === "fps" && fpsLevelId === "first-light") fpsArt?.releaseCapture();
+    if (state.subMode === "fps" && getCurrentLevel().fps.jump) fpsArt?.releaseCapture();
     stopMusic();
     playSfx("gameover");
     showMessage("REKT", "Fiat got you. Restart the run.", "TRY AGAIN", false, true);
@@ -3650,7 +3754,13 @@
     if (state.subMode === "fps" && !fpsArt) return;
     state.time += dt;
     if (state.subMode === "fps") {
-      fpsGame.update(dt, input);
+      if (getCurrentLevel().fps.shooter) {
+        const p=fpsGame.state.player;
+        const auto=matchMedia("(pointer: coarse)").matches && fpsGame.trace([p.x,p.y+1.68,p.z],[-Math.sin(p.yaw)*Math.cos(p.pitch),Math.sin(p.pitch),-Math.cos(p.yaw)*Math.cos(p.pitch)]);
+        fpsGame.update(dt,{moveX:+input.right-+input.left,moveZ:+input.down-+input.up,sprint:input.fire,jump:input.jump,use:input.throw,swap:input.swap,charge:input.charge,fire:input.shoot || !!(auto && (auto.enemy || auto.clamp!==null)),aim:input.aim,reload:input.reload});
+        fpsArt.events?.(fpsGame.state.events);
+        input.reload=input.swap=input.charge=false;
+      } else fpsGame.update(dt, input);
       input.throwPressed = input.jumpPressed = false;
       return;
     }
@@ -6622,6 +6732,8 @@
   }
 
   function setAction(action, active) {
+    if(action === "swap") {if(active) input.swap=true;return;}
+
     if (action === "throw") {
       if (active && !input.throw) input.throwPressed = true;
       input.throw = active;
@@ -6694,6 +6806,14 @@
       return;
     }
 
+    if ((key === "q" || key === "g") && getCurrentLevel().fps?.shooter) {
+      if(state.phase === "playing" && !state.paused && !event.repeat) input[key === "q" ? "swap" : "charge"]=true;
+      return;
+    }
+    if (key === "r" && getCurrentLevel().fps?.shooter) {
+      if (state.phase === "playing" && !state.paused && !event.repeat) input.reload=true;
+      return;
+    }
     if (key === "r" && state.phase !== "title") {
       startGame();
       return;

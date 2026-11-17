@@ -1065,3 +1065,99 @@ body.first-light-mode .title-screen {
 @media (pointer: coarse), (max-width: 700px) {
   body.first-light-mode .touch-pause { display: block; position: fixed; top: 48px; right: 16px; min-width: 64px; background: #17202be6; border: 1px solid #9ca4a7; border-radius: 4px; }
 }
+
+/* HASH WARS: thin status lines leave the daylight scene open. */
+#shooter-hud { display:none; }
+body.shooter-mode #shooter-hud { display:block; position:absolute; inset:0; isolation:isolate; pointer-events:none; color:var(--paper); font:12px/1.5 ui-monospace,monospace; font-variant-numeric:tabular-nums; text-shadow:0 2px 4px #000; box-shadow:inset 0 0 100px rgb(180 35 20 / var(--hurt,0)); }
+body.shooter-mode:has(.overlay:not(.hidden)) #shooter-hud { display:none; }
+#shooter-hud .combat-panel { position:absolute; padding:0; background:none; }
+.combat-label { display:flex; justify-content:space-between; gap:16px; font-size:10px; }
+#shooter-hud meter { display:block; appearance:none; width:100%; height:2px; margin:3px 0 0; border:0; background:#41505c; filter:drop-shadow(0 1px 2px #080b12); }
+#shooter-hud meter::-webkit-meter-bar { background:#41505c; border:0; border-radius:0; }
+#shooter-hud meter::-webkit-meter-optimum-value { background:#f7931a; }
+#shooter-hud meter::-moz-meter-bar { background:#f7931a; }
+#shooter-health { left:28px; bottom:28px; width:128px; }
+#shooter-health .hull-label { margin-top:5px; }
+#shooter-health-meter { height:1px !important; }
+#shooter-health-meter::-webkit-meter-optimum-value { background:#ece6d6 !important; }
+#shooter-ammo { right:28px; bottom:28px; width:160px; text-align:right; }
+#shooter-weapon-name { font-size:11px; }
+#shooter-rounds { font-size:30px; line-height:1.2; font-weight:500; }
+#shooter-reserve { color:#c9c7bd; }
+#shooter-weapon-status { color:#ffb75d; font-size:10px; }
+#shooter-secondary, #shooter-charges { display:inline; font-size:9px; color:#ece6d6; }
+#shooter-secondary:not(:empty)::after { content:" · "; }
+#shooter-weapon-status:empty { display:none; }
+#shooter-weapon-status:not(:empty) { display:block; }
+.shooter-inventory { margin-top:4px; white-space:nowrap; }
+#shooter-hashrate { top:62px; left:28px; width:160px; }
+#shooter-share { color:#ffb75d; font-size:12px; }
+.hash-track { position:relative; height:2px; background:#41505c; margin:4px 0; filter:drop-shadow(0 1px 2px #080b12); }
+#shooter-share-fill { display:block; height:100%; background:#f7931a; }
+.hash-track i { position:absolute; left:51%; top:-2px; height:6px; border-left:1px solid #fff4db; }
+#shooter-boss { top:62px; right:28px; width:180px; font-size:11px; }
+#shooter-boss[hidden] { display:none; }
+.clamp-row { display:flex; gap:6px; }
+#shooter-crosshair { position:absolute; left:50%; top:50%; width:var(--spread,5px); height:var(--spread,5px); border:1px solid #ece6d6; transform:translate(-50%,-50%); filter:drop-shadow(0 1px 2px #101820); }
+#shooter-crosshair.hit { border-color:#f7931a; border-width:2px; }
+#shooter-crosshair.kill { transform:translate(-50%,-50%) rotate(45deg); }
+#shooter-damage { position:absolute; left:50%; top:50%; width:160px; height:160px; border-top:2px solid #d97b64; border-radius:50%; }
+#shooter-hud.disarmed #shooter-ammo, #shooter-hud.disarmed #shooter-crosshair { display:none; }
+#shooter-marker { position:absolute; top:100px; left:50%; width:10px; height:16px; background:#f7931a; clip-path:polygon(50% 0,100% 100%,50% 70%,0 100%); }
+#shooter-hud[data-weapon="scatter"] #shooter-crosshair { border-radius:50%; width:calc(18px + var(--spread)); height:calc(18px + var(--spread)); }
+#shooter-hud[data-weapon="arc"] #shooter-crosshair { border-color:#83e7ff; border-radius:50%; }
+#shooter-hud[data-weapon="rail"] #shooter-crosshair { width:2px; height:18px; border-width:0 1px; }
+#shooter-hud[data-weapon="rail"] #shooter-crosshair::before { content:""; position:absolute; top:8px; left:-8px; width:18px; border-top:1px solid currentColor; }
+/* ARMS draws the circular rail scope and reticle in the view pass. */
+#shooter-hud.scope #shooter-crosshair { display:none; }
+#shooter-hud.shield-down { box-shadow:inset 0 0 70px #f7931a22; }
+body.shooter-mode .fps-dot { display:none; }
+body.shooter-mode .control-hint { display:none; }
+body.shooter-mode #fps-objective { max-width:min(70vw,700px); }
+body.shooter-mode #fps-canvas { touch-action:none; }
+body.shooter-mode .action-cluster .throw-button { display:grid; font-size:15px; }
+body.shooter-mode .title-screen { background:linear-gradient(180deg,#080b1233 25%,#080b12bb); }
+.swap-button { display:none; }
+body.shooter-mode .action-cluster .swap-button { display:grid; pointer-events:auto; touch-action:none; min-width:54px; min-height:48px; color:#fff0dc; background:#17202b; border:1px solid #b1aaa0; }
+@media (pointer:coarse), (max-width:700px) {
+  body.shooter-mode .touch-pause { display:block; position:fixed; top:56px; right:16px; min-width:64px; background:#17202be6; border:1px solid #9ca4a7; }
+  #shooter-hud .combat-panel { padding:0; }
+  #shooter-health { left:12px; bottom:174px; width:124px; }
+  #shooter-ammo { right:12px; bottom:174px; width:160px; }
+  #shooter-rounds { font-size:26px; }
+  #shooter-hashrate { left:12px; top:84px; width:184px; }
+  #shooter-boss { top:152px; right:12px; width:160px; }
+  #shooter-hud .combat-label { font-size:9px; gap:8px; }
+}
+@media (max-height:500px) and (orientation:landscape) {
+  #shooter-health { bottom:12px; left:176px; width:104px; }
+  #shooter-ammo { bottom:12px; right:156px; width:140px; }
+  #shooter-hashrate { top:72px; }
+  #shooter-boss { top:108px; right:12px; }
+  #shooter-secondary, #shooter-charges { margin-top:2px; font-size:9px; }
+}
+
+body.shooter-mode #fps-prompt:not(:empty) { left:50%; right:auto; transform:translateX(-50%); width:max-content; max-width:80vw; padding:2px 0; background:none; border-bottom:1px solid #f7931a; text-shadow:0 1px 3px #000,0 2px 5px #000; }
+
+/* Thin daylight HUD: keep the picture open, outline text instead of panels. */
+body.shooter-mode #fps-objective, body.shooter-mode #fps-time { align-self:flex-start; padding:0; background:none; font-size:11px; text-shadow:0 1px 3px #000,0 2px 5px #000; }
+@media (pointer:coarse), (max-width:700px) {
+  body.shooter-mode #shooter-hashrate { top:90px; }
+}
+
+#shooter-hashrate .combat-label:last-child { font-size:8px; }
+@media (max-height:500px) and (orientation:landscape) {
+  body.shooter-mode #shooter-hashrate { top:56px; width:156px; }
+  #shooter-ammo { width:180px; }
+  #shooter-boss { top:82px; }
+}
+
+#shooter-lives { margin-top:8px; }
+#shooter-warning { position:absolute; left:50%; top:50%; width:184px; height:184px; border-radius:50%; background:conic-gradient(from -35deg, #8fe9ff 0deg, #8fe9ff calc(var(--lock, 0%) * .2), transparent calc(var(--lock, 0%) * .2)); mask:radial-gradient(circle, transparent 68%, #000 69%); opacity:0; }
+
+/* Held station beat; the cue sits below the existing network readout. */
+#shooter-relight-cue { display:block; min-height:1.3em; margin-top:5px; color:#fff0c2; font-size:9px; white-space:nowrap; }
+.hashrate-dropping .hash-track { background:#754016; }
+.hashrate-dropping #shooter-share-fill { background:#ffd096; }
+
+#shooter-hud.ending :is(#shooter-ammo, #shooter-health, #shooter-crosshair, #shooter-marker, #shooter-warning, #shooter-damage) { opacity:0; transition:opacity .6s; }

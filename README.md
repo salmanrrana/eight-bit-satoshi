@@ -291,3 +291,11 @@ simulation is `js/first-light.js`; lazy rendering modules are in `js/first-light
 On loopback use `/?level=9&q=high` and `eightBitSatoshi.dev.fpsZone(0..6)`,
 `fpsTeleport(x,z,yaw,pitch,y)` (feet height), `fpsTime(0..1|null)`, `fpsMetrics()`.
 `?mods=city,river,hills,story` isolates content modules for development.
+
+### Level 10 — HASH WARS
+
+An outdoor first-person shooter in progress, set in 2140. Reclaim three hash stations along a 430 m volcanic coast, break the siege engine's three clamps, and light the summit beacon. Four weapons, two carried slots, shield recovery, nine optional pages, five splits. Phase B adds terrain, vegetation, water and a combat HUD; weapon, machine and station art integration is still in progress.
+
+WASD move, mouse look, left fire, right aim, R reload, Q/wheel swap, hold E use/pick up, G pulse charge, Space jump, Shift sprint, P/Esc pause, M sound. Touch uses move/look, auto fire/reload, JUMP, USE and SWAP.
+
+Load `/?level=10`; `?q=low|high|ultra` pins quality. Loopback `?mods=land,arms` isolates content modules. `eightBitSatoshi.dev` exposes fpsZone, fpsTeleport, fpsMetrics, fpsGod, fpsQuiet, fpsSpawn, fpsKillAll, fpsGive and fpsPose. Levels 8 and 9 retain their own simulations and rendering modules. Level 10's code and GLBs load only when selected.

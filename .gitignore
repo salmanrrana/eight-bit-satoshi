@@ -9,6 +9,7 @@ plans/
 8bit.md
 assets/*
 !assets/brawler/
+!assets/hash-wars/
 js/animation.js
 js/audio.js
 js/chapters.js
@@ -33,3 +34,4 @@ server/data/
 
 # Local screenshots from the arcade layout and gameplay checks.
 .impeccable/review/
+__pycache__/
