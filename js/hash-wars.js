@@ -19,6 +19,7 @@
     ["THE CHAIN HOLDS", 390, 430, "Light the beacon. The chain holds."],
   ].map(([name, s0, s1, text]) => ({ name, s0, s1, text }));
   const ENDING_SECONDS = 9.5;
+  const CLIMB_RESPAWN_S = 55.1;
   const ENDING_CUES = [
     [4.4, "hashrate-drop"],
     [5, "station-relight"],
@@ -151,6 +152,49 @@
     }
     return -Infinity;
   }
+  // March across wet and dry stretches, then refine the first entry.
+  // A projectile already below the surface has no entry to report.
+  function waterCrossing(o, d, max) {
+    if (max <= 0 || o[1] < waterY(o[0], o[2])) return null;
+    let lo = 0;
+    for (let t = Math.min(0.2, max); ; t = Math.min(t + 0.5, max)) {
+      let waterHeight = waterY(o[0] + d[0] * t, o[2] + d[2] * t);
+      if (o[1] + d[1] * t <= waterHeight) {
+        let hi = t;
+        for (let j = 0; j < 14; j++) {
+          const m = (lo + hi) / 2,
+            height = waterY(o[0] + d[0] * m, o[2] + d[2] * m);
+          if (o[1] + d[1] * m > height) lo = m;
+          else {
+            hi = m;
+            waterHeight = height;
+          }
+        }
+        return { distance: hi, waterHeight };
+      }
+      if (t === max) return null;
+      lo = t;
+    }
+  }
+  function impactPoint(o, d, { distance, waterHeight }) {
+    return [
+      o[0] + d[0] * distance,
+      waterHeight ?? o[1] + d[1] * distance,
+      o[2] + d[2] * distance,
+    ];
+  }
+  function impactNormal(d, normal) {
+    // A ray that starts inside an envelope has no entry face.
+    return normal.some(Boolean) ? normal : d.map((v) => -v);
+  }
+  function groundSurface(x, y, z, up) {
+    // Approximate LAND's dominant material without sampling its shader noise.
+    const s = -z;
+    if (up < 0.705 || s > 397) return "rock";
+    if (y < SEA_Y + 3.3) return "sand";
+    if (s > 63 && s < 129 && Math.abs(x - at(s).x + 14) < 3.1) return "rock"; // Crushed ballast under the pipeline.
+    return "grass";
+  }
   function routeY(x, z) {
     return z <= -150 && z >= -225 && Math.abs(x) <= 4.5 ? 22 : groundY(x, z);
   }
@@ -160,6 +204,10 @@
     [-22, -354],
   ].map(([x, z]) => ({ x, y: groundY(x, z), z }));
   const MAX_SLOPE = 1.05; // rise/run, about 46 degrees; steps still use 0.35 m.
+  const PLAYER_HEIGHT = 1.9;
+  const PLAYER_RADIUS = 0.28;
+  const CONTACT_EPSILON = 0.001;
+  const MACHINE_CLEARANCE = 0.15;
   const WEAPONS = {
     carbine: {
       name: "CARBINE",
@@ -295,7 +343,8 @@
   }
   // Built parapets remain solids. Natural banks are bounded by their slope.
   for (let s = 155; s <= 220; s += 10)
-    for (const x of [-5, 5]) box("parapet", 2, x, -s, 1, 1.25, 10.2);
+    for (const x of [-5, 5])
+      box("parapet", 2, x, -s, 1, 1.25, 10.2, "concrete");
   layout.push({
     kind: "bridge",
     zone: 2,
@@ -595,7 +644,7 @@
   }
   // The inherited cover hulls keep their tops and footprints. Extend their
   // hidden lower bounds to the same ground-rooted base the basalt mesh uses.
-  for (const solid of layout.filter((b) => b.kind === "cover")) {
+  for (const [i, solid] of layout.filter((b) => b.kind === "cover").entries()) {
     const cx = (solid.min[0] + solid.max[0]) / 2;
     const cz = (solid.min[2] + solid.max[2]) / 2;
     const onDeck = solid.min[1] - groundY(cx, cz) > 2;
@@ -608,6 +657,7 @@
           ),
         );
     solid.landGrounded = true;
+    solid.rockProfile = "boulder_" + (i % 4);
   }
   // LAND solids END
   const entities = {
@@ -668,12 +718,12 @@
     crates: [],
   };
   for (const e of entities.stations) {
-    box("pylon", e.zone, e.x, e.z, 0.65, 1.5, 0.65, "metal", {
+    box("pylon", e.zone, e.x, e.z, 0.65, 1.5, 0.65, "stone", {
       asset: "control-pylon",
     });
-    box("spire", e.zone, e.spire.x, e.z, 2, 30, 2, "metal", { asset: "spire" });
+    box("spire", e.zone, e.spire.x, e.z, 2, 30, 2, "stone", { asset: "spire" });
   }
-  box("beacon", 5, 0, -427, 1, 1, 1, "metal");
+  box("beacon", 5, 0, -427, 1, 1, 1, "concrete");
   for (const [zone, s, kinds] of [
     [0, 24, ["gnat", "gnat", "gnat"]],
     [0, 48, ["gnat", "gnat", "gnat"]],
@@ -704,7 +754,7 @@
   entities.turrets.forEach((e) =>
     entities.spawns.push({ ...e, kind: "turret", id: entities.spawns.length }),
   );
-  box("pod", 0, 6, 0, 4, 3, 6, "metal", { asset: "drop-pod" });
+  box("pod", 0, 6, 0, 4, 3, 6, "stone", { asset: "drop-pod" });
   // Delivered vertical body envelope, excluding remote clamps and turrets.
   const siege = {
     origin: { x: 21, y: 48.83713472696438, z: -377 },
@@ -927,12 +977,33 @@
   const stationKit = {
     terrace_wall: {
       file: "citadel.glb",
+      surface: "stone",
       solids: [
         { shape: "box", min: [-6.0, 0.0, -1.0], max: [6.0, 2.7, 1.0] },
-        { shape: "box", min: [-5.98, 0.05, 0.96], max: [-3.02, 2.6, 1.24] },
-        { shape: "box", min: [-2.98, 0.05, 0.96], max: [-0.02, 2.6, 1.24] },
-        { shape: "box", min: [0.02, 0.05, 0.96], max: [2.98, 2.6, 1.24] },
-        { shape: "box", min: [3.02, 0.05, 0.96], max: [5.98, 2.6, 1.24] },
+        {
+          shape: "box",
+          min: [-5.98, 0.05, 0.96],
+          max: [-3.02, 2.6, 1.24],
+          surface: "concrete",
+        },
+        {
+          shape: "box",
+          min: [-2.98, 0.05, 0.96],
+          max: [-0.02, 2.6, 1.24],
+          surface: "concrete",
+        },
+        {
+          shape: "box",
+          min: [0.02, 0.05, 0.96],
+          max: [2.98, 2.6, 1.24],
+          surface: "concrete",
+        },
+        {
+          shape: "box",
+          min: [3.02, 0.05, 0.96],
+          max: [5.98, 2.6, 1.24],
+          surface: "concrete",
+        },
         { shape: "box", min: [-6.05, 2.7, -1.1], max: [6.05, 3.0, 1.1] },
       ],
       min: [-6.05, 0.0, -1.1],
@@ -940,9 +1011,15 @@
     },
     summit_beacon: {
       file: "citadel.glb",
+      surface: "stone",
       solids: [
         { shape: "box", min: [-1.3, 0.0, -1.3], max: [1.3, 0.3, 1.3] },
-        { shape: "box", min: [-0.8, 0.3, -0.8], max: [0.8, 1.7, 0.8] },
+        {
+          shape: "box",
+          min: [-0.8, 0.3, -0.8],
+          max: [0.8, 1.7, 0.8],
+          surface: "concrete",
+        },
         { shape: "box", min: [-0.85, 0.3, -0.85], max: [0.85, 7.85, 0.85] },
       ],
       min: [-1.3, 0.0, -1.3],
@@ -950,6 +1027,7 @@
     },
     whitepaper_monument: {
       file: "citadel.glb",
+      surface: "stone",
       solids: [
         { shape: "box", min: [-3.0, 0.0, -1.25], max: [3.0, 0.25, 1.25] },
         { shape: "box", min: [-2.8, 0.25, -0.95], max: [2.8, 3.0, 0.95] },
@@ -959,24 +1037,28 @@
     },
     cover_wall: {
       file: "props.glb",
+      surface: "concrete",
       solids: [{ shape: "box", min: [-1.5, 0, -1.25], max: [1.5, 1.3, 1.25] }],
       min: [-1.5, 0.0, -1.275],
       max: [1.5, 1.315, 1.325],
     },
     cover_wall_b: {
       file: "props.glb",
+      surface: "concrete",
       solids: [{ shape: "box", min: [-1.5, 0, -1.25], max: [1.5, 1.3, 1.25] }],
       min: [-1.5, 0.0, -1.275],
       max: [1.5, 1.315, 1.325],
     },
     barrier: {
       file: "props.glb",
+      surface: "concrete",
       solids: [{ shape: "box", min: [-1.5, 0, -0.39], max: [1.5, 1.2, 0.39] }],
       min: [-1.5, 0.0, -0.415],
       max: [1.5, 1.215, 0.465],
     },
     cargo_sled: {
       file: "props.glb",
+      surface: "metal",
       solids: [
         { shape: "box", min: [-1.35, 0, -2.25], max: [1.35, 1.3, 2.25] },
       ],
@@ -985,22 +1067,54 @@
     },
     pipeline_pier: {
       file: "route.glb",
+      surface: "concrete",
       solids: [
         { shape: "box", min: [-1.7, 0, -1.3], max: [1.7, 0.4, 1.3] },
-        { shape: "box", min: [-1.3, 0.4, -0.975], max: [1.3, 2.15, 0.975] },
-        { shape: "box", min: [-1.24, 2.15, -0.75], max: [-1.08, 2.9, 0.75] },
-        { shape: "box", min: [1.08, 2.15, -0.75], max: [1.24, 2.9, 0.75] },
+        {
+          shape: "box",
+          min: [-1.3, 0.4, -0.975],
+          max: [1.3, 2.15, 0.975],
+          surface: "stone",
+        },
+        {
+          shape: "box",
+          min: [-1.24, 2.15, -0.75],
+          max: [-1.08, 2.9, 0.75],
+          surface: "metal",
+        },
+        {
+          shape: "box",
+          min: [1.08, 2.15, -0.75],
+          max: [1.24, 2.9, 0.75],
+          surface: "metal",
+        },
       ],
       min: [-1.7, 0.0, -1.3],
       max: [1.7, 3.02, 1.313],
     },
     causeway_pier: {
       file: "route.glb",
+      surface: "concrete",
       solids: [
-        { shape: "box", min: [-6.0, 0.0, -4.0], max: [6.0, 1.2, 4.0] },
-        { shape: "box", min: [-5.15, 1.2, -2.8], max: [-1.65, 5.2, 2.8] },
+        {
+          shape: "box",
+          min: [-6.0, 0.0, -4.0],
+          max: [6.0, 1.2, 4.0],
+          surface: "stone",
+        },
+        {
+          shape: "box",
+          min: [-5.15, 1.2, -2.8],
+          max: [-1.65, 5.2, 2.8],
+          surface: "stone",
+        },
         { shape: "box", min: [-4.8, 5, -2.25], max: [-2.0, 33, 2.25] },
-        { shape: "box", min: [1.65, 1.2, -2.8], max: [5.15, 5.2, 2.8] },
+        {
+          shape: "box",
+          min: [1.65, 1.2, -2.8],
+          max: [5.15, 5.2, 2.8],
+          surface: "stone",
+        },
         { shape: "box", min: [2.0, 5, -2.25], max: [4.8, 33, 2.25] },
         { shape: "box", min: [-5.4, 33.0, -2.5], max: [5.4, 35.5, 2.5] },
         { shape: "box", min: [-5.0, 35.9, -1.0], max: [-1.8, 37.0, 1.0] },
@@ -1011,19 +1125,31 @@
     },
     dam_sluice: {
       file: "route.glb",
+      surface: "concrete",
       solids: [
         { shape: "box", min: [-3.8, 0.0, -1.5], max: [-2.4, 14.0, 1.5] },
         { shape: "box", min: [2.4, 0.0, -1.5], max: [3.8, 14.0, 1.5] },
         { shape: "box", min: [-3.8, 13.9, -1.5], max: [3.8, 15.0, 1.5] },
-        { shape: "box", min: [-2.4, 2, -0.4], max: [2.4, 13.8, 0.4] },
+        {
+          shape: "box",
+          min: [-2.4, 2, -0.4],
+          max: [2.4, 13.8, 0.4],
+          surface: "metal",
+        },
       ],
       min: [-3.8, 0.0, -1.5],
       max: [4.582, 15.35, 1.56],
     },
     dam_winch: {
       file: "route.glb",
+      surface: "metal",
       solids: [
-        { shape: "box", min: [-1.75, 0.0, -1.2], max: [1.75, 0.25, 1.2] },
+        {
+          shape: "box",
+          min: [-1.75, 0.0, -1.2],
+          max: [1.75, 0.25, 1.2],
+          surface: "concrete",
+        },
         { shape: "box", min: [-1.75, 0, -1.2], max: [1.75, 2.15, 1.2] },
       ],
       min: [-1.75, 0.0, -1.2],
@@ -1031,8 +1157,14 @@
     },
     dam_control_hut: {
       file: "route.glb",
+      surface: "concrete",
       solids: [
-        { shape: "box", min: [-2.5, 0.0, -2.4], max: [2.5, 0.25, 2.4] },
+        {
+          shape: "box",
+          min: [-2.5, 0.0, -2.4],
+          max: [2.5, 0.25, 2.4],
+          surface: "stone",
+        },
         { shape: "box", min: [-2.15, 0.25, -1.9], max: [2.15, 3.45, 1.9] },
       ],
       min: [-2.5, 0.0, -2.4],
@@ -1040,8 +1172,14 @@
     },
     watcher_tower: {
       file: "route.glb",
+      surface: "concrete",
       solids: [
-        { shape: "box", min: [-3.0, 0.0, -3.0], max: [3.0, 0.8, 3.0] },
+        {
+          shape: "box",
+          min: [-3.0, 0.0, -3.0],
+          max: [3.0, 0.8, 3.0],
+          surface: "stone",
+        },
         { shape: "box", min: [-1.9, 0.8, -1.9], max: [1.9, 11.3, 1.9] },
         { shape: "box", min: [-3.0, 11.3, -3.0], max: [3.0, 11.8, 3.0] },
         { shape: "box", min: [-3.0, 11.8, -3.0], max: [-2.6, 12.45, 3.0] },
@@ -1053,31 +1191,56 @@
     },
     spire: {
       file: "station.glb",
+      surface: "stone",
       solids: [
         {
           shape: "box",
           min: [-3.184, 12.92, 1.934],
           max: [3.184, 13.0, 3.184],
+          surface: "metal",
         },
         {
           shape: "box",
           min: [-3.184, 12.92, -3.184],
           max: [3.184, 13.0, -1.934],
+          surface: "metal",
         },
         {
           shape: "box",
           min: [1.934, 12.92, -1.934],
           max: [3.184, 13.0, 1.934],
+          surface: "metal",
         },
         {
           shape: "box",
           min: [-3.184, 12.92, -1.934],
           max: [-1.934, 13.0, 1.934],
+          surface: "metal",
         },
-        { shape: "box", min: [-3.5, 0, -3.5], max: [3.5, 1.0, 3.5] },
-        { shape: "box", min: [-1.3, 0, 3.5], max: [1.3, 0.33, 4.3] },
-        { shape: "box", min: [-1.3, 0, 3.5], max: [1.3, 0.66, 3.9] },
-        { shape: "box", min: [-2.4, 1.0, -2.4], max: [2.4, 4.0, 2.4] },
+        {
+          shape: "box",
+          min: [-3.5, 0, -3.5],
+          max: [3.5, 1.0, 3.5],
+          surface: "concrete",
+        },
+        {
+          shape: "box",
+          min: [-1.3, 0, 3.5],
+          max: [1.3, 0.33, 4.3],
+          surface: "concrete",
+        },
+        {
+          shape: "box",
+          min: [-1.3, 0, 3.5],
+          max: [1.3, 0.66, 3.9],
+          surface: "concrete",
+        },
+        {
+          shape: "box",
+          min: [-2.4, 1.0, -2.4],
+          max: [2.4, 4.0, 2.4],
+          surface: "concrete",
+        },
         { shape: "box", min: [-2.1, 4.0, -2.1], max: [2.1, 31.2, 2.1] },
       ],
       min: [-3.5, 0.0, -4.61],
@@ -1085,6 +1248,7 @@
     },
     fin_row: {
       file: "station.glb",
+      surface: "metal",
       solids: [
         { shape: "box", min: [-2.56, 2.74, -0.76], max: [-1.04, 3.17, 0.76] },
         { shape: "box", min: [1.04, 2.74, -0.76], max: [2.56, 3.17, 0.76] },
@@ -1095,6 +1259,7 @@
     },
     fin_row_b: {
       file: "station.glb",
+      surface: "metal",
       solids: [
         { shape: "box", min: [-2.56, 2.74, -0.76], max: [-1.04, 3.17, 0.76] },
         { shape: "box", min: [1.04, 2.74, -0.76], max: [2.56, 3.17, 0.76] },
@@ -1105,21 +1270,40 @@
     },
     immersion_tank: {
       file: "station.glb",
+      surface: "metal",
       solids: [{ shape: "box", min: [-1.8, 0, -1.25], max: [1.8, 2.18, 1.25] }],
       min: [-1.8, 0.0, -1.25],
       max: [2.35, 2.292, 1.25],
     },
     immersion_tank_b: {
       file: "station.glb",
+      surface: "metal",
       solids: [{ shape: "box", min: [-1.8, 0, -1.25], max: [1.8, 2.18, 1.25] }],
       min: [-1.8, 0.0, -1.393],
       max: [2.35, 2.292, 1.25],
     },
     wellhead: {
       file: "station.glb",
+      surface: "metal",
       solids: [
-        { shape: "box", min: [-2.4, 0, -2.4], max: [2.4, 0.28, 2.4] },
-        { shape: "cyl", x: 0, z: 0, r: 0.94, y0: 0.28, y1: 3.95 },
+        {
+          shape: "box",
+          min: [-2.4, 0, -2.4],
+          max: [2.4, 0.28, 2.4],
+          surface: "concrete",
+        },
+        // The square stone pedestal is a separate jumpable ledge.
+        {
+          shape: "box",
+          min: [-1.15, 0.28, -1.15],
+          max: [1.15, 1.28, 1.15],
+          surface: "stone",
+        },
+        { shape: "cyl", x: 0, z: 0, r: 0.7, y0: 1.28, y1: 2.205 },
+        { shape: "cyl", x: 0, z: 0, r: 0.94, y0: 1.295, y1: 1.425 },
+        { shape: "cyl", x: 0, z: 0, r: 0.94, y0: 2.295, y1: 2.425 },
+        { shape: "cyl", x: 0, z: 0, r: 0.94, y0: 3.075, y1: 3.205 },
+        { shape: "box", min: [-0.55, 3.25, -0.34], max: [0.55, 3.95, 0.34] },
         { shape: "box", min: [-2.1, 0.28, -0.3], max: [-1.5, 2.34, 0.3] },
         { shape: "box", min: [1.5, 0.28, -0.3], max: [2.1, 2.34, 0.3] },
       ],
@@ -1128,12 +1312,14 @@
     },
     pipe_run: {
       file: "station.glb",
+      surface: "metal",
       solids: [{ shape: "box", min: [-2.8, 0, -0.7], max: [2.8, 0.8, 0.32] }],
       min: [-2.8, 0.0, -0.8],
       max: [2.8, 0.87, 0.32],
     },
     pipe_run_b: {
       file: "station.glb",
+      surface: "metal",
       solids: [
         { shape: "box", min: [-2.8, 0, -0.7], max: [1.12, 0.8, 0.32] },
         { shape: "box", min: [0.48, 0, -2.1], max: [1.12, 0.8, 0.32] },
@@ -1143,8 +1329,14 @@
     },
     lamp_mast: {
       file: "station.glb",
+      surface: "metal",
       solids: [
-        { shape: "box", min: [-0.35, 0, -0.35], max: [0.35, 0.35, 0.35] },
+        {
+          shape: "box",
+          min: [-0.35, 0, -0.35],
+          max: [0.35, 0.35, 0.35],
+          surface: "concrete",
+        },
         { shape: "box", min: [-0.09, 0.35, -0.09], max: [0.09, 5.6, 0.09] },
       ],
       min: [-0.45, 0.0, -0.35],
@@ -1152,10 +1344,21 @@
     },
     pipe_rack: {
       file: "station.glb",
+      surface: "metal",
       solids: [
-        { shape: "box", min: [-6.25, 0, -1.05], max: [-5.15, 0.35, 1.05] },
+        {
+          shape: "box",
+          min: [-6.25, 0, -1.05],
+          max: [-5.15, 0.35, 1.05],
+          surface: "concrete",
+        },
         { shape: "box", min: [-5.9, 0.35, -0.9], max: [-5.5, 5.02, 0.9] },
-        { shape: "box", min: [5.15, 0, -1.05], max: [6.25, 0.35, 1.05] },
+        {
+          shape: "box",
+          min: [5.15, 0, -1.05],
+          max: [6.25, 0.35, 1.05],
+          surface: "concrete",
+        },
         { shape: "box", min: [5.5, 0.35, -0.9], max: [5.9, 5.02, 0.9] },
         { shape: "box", min: [-6.05, 4.7, -1.0], max: [6.05, 5.67, 1.0] },
       ],
@@ -1164,11 +1367,22 @@
     },
     pipe_rack_drop: {
       file: "station.glb",
+      surface: "metal",
       solids: [
         { shape: "box", min: [5.95, 0, -0.7], max: [7.15, 5.65, 0.65] },
-        { shape: "box", min: [-6.25, 0, -1.05], max: [-5.15, 0.35, 1.05] },
+        {
+          shape: "box",
+          min: [-6.25, 0, -1.05],
+          max: [-5.15, 0.35, 1.05],
+          surface: "concrete",
+        },
         { shape: "box", min: [-5.9, 0.35, -0.9], max: [-5.5, 5.02, 0.9] },
-        { shape: "box", min: [5.15, 0, -1.05], max: [6.25, 0.35, 1.05] },
+        {
+          shape: "box",
+          min: [5.15, 0, -1.05],
+          max: [6.25, 0.35, 1.05],
+          surface: "concrete",
+        },
         { shape: "box", min: [5.5, 0.35, -0.9], max: [5.9, 5.02, 0.9] },
         { shape: "box", min: [-6.05, 4.7, -1.0], max: [6.05, 5.67, 1.0] },
       ],
@@ -1177,12 +1391,33 @@
     },
     control_kiosk: {
       file: "station.glb",
+      surface: "metal",
       solids: [
-        { shape: "box", min: [-1.6, 0, -1.35], max: [1.6, 0.14, 1.25] },
+        {
+          shape: "box",
+          min: [-1.6, 0, -1.35],
+          max: [1.6, 0.14, 1.25],
+          surface: "concrete",
+        },
         { shape: "box", min: [-1.5, 0.14, -1.22], max: [1.5, 3.02, -0.88] },
-        { shape: "box", min: [-1.66, 0.14, -1.22], max: [-1.5, 2.72, -0.88] },
-        { shape: "box", min: [1.5, 0.14, -1.22], max: [1.66, 2.72, -0.88] },
-        { shape: "box", min: [-1.75, 3.02, -1.3], max: [1.75, 3.24, 1.3] },
+        {
+          shape: "box",
+          min: [-1.66, 0.14, -1.22],
+          max: [-1.5, 2.72, -0.88],
+          surface: "stone",
+        },
+        {
+          shape: "box",
+          min: [1.5, 0.14, -1.22],
+          max: [1.66, 2.72, -0.88],
+          surface: "stone",
+        },
+        {
+          shape: "box",
+          min: [-1.75, 3.02, -1.3],
+          max: [1.75, 3.24, 1.3],
+          surface: "stone",
+        },
       ],
       min: [-1.75, -0.5, -1.4],
       max: [1.75, 3.24, 1.313],
@@ -1274,6 +1509,7 @@
       scale: [1, sy, 1],
     };
     for (const [i, shape] of def.solids.entries()) {
+      const surface = shape.surface ?? def.surface;
       if (shape.shape === "cyl") {
         layout.push({
           ...shape,
@@ -1284,7 +1520,7 @@
           z: z - s * shape.x + c * shape.z,
           y0: y + shape.y0 * sy,
           y1: y + shape.y1 * sy,
-          surface: "metal",
+          surface,
           stationAssembly: part,
           ...(i === 0 ? { stationPart: part } : {}),
         });
@@ -1307,7 +1543,7 @@
             Math.max(...corners.map((p) => p[1])),
           ],
           {
-            surface: "metal",
+            surface,
             stationAssembly: part,
             ...(i === 0 ? { stationPart: part } : {}),
           },
@@ -1597,7 +1833,11 @@
       4,
       [x - 4, gateY, -393],
       [x + 4, gateY + 38, -385],
-      { stationAssembly: gate, ...(i === 0 ? { stationPart: gate } : {}) },
+      {
+        surface: "stone",
+        stationAssembly: gate,
+        ...(i === 0 ? { stationPart: gate } : {}),
+      },
     );
   }
   stationBox(
@@ -1638,14 +1878,14 @@
     4,
     [-17, gateY + 32.6, -385.02],
     [17, gateY + 38.2, -384.8],
-    { stationAssembly: gate },
+    { surface: "stone", stationAssembly: gate },
   );
   stationBox(
     "citadel-catwalk",
     4,
     [-11.9, gateY + 30.675, -385.3],
     [11.9, gateY + 30.925, -384.2],
-    { stationAssembly: gate },
+    { surface: "metal", stationAssembly: gate },
   );
   // Stepped portal: overhead layers and side jambs step in 0.6 m per layer.
   for (const [bottom, z0, z1, inset] of [
@@ -1658,7 +1898,7 @@
       4,
       [-12 + inset, gateY + bottom, z0],
       [12 - inset, gateY + 30.8, z1],
-      { stationAssembly: gate },
+      { surface: "stone", stationAssembly: gate },
     );
     if (inset)
       for (const side of [-1, 1])
@@ -1667,7 +1907,7 @@
           4,
           [side > 0 ? 12 - inset : -12, gateY, z0],
           [side > 0 ? 12 : -12 + inset, gateY + bottom, z1],
-          { stationAssembly: gate },
+          { surface: "stone", stationAssembly: gate },
         );
   }
   for (const side of [-1, 1]) {
@@ -1679,14 +1919,14 @@
         4,
         [x - 3.4, gateY + i * 4.9 + 0.09, -393.5],
         [x + 3.4, gateY + i * 4.9 + 4.81, -393],
-        { stationAssembly: gate },
+        { surface: "stone", stationAssembly: gate },
       );
     stationBox(
       "citadel-tower",
       4,
       [x - 3.6, gateY + 39.5, -392.3],
       [x + 3.6, gateY + 51.35, -385.7],
-      { stationAssembly: gate },
+      { surface: "stone", stationAssembly: gate },
     );
     for (const h of [15.4, 23.4])
       stationBox(
@@ -1694,7 +1934,7 @@
         4,
         [x - 2.3, gateY + h - 0.1, -385.4],
         [x + 2.3, gateY + h + 0.1, -384],
-        { stationAssembly: gate },
+        { surface: "metal", stationAssembly: gate },
       );
     // Curtain walls tie the gate into the cliffs; nothing passes beside it.
     stationBox(
@@ -1702,7 +1942,7 @@
       4,
       [side > 0 ? 20 : -36.5, gateY - 6, -393.85],
       [side > 0 ? 36.5 : -20, gateY + 25.2, -387.6],
-      { stationAssembly: gate },
+      { surface: "stone", stationAssembly: gate },
     );
     stationBox(
       "citadel-wall",
@@ -1732,6 +1972,101 @@
     });
   }
   // STATIONS solids END
+  // Mesh heights after the shear in land-rocks.js. Rows run along local +Z
+  // and zero cells leave gaps. Placement bounds stay independent.
+  const rockHeights = {
+    crown_field: [
+      4, 65, 74, 75, 4, 73, 80, 91, 87, 67, 81, 86, 98, 93, 79, 4, 86, 89, 79,
+      82, 4, 55, 78, 74, 4,
+    ],
+    boulder_0: [
+      0, 66, 67, 0, 0, 0, 81, 85, 79, 0, 69, 78, 86, 93, 89, 0, 74, 81, 90, 42,
+      0, 57, 0, 84, 0,
+    ],
+    boulder_1: [
+      0, 0, 0, 71, 0, 0, 73, 81, 85, 75, 26, 73, 93, 86, 26, 57, 58, 93, 96, 0,
+      69, 81, 90, 0, 0,
+    ],
+    boulder_2: [
+      25, 52, 53, 0, 0, 40, 62, 64, 54, 0, 76, 91, 82, 84, 0, 23, 96, 97, 86,
+      89, 0, 75, 99, 92, 96,
+    ],
+    boulder_3: [
+      0, 42, 0, 0, 0, 79, 80, 45, 81, 84, 33, 90, 57, 90, 0, 0, 87, 70, 91, 23,
+      0, 0, 0, 90, 92,
+    ],
+  };
+  // The first Causeway boulder's west edge needs tighter samples to capture
+  // the low shelf and the recess beside it. Grid edges are mesh percentages.
+  const causewayBoulderHeights = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 53, 53, 0, 0, 0, 0, 0, 22, 26, 31, 35, 36, 38,
+    52, 52, 53, 54, 0, 0, 0, 0, 0, 24, 29, 33, 37, 38, 40, 52, 53, 53, 54, 0, 0,
+    0, 0, 0, 26, 31, 35, 39, 40, 42, 53, 59, 62, 60, 57, 0, 0, 0, 0, 28, 33, 38,
+    43, 64, 82, 82, 81, 89, 68, 71, 55, 0, 0, 0, 30, 35, 50, 65, 84, 84, 84, 83,
+    91, 81, 84, 74, 0, 0, 7, 22, 38, 54, 69, 86, 86, 86, 94, 93, 81, 84, 87, 0,
+    0, 9, 25, 41, 57, 72, 87, 87, 87, 95, 95, 80, 83, 87, 0, 0, 11, 27, 43, 59,
+    74, 89, 88, 88, 96, 96, 80, 83, 83, 83, 0, 0, 9, 24, 38, 52, 70, 95, 89, 97,
+    95, 97, 83, 85, 87, 0, 0, 0, 0, 0, 5, 23, 48, 84, 94, 96, 97, 83, 86, 88,
+    89, 0, 0, 0, 0, 0, 0, 31, 70, 95, 96, 97, 84, 87, 89, 91, 0, 0, 0, 0, 0, 0,
+    22, 62, 95, 96, 97, 97, 89, 90, 92, 0, 0, 0, 0, 0, 0, 13, 53, 95, 96, 98,
+    97, 90, 92, 93, 0, 0, 0, 0, 0, 0, 0, 41, 94, 97, 98, 89, 91, 93, 95, 0, 0,
+    0, 0, 0, 0, 0, 21, 78, 98, 99, 92, 94, 96, 97, 0, 0, 0, 0, 0, 0, 0, 0, 12,
+    90, 0, 6, 96, 99, 0,
+  ];
+  const causewayRockX = [
+    0, 2, 4, 6, 8, 10, 13, 17, 23, 31, 43, 55, 68, 81, 92, 100,
+  ];
+  const causewayRockZ = [
+    0, 8, 16, 24, 32, 40, 48, 55, 59, 63, 66, 69, 72, 75, 78, 83, 91, 100,
+  ];
+  const rockEdges = [0, 20, 40, 60, 80, 100];
+  const rockColliders = new Map();
+  for (const b of layout) {
+    if (b.zone > 2) continue;
+    const detailed = b.zone === 2 && b.rockProfile === "boulder_2";
+    const heights = detailed
+      ? causewayBoulderHeights
+      : rockHeights[b.rockProfile ?? b.asset];
+    if (!heights) continue;
+    const xEdges = detailed ? causewayRockX : rockEdges;
+    const zEdges = detailed ? causewayRockZ : rockEdges;
+    const columns = xEdges.length - 1;
+    const x = (b.min[0] + b.max[0]) / 2,
+      z = (b.min[2] + b.max[2]) / 2,
+      c = Math.cos(b.yaw ?? 0),
+      s = Math.sin(b.yaw ?? 0),
+      a = Math.abs(c),
+      t = Math.abs(s),
+      w = b.max[0] - b.min[0],
+      d = b.max[2] - b.min[2],
+      determinant = a * a - t * t,
+      // The rotated crown shell fits into the square placement bounds.
+      aspect = b.asset === "crown_field" ? 1.104 : 1,
+      depth = Math.min(w / (aspect * a + t), d / (aspect * t + a)),
+      width = depth * aspect;
+    const fit = Math.abs(determinant) > 0.1;
+    const localWidth = fit ? (w * a - d * t) / determinant : width;
+    const localDepth = fit ? (d * a - w * t) / determinant : depth;
+    const cells = [];
+    heights.forEach((height, i) => {
+      if (!height) return;
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      cells.push({
+        min: [
+          ((xEdges[col] - 50) / 100) * localWidth,
+          b.min[1],
+          ((zEdges[row] - 50) / 100) * localDepth,
+        ],
+        max: [
+          ((xEdges[col + 1] - 50) / 100) * localWidth,
+          b.min[1] + (b.max[1] - b.min[1]) * (height / 100),
+          ((zEdges[row + 1] - 50) / 100) * localDepth,
+        ],
+      });
+    });
+    rockColliders.set(b, { x, z, c, s, cells });
+  }
   function rayBox(o, d, b, max = Infinity) {
     let near = 0,
       far = max,
@@ -1757,6 +2092,23 @@
     const normal = [0, 0, 0];
     normal[axis] = sign;
     return { distance: near, normal };
+  }
+  function rayRock(o, d, rock, max) {
+    const x = o[0] - rock.x,
+      z = o[2] - rock.z,
+      { c, s } = rock;
+    const origin = [c * x - s * z, o[1], s * x + c * z];
+    const direction = [c * d[0] - s * d[2], d[1], s * d[0] + c * d[2]];
+    let hit = null;
+    for (const cell of rock.cells) {
+      const t = rayBox(origin, direction, cell, hit?.distance ?? max);
+      if (t && t.distance < (hit?.distance ?? max)) hit = t;
+    }
+    if (hit) {
+      const [nx, ny, nz] = hit.normal;
+      hit.normal = [c * nx + s * nz, ny, -s * nx + c * nz];
+    }
+    return hit;
   }
   // Exact finite-cylinder ray hit; content can use cylinders without box corners.
   function rayCylinder(o, d, b, max = Infinity) {
@@ -1789,6 +2141,66 @@
           offer(t, [0, n, 0]);
       }
     return hit;
+  }
+  const landedSiege = siegePose(1);
+  const wreckBounds = {
+    min: [landedSiege.x - 27, landedSiege.y - 7.72, landedSiege.z - 2.805],
+    max: [landedSiege.x - 5, landedSiege.y - 2.12, landedSiege.z + 2.524],
+    surface: "metal",
+  };
+  const solidCellSize = 8;
+  const solidCell = (position) => Math.floor(position / solidCellSize);
+  const solidPadding = Math.max(
+    PLAYER_RADIUS,
+    ...Object.values(MACHINES).map((m) => m.r + MACHINE_CLEARANCE),
+  );
+  const solidRows = new Map();
+  const traceGroupSize = 8;
+  const traceGroups = [];
+  for (const [i, raw] of layout.entries()) {
+    const box =
+      raw.shape === "cyl"
+        ? {
+            min: [raw.x - raw.r, raw.y0, raw.z - raw.r],
+            max: [raw.x + raw.r, raw.y1, raw.z + raw.r],
+          }
+        : raw;
+    const entry = { index: i, raw, box, rock: rockColliders.get(raw) };
+    // Index both siege poses once. Queries still choose the active bounds.
+    const min =
+      raw.dynamic === "boss"
+        ? box.min.map((n, axis) => Math.min(n, wreckBounds.min[axis]))
+        : box.min;
+    const max =
+      raw.dynamic === "boss"
+        ? box.max.map((n, axis) => Math.max(n, wreckBounds.max[axis]))
+        : box.max;
+    // Pad the index for actor radii so movement and placement need one cell.
+    const firstX = solidCell(min[0] - solidPadding);
+    const lastX = solidCell(max[0] + solidPadding);
+    const firstZ = solidCell(min[2] - solidPadding);
+    const lastZ = solidCell(max[2] + solidPadding);
+    for (let z = firstZ; z <= lastZ; z++) {
+      if (!solidRows.has(z)) solidRows.set(z, new Map());
+      const row = solidRows.get(z);
+      for (let x = firstX; x <= lastX; x++) {
+        if (!row.has(x)) row.set(x, []);
+        row.get(x).push(entry);
+      }
+    }
+    // Keep ray groups in layout order so ties still hit the same surface.
+    if (i % traceGroupSize === 0)
+      traceGroups.push({ min: [...min], max: [...max], entries: [] });
+    const group = traceGroups.at(-1);
+    group.entries.push(entry);
+    for (let axis = 0; axis < 3; axis++) {
+      group.min[axis] = Math.min(group.min[axis], min[axis]);
+      group.max[axis] = Math.max(group.max[axis], max[axis]);
+    }
+  }
+  const noSolids = [];
+  function nearbySolids(x, z) {
+    return solidRows.get(solidCell(z))?.get(solidCell(x)) ?? noSolids;
   }
   function create(hooks = {}, { seed = 2140 } = {}) {
     const inventory = (kind) => ({
@@ -1929,14 +2341,23 @@
       chargeHeld = false,
       useTime = 0,
       useId = null,
+      useConsumed = false,
       endingYaw = 0,
       endingPitch = 0,
       endingCue = 0,
       stepDistance = 0,
       haulerDone = false;
-    let savedWeapons = state.weapons.map((a) => ({ ...a })),
-      savedHeld = 0,
-      savedCharges = 4;
+    const copyItems = (items) => items.map((item) => ({ ...item }));
+    let savedLoadout;
+    function saveLoadout() {
+      savedLoadout = {
+        weapons: copyItems(state.weapons),
+        held: state.held,
+        charges: state.charges,
+        pickups: copyItems(state.pickups),
+      };
+    }
+    saveLoadout();
     const boltPool = Array.from({ length: 128 }, (_, id) => ({
       id,
       active: false,
@@ -1992,68 +2413,71 @@
       state.seed = (Math.imul(state.seed, 1664525) + 1013904223) >>> 0;
       return state.seed / 4294967296;
     };
-    // Static collider bounds are built once, not three arrays per column per
-    // physics step. LAND's column clusters make that churn substantial.
-    const solidBounds = new Map(
-      layout.map((b) => [
-        b,
-        b.shape === "cyl"
-          ? {
-              min: [b.x - b.r, b.y0, b.z - b.r],
-              max: [b.x + b.r, b.y1, b.z + b.r],
-            }
-          : b,
-      ]),
-    );
-    const landedSiege = siegePose(1);
-    const wreckBounds = {
-      min: [landedSiege.x - 27, landedSiege.y - 7.72, landedSiege.z - 2.805],
-      max: [landedSiege.x - 5, landedSiege.y - 2.12, landedSiege.z + 2.524],
-      surface: "metal",
-    };
-    function bounds(b) {
-      if (b.dynamic === "boss" && !state.boss.alive) return wreckBounds;
-      return solidBounds.get(b) ?? b;
+    function activeBounds({ raw, box }) {
+      if (raw.dynamic !== "boss" || state.boss.alive) return box;
+      return state.boss.dying < 1 ? null : wreckBounds;
     }
-    function trace(o, d, max = 120, actors = true, skip = null) {
+    function trace(
+      o,
+      d,
+      max = 120,
+      actors = true,
+      skip = null,
+      stopAtWater = false,
+    ) {
       let result = {
         distance: max,
         hit: null,
+        index: -1,
         normal: [0, 0, 0],
         enemy: null,
         clamp: null,
       };
-      for (const raw of layout) {
-        if (raw.dynamic === "boss" && !state.boss.alive && state.boss.dying < 1)
-          continue;
-        const t =
-          raw.shape === "cyl"
-            ? rayBox(o, d, bounds(raw), result.distance)
-              ? rayCylinder(o, d, raw, result.distance)
-              : null
-            : rayBox(o, d, bounds(raw), result.distance);
-        if (t && t.distance < result.distance)
-          result = { ...t, hit: raw.surface, enemy: null, clamp: null };
+      for (const group of traceGroups) {
+        if (!rayBox(o, d, group, result.distance)) continue;
+        for (const entry of group.entries) {
+          const b = activeBounds(entry);
+          if (!b) continue;
+          const { raw, rock } = entry;
+          let t = rayBox(o, d, b, result.distance);
+          if (!t) continue;
+          if (rock) t = rayRock(o, d, rock, result.distance);
+          else if (raw.shape === "cyl")
+            t = rayCylinder(o, d, raw, result.distance);
+          if (t && t.distance < result.distance)
+            result = {
+              ...t,
+              hit: raw.surface,
+              index: entry.index,
+              enemy: null,
+              clamp: null,
+            };
+        }
       }
       // Include the endpoint even for sub-20 cm projectile steps.
       for (let t = Math.min(0.2, result.distance); t > 0;) {
         if (o[1] + d[1] * t <= groundY(o[0] + d[0] * t, o[2] + d[2] * t)) {
           let lo = Math.max(0, t - 0.5),
             hi = t;
-          for (let j = 0; j < 7; j++) {
+          // Use the contact side of a tighter bracket for impact effects.
+          for (let j = 0; j < (stopAtWater ? 14 : 7); j++) {
             const m = (lo + hi) / 2;
             if (o[1] + d[1] * m > groundY(o[0] + d[0] * m, o[2] + d[2] * m))
               lo = m;
             else hi = m;
           }
-          const x = o[0] + d[0] * lo,
-            z = o[2] + d[2] * lo;
+          const distance = stopAtWater ? hi : lo;
+          if (distance === result.distance && result.hit) break;
+          const x = o[0] + d[0] * distance,
+            y = o[1] + d[1] * distance,
+            z = o[2] + d[2] * distance;
           const nx = groundY(x - 0.01, z) - groundY(x + 0.01, z),
             nz = groundY(x, z - 0.01) - groundY(x, z + 0.01),
             length = Math.hypot(nx, 0.02, nz);
           result = {
-            distance: lo,
-            hit: "rock",
+            distance,
+            hit: groundSurface(x, y, z, 0.02 / length),
+            index: -1,
             normal: [nx / length, 0.02 / length, nz / length],
             enemy: null,
             clamp: null,
@@ -2088,6 +2512,7 @@
             result = {
               ...t,
               hit: e.shield > 0 ? "shield" : weak ? "weak" : "enemy",
+              index: -1,
               enemy: e,
               clamp: null,
             };
@@ -2109,10 +2534,23 @@
             result = {
               ...t,
               hit: state.boss.clamps[i].shield ? "shield" : "weak",
+              index: -1,
               enemy: null,
               clamp: i,
             };
         });
+      if (stopAtWater) {
+        const water = waterCrossing(o, d, result.distance);
+        if (water && (!result.hit || water.distance < result.distance))
+          result = {
+            ...water,
+            hit: "water",
+            index: -1,
+            normal: [0, 1, 0],
+            enemy: null,
+            clamp: null,
+          };
+      }
       return result;
     }
     // Placement and steering share the same clearance test. Foot anchors stay on
@@ -2135,16 +2573,16 @@
       )
         return false;
       const bottom = kind === "gnat" ? y + m.centre - m.height / 2 : y + 0.08;
-      return !layout.some((raw) => {
-        if (raw.dynamic === "boss" && !state.boss.alive && state.boss.dying < 1)
+      for (const entry of nearbySolids(x, z)) {
+        const b = activeBounds(entry);
+        if (
+          b &&
+          bottom < solidTop(entry, b, x, z, m.r + MACHINE_CLEARANCE) &&
+          y + m.centre + m.height / 2 > b.min[1]
+        )
           return false;
-        const b = bounds(raw);
-        return (
-          bottom < b.max[1] &&
-          y + m.centre + m.height / 2 > b.min[1] &&
-          overlaps(x, z, b, m.r + 0.15)
-        );
-      });
+      }
+      return true;
     }
     function lineClear(from, to) {
       const dx = to.x - from.x,
@@ -2599,14 +3037,19 @@
           state.drops.push(d);
         }
         hooks.reward?.(0, 100);
-        if (e.kind === "strider")
-          state.pickups.push({
+        if (e.kind === "strider") {
+          const pickup = {
             id: 100 + e.id,
             kind: "arc",
             x: e.x,
             y: e.y,
             z: e.z,
-          });
+          };
+          state.pickups.push(pickup);
+          // The kill's paid flag survives a death, so this loot must survive
+          // as well, even when the player already took it on this attempt.
+          savedLoadout.pickups.push({ ...pickup });
+        }
       }
       state.killTick = 0.25;
     }
@@ -2736,6 +3179,7 @@
       for (const e of state.pickups)
         if (
           WEAPONS[e.kind] &&
+          !e.needsSpace &&
           !state.weapons.some((w) => w.kind === e.kind) &&
           close(e) &&
           (e.station === undefined ||
@@ -2780,6 +3224,7 @@
             x: p.x,
             y: p.y,
             z: p.z,
+            needsSpace: true,
             ...old,
           });
         give(t.kind);
@@ -2788,7 +3233,7 @@
         sound("pickup-weapon", p, { weapon: t.kind });
       }
     }
-    function overlaps(x, z, b, r = 0.28) {
+    function overlaps(x, z, b, r) {
       return (
         x + r > b.min[0] &&
         x - r < b.max[0] &&
@@ -2796,7 +3241,30 @@
         z - r < b.max[2]
       );
     }
+    // All movement axes use the same footprint, including the support under
+    // the feet. A cylinder's bounding-box corners only serve as a broad phase.
+    function solidTop({ raw, rock }, b, x, z, r = PLAYER_RADIUS) {
+      if (!overlaps(x, z, b, r)) return -Infinity;
+      if (raw.shape === "cyl")
+        return Math.hypot(x - raw.x, z - raw.z) < raw.r + r
+          ? b.max[1]
+          : -Infinity;
+      if (!rock) return b.max[1];
+      const dx = x - rock.x,
+        dz = z - rock.z,
+        localX = rock.c * dx - rock.s * dz,
+        localZ = rock.s * dx + rock.c * dz;
+      let top = -Infinity;
+      for (const cell of rock.cells) {
+        const gapX = Math.max(cell.min[0] - localX, localX - cell.max[0], 0);
+        const gapZ = Math.max(cell.min[2] - localZ, localZ - cell.max[2], 0);
+        if (gapX * gapX + gapZ * gapZ <= r * r)
+          top = Math.max(top, cell.max[1]);
+      }
+      return top;
+    }
     function move(axis, delta) {
+      if (!delta) return;
       const x = axis === "x" ? p.x + delta : p.x,
         z = axis === "z" ? p.z + delta : p.z;
       let top = groundY(x, z);
@@ -2814,21 +3282,23 @@
         return;
       if (top - p.y > 0.35 && p.grounded) return;
       top = Math.max(p.y, top);
-      for (const raw of layout) {
-        if (raw.dynamic === "boss" && !state.boss.alive && state.boss.dying < 1)
+      let ceiling = Infinity;
+      for (const entry of nearbySolids(x, z)) {
+        const b = activeBounds(entry);
+        if (!b || p.y >= b.max[1] - CONTACT_EPSILON) continue;
+        const surface = solidTop(entry, b, x, z);
+        if (p.y >= surface - CONTACT_EPSILON) continue;
+        if (p.y + PLAYER_HEIGHT <= b.min[1] + CONTACT_EPSILON) {
+          ceiling = Math.min(ceiling, b.min[1]);
           continue;
-        const b = bounds(raw);
-        if (
-          !(raw.shape === "cyl"
-            ? Math.hypot(x - raw.x, z - raw.z) < raw.r + 0.28
-            : overlaps(x, z, b)) ||
-          p.y >= b.max[1] - 0.001 ||
-          p.y + 1.9 <= b.min[1]
-        )
-          continue;
-        if (p.grounded && b.max[1] - p.y <= 0.35) top = Math.max(top, b.max[1]);
-        else return;
+        }
+        if (!p.grounded || surface - p.y > 0.35) return;
+        // A rock touching the edge of a boot can block a step. Only lift
+        // the player when the centre of the boot reaches that height.
+        if (entry.rock && solidTop(entry, b, x, z, 0) < surface) return;
+        top = Math.max(top, surface);
       }
+      if (p.grounded && top + PLAYER_HEIGHT > ceiling + CONTACT_EPSILON) return;
       p[axis] += delta;
       if (p.grounded) p.y = top;
     }
@@ -2848,6 +3318,7 @@
         age: 0,
         bounced: false,
         settled: false,
+        splashed: false,
       });
       state.bolts.push(b);
       return b;
@@ -2884,12 +3355,17 @@
           bolt("arc", "player", o, d, 65);
           continue;
         }
-        const t = trace(o, d);
+        const t = trace(o, d, 120, true, null, true);
         const e = event("shot");
         e.from.splice(0, 3, ...o);
-        e.to.splice(0, 3, ...o.map((v, i) => v + d[i] * t.distance));
-        e.normal.splice(0, 3, ...t.normal);
+        e.to.splice(0, 3, ...impactPoint(o, d, t));
+        e.normal.splice(
+          0,
+          3,
+          ...(t.hit ? impactNormal(d, t.normal) : t.normal),
+        );
         e.hit = t.hit;
+        e.index = t.index;
         e.enemy = t.enemy?.id ?? null;
         damage(
           t,
@@ -2898,7 +3374,7 @@
             (a.kind === "scatter" ? 1 - smooth(8, 30, t.distance) * 0.8 : 1),
         );
         if (a.kind === "rail" && t.enemy) {
-          const next = trace(o, d, 120, true, t.enemy);
+          const next = trace(o, d, 120, true, t.enemy, true);
           if (next.distance > t.distance) damage(next, a.kind);
         }
         if (t.hit)
@@ -2954,6 +3430,7 @@
       eventIndex = 0;
       if (state.complete || state.gameOver) return;
       dt = clamp(dt, 0, 0.05);
+      if (!input.use) useConsumed = false;
       state.time += dt;
       p.safe = Math.max(0, p.safe - dt);
       state.lastDamage.age += dt;
@@ -2986,8 +3463,14 @@
         state.fade = Math.sin((Math.PI * state.respawn) / 0.7);
         if (!state.respawn) {
           const q = at(state.respawnS);
+          let y = routeY(q.x, q.z);
+          // The climb save sits on a stair tread above the terrain.
+          if (state.respawnS === CLIMB_RESPAWN_S)
+            for (const entry of nearbySolids(q.x, q.z))
+              if (entry.raw.landRole === "stair-tread")
+                y = Math.max(y, solidTop(entry, entry.box, q.x, q.z));
           Object.assign(p, q, {
-            y: routeY(q.x, q.z),
+            y,
             health: 100,
             shield: 100,
             safe: 2,
@@ -2996,9 +3479,14 @@
             vz: 0,
             grounded: true,
           });
-          state.weapons = savedWeapons.map((a) => ({ ...a }));
-          state.held = savedHeld;
-          state.charges = savedCharges;
+          state.weapons = copyItems(savedLoadout.weapons);
+          state.held = savedLoadout.held;
+          state.charges = savedLoadout.charges;
+          state.pickups = copyItems(savedLoadout.pickups);
+          useTime = 0;
+          useId = null;
+          state.useProgress = 0;
+          state.prompt = null;
           syncWeapon();
           for (let i = 0; i < state.enemies.length; i++) {
             const e = state.enemies[i],
@@ -3058,25 +3546,34 @@
       p.y += p.vy * dt;
       p.grounded = false;
       let floor = groundY(p.x, p.z);
+      let ceiling = Infinity;
       p.surface =
         state.zone === 0
           ? "sand"
           : state.zone === 2 || state.zone === 4
             ? "concrete"
             : "grass";
-      for (const raw of layout) {
-        if (raw.dynamic === "boss" && !state.boss.alive && state.boss.dying < 1)
-          continue;
-        const b = bounds(raw);
-        if (
-          overlaps(p.x, p.z, b) &&
+      for (const entry of nearbySolids(p.x, p.z)) {
+        const b = activeBounds(entry);
+        if (!b) continue;
+        const surface = solidTop(entry, b, p.x, p.z);
+        if (surface === -Infinity) continue;
+        if (p.vy > 0 && oldY + PLAYER_HEIGHT <= b.min[1] + CONTACT_EPSILON)
+          ceiling = Math.min(ceiling, b.min[1]);
+        else if (
           p.vy <= 0 &&
-          oldY >= b.max[1] - 0.001 &&
-          p.y <= b.max[1]
+          oldY >= surface - CONTACT_EPSILON &&
+          p.y <= surface &&
+          surface >= floor
         ) {
-          floor = Math.max(floor, b.max[1]);
+          floor = surface;
           p.surface = b.surface;
         }
+      }
+      if (p.y + PLAYER_HEIGHT > ceiling) {
+        p.y = ceiling - PLAYER_HEIGHT;
+        p.vy = 0;
+        jumpBuffer = coyote = 0;
       }
       if (p.y <= floor) {
         p.y = floor;
@@ -3100,18 +3597,14 @@
       state.zone = zoneAt(p.z);
       state.progress = routeS(p.x, p.z) / 430;
       if (state.checkpoint === 0 && state.respawnS < 55 && -p.z >= 55) {
-        state.respawnS = 55.1;
-        savedWeapons = state.weapons.map((a) => ({ ...a }));
-        savedHeld = state.held;
-        savedCharges = state.charges;
+        state.respawnS = CLIMB_RESPAWN_S;
+        saveLoadout();
         sound("checkpoint");
       }
       while (state.checkpoint < state.zone) {
         state.checkpoint++;
         state.respawnS = ZONES[state.checkpoint].s0 + 0.6;
-        savedWeapons = state.weapons.map((a) => ({ ...a }));
-        savedHeld = state.held;
-        savedCharges = state.charges;
+        saveLoadout();
         hooks.checkpoint?.(state.checkpoint, ZONES[state.checkpoint].name);
         sound("checkpoint");
       }
@@ -3295,7 +3788,15 @@
           v = [b.vx * dt, b.vy * dt, b.vz * dt],
           len = Math.hypot(...v),
           dir = v.map((n) => (len ? n / len : 0)),
-          t = trace(o, dir, len, b.from === "player" && b.kind === "arc");
+          explosive = b.kind === "charge" || b.kind === "bulwark",
+          t = trace(
+            o,
+            dir,
+            len,
+            b.from === "player" && b.kind === "arc",
+            null,
+            !explosive,
+          );
         const ph =
           b.from === "enemy"
             ? rayBox(
@@ -3310,7 +3811,16 @@
             : null;
         let end = false,
           contact = false;
-        if (b.kind === "charge" || b.kind === "bulwark") {
+        if (explosive) {
+          if (b.kind === "charge" && !b.splashed && !b.settled && v[1] < 0) {
+            const water = waterCrossing(o, dir, t.distance);
+            if (water && (!t.hit || water.distance < t.distance)) {
+              b.splashed = true;
+              const splash = event("splash");
+              splash.kind = "charge";
+              splash.at.splice(0, 3, ...impactPoint(o, dir, water));
+            }
+          }
           if (!b.settled) b.vy -= 10 * dt;
           if (t.hit && !b.settled) {
             // Consume the step at contact; never apply its old travel after a bounce.
@@ -3341,14 +3851,16 @@
             end = true;
           }
         } else if (t.hit || ph) {
-          if (ph && ph.distance < t.distance)
-            hurt(MACHINES[b.kind]?.damage || 10, b);
+          const hitPlayer = ph && (!t.hit || ph.distance < t.distance);
+          if (hitPlayer) hurt(MACHINES[b.kind]?.damage || 10, b);
           else if (b.from === "player") damage(t, "arc");
+          const contact = hitPlayer ? ph : t;
           const ev = event("bolt-hit");
           ev.kind = b.kind;
-          ev.hit = t.hit || "player";
-          ev.at.splice(0, 3, ...o);
-          ev.normal.splice(0, 3, ...t.normal);
+          ev.hit = hitPlayer ? "player" : t.hit;
+          ev.index = hitPlayer ? -1 : t.index;
+          ev.at.splice(0, 3, ...impactPoint(o, dir, contact));
+          ev.normal.splice(0, 3, ...impactNormal(dir, contact.normal));
           end = true;
         }
         if (end || b.age > 8) {
@@ -3450,7 +3962,12 @@
           state.stations[e.station].state !== "keeper"
         )
           continue;
-        if (Math.hypot(p.x - e.x, p.z - e.z) > 1.4) continue;
+        const distance = Math.hypot(p.x - e.x, p.z - e.z);
+        if (e.needsSpace) {
+          if (distance < 1.5) continue;
+          delete e.needsSpace;
+        }
+        if (distance > 1.4) continue;
         const carried = state.weapons.find((a) => a.kind === e.kind);
         if (e.kind === "ammo") {
           state.weapons.forEach((a) => {
@@ -3469,7 +3986,7 @@
       state.prompt = t ? { type: t.type, kind: t.kind || t.id } : null;
       const need =
         t?.type === "station" ? 2.5 : t?.type === "beacon" ? 1.6 : 0.65;
-      if (input.use && t) {
+      if (input.use && !useConsumed && t) {
         if (useId !== t.id) {
           useTime = 0;
           useId = t.id;
@@ -3479,6 +3996,7 @@
         if (useTime >= need) {
           use(t);
           useTime = 0;
+          useConsumed = true;
         }
       } else {
         useTime = 0;
@@ -3595,8 +4113,7 @@
       state.weapons = [inventory("carbine")];
       state.held = 0;
       if (n >= 2) give("rail");
-      savedWeapons = state.weapons.map((a) => ({ ...a }));
-      savedHeld = state.held;
+      saveLoadout();
       syncWeapon();
       return true;
     }

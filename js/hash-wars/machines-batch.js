@@ -1,7 +1,10 @@
+import { updateVisibleMatrices } from "./world.js";
+
 /** Draw repeated rigid parts together; original nodes still drive IK, damage
  * and wreck transforms. Instance attributes retain per-rig light animation. */
 export function batchMachines(T, root, actors) {
   const groups = new Map();
+  const sourceLayer = 1;
   for (const actor of actors)
     for (const rig of [actor.near, actor.far])
       for (const mesh of rig.meshes) {
@@ -43,6 +46,7 @@ export function batchMachines(T, root, actors) {
         group.material,
       );
       mesh.name = "Cartel material batches";
+      mesh.sortObjects = group.material.transparent;
       mesh.castShadow = group.casts;
       mesh.receiveShadow = group.receives;
       mesh.userData.noSkyVis = true;
@@ -52,7 +56,7 @@ export function batchMachines(T, root, actors) {
         geometries.set(geometry, mesh.addGeometry(geometry));
       for (const source of group.sources) {
         mesh.addInstance(geometries.get(source.geometry));
-        source.layers.set(1);
+        source.layers.set(sourceLayer);
       }
       root.add(mesh);
       batches.push({ mesh, sources: group.sources });
@@ -98,25 +102,28 @@ export function batchMachines(T, root, actors) {
     mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);
     root.add(mesh);
     // Layer 1 is never rendered by the world or its shadow camera.
-    for (const source of group.sources) source.layers.set(1);
+    for (const source of group.sources) source.layers.set(sourceLayer);
     batches.push({ mesh, sources: group.sources, emission });
   }
+  const visibleSources = new Set();
   return {
     update() {
-      root.updateMatrixWorld(true);
+      updateVisibleMatrices(root);
+      visibleSources.clear();
+      root.traverseVisible((source) => {
+        if (source.layers.isEnabled(sourceLayer)) visibleSources.add(source);
+      });
       for (const { mesh, sources, emission } of batches) {
         let count = 0;
-        for (const source of sources) {
-          let visible = true;
-          for (let node = source; node && node !== root; node = node.parent)
-            if (!node.visible) {
-              visible = false;
-              break;
-            }
+        for (let i = 0; i < sources.length; i++) {
+          const source = sources[i];
+          const visible = visibleSources.has(source);
           if (mesh.isBatchedMesh) {
-            mesh.setVisibleAt(count, visible);
-            if (visible) mesh.setMatrixAt(count, source.matrixWorld);
-            count++;
+            mesh.setVisibleAt(i, visible);
+            if (visible) {
+              mesh.setMatrixAt(i, source.matrixWorld);
+              count++;
+            }
           } else if (visible) {
             mesh.setMatrixAt(count, source.matrixWorld);
             if (emission) {
@@ -134,15 +141,16 @@ export function batchMachines(T, root, actors) {
             count++;
           }
         }
+        mesh.visible = count > 0;
         if (mesh.isBatchedMesh) continue;
         mesh.count = count;
-        mesh.visible = count > 0;
+        if (!count) continue;
         mesh.instanceMatrix.needsUpdate = true;
         if (emission) {
           emission.needsUpdate = true;
           mesh.instanceColor.needsUpdate = true;
         }
-        if (count) mesh.computeBoundingSphere();
+        mesh.computeBoundingSphere();
       }
     },
     dispose() {

@@ -12,6 +12,7 @@ export function buildStationPaving(
   for (const apron of sim.layout.filter((b) => b.kind === "station-apron")) {
     const [x0, , z0] = apron.min,
       [x1, , z1] = apron.max;
+    const summit = apron.zone === 5;
     const batches = [[], [], [], [], []]; // stone, joints, edge, drains, safety paint
     const ground = (x, z) =>
       Math.max(sim.groundY(x, z), renderGroundY(sim, x, z));
@@ -22,6 +23,9 @@ export function buildStationPaving(
     const tiles = new Set();
     for (let x = x0; x < x1; x += 2)
       for (let z = z0; z < z1; z += 2) {
+        // The exposed front corners terminate one course early, where the
+        // mountain approach meets the old stone apron.
+        if (summit && z + 2 >= z1 && (x === x0 || x + 2 >= x1)) continue;
         const ys = [];
         let cliff = false;
         for (let a = 0; a <= 4; a++)
@@ -229,7 +233,43 @@ export function buildStationPaving(
                 0.35,
             ) * 0.26;
           const shade = 0.86 + slab * 0.035 + grain * 0.025 - track - stains;
-          colours.push(shade, shade * 0.985, shade * 0.955);
+          if (apron.zone === 4) {
+            // Dark basalt processional bands point to the citadel doors.
+            // A brass border frames the siege position in the same paving mesh.
+            const triangle = v - (v % 9);
+            const cx =
+              (vertices[triangle] +
+                vertices[triangle + 3] +
+                vertices[triangle + 6]) /
+              3;
+            const cz =
+              (vertices[triangle + 2] +
+                vertices[triangle + 5] +
+                vertices[triangle + 8]) /
+              3;
+            const tileX = x0 + 2 * Math.floor((cx - x0) / 2) + 1;
+            const tileZ = z0 + 2 * Math.floor((cz - z0) / 2) + 1;
+            const diamond = Math.abs(tileX) + Math.abs(tileZ - (z0 + z1) / 2);
+            if (diamond >= 11 && diamond < 13)
+              colours.push(shade * 0.75, shade * 0.46, shade * 0.19);
+            else if (Math.abs(tileX) < 7 || diamond < 11)
+              colours.push(shade * 0.27, shade * 0.31, shade * 0.34);
+            else colours.push(shade * 0.69, shade * 0.68, shade * 0.62);
+          } else if (summit) {
+            const edge = Math.min(x - x0, x1 - x, z - z0, z1 - z);
+            const verge = Math.max(0, 1 - edge * 0.44);
+            const dust = verge * (0.45 + 0.55 * grain);
+            const worn =
+              0.93 +
+              slab * 0.08 -
+              0.14 * Math.exp(-((x - 0.8) ** 2) / 7) -
+              0.09 * verge;
+            colours.push(
+              worn * (0.92 + dust * 0.15),
+              worn * (0.98 + dust * 0.04),
+              worn * (1.01 - dust * 0.22),
+            );
+          } else colours.push(shade, shade * 0.985, shade * 0.955);
         }
         geometry.setAttribute(
           "color",
@@ -246,10 +286,16 @@ export function buildStationPaving(
             ? materials.metal
             : i === 1
               ? materials.dark
-              : apron.zone === 5
-                ? materials.stone
-                : materials.paving,
+              : materials.paving,
       );
+      if (summit && i === 0) {
+        const stone = materials.stone.clone();
+        stone.onBeforeCompile = materials.stone.onBeforeCompile;
+        stone.customProgramCacheKey = materials.stone.customProgramCacheKey;
+        stone.vertexColors = true;
+        resources.push(stone);
+        mesh.material = stone;
+      }
       mesh.name = `STATIONS apron ${apron.zone} ${i}`;
       mesh.receiveShadow = true;
       groups[apron.zone].root.add(mesh);

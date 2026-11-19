@@ -93,7 +93,7 @@ export function rockMoss({ T, scene, quality, sim }) {
       if (!patches.has(key)) patches.set(key, []);
       patches.get(key).push({
         triangles,
-        colour: [0.065, 0.115 + hash(center.x, center.z, 16) * 0.045, 0.018],
+        colour: [0.072, 0.112 + hash(center.x, center.z, 16) * 0.034, 0.02],
       });
       count++;
     }

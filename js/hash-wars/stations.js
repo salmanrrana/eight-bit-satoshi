@@ -1,6 +1,6 @@
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { surface } from "../first-light/surfaces.js";
-import { createStationKit } from "./stations-kit.js";
+import { createStationKit, pipeJacketMaterial } from "./stations-kit.js";
 import { buildStationPaving } from "./stations-paving.js";
 import { buildStationFans } from "./stations-fans.js";
 import { buildStationShadows } from "./stations-shadows.js";
@@ -23,7 +23,7 @@ export async function build(ctx) {
     metal: surface(kit, "galvanized", { weather: false }),
     dark: kit.material({ color: 0x303d42, roughness: 0.66, metalness: 0.4 }),
     ivory: kit.material({ color: 0xc6c4b7, roughness: 0.64, metalness: 0.15 }),
-    paint: kit.material({ color: 0xf7931a, roughness: 0.88 }),
+    paint: pipeJacketMaterial(kit),
     warm: kit.material({
       color: 0xf7931a,
       emissive: 0xf7931a,
@@ -205,6 +205,38 @@ diffuseColor.rgb=hwTeam;totalEmissiveRadiance=hwTeam*1.9;`,
     groups[zone].root.add(m);
     return m;
   }
+  // Paint bands follow the trunk's pitched axis. The gate carries the same
+  // split-diamond seal on each wing, large enough to read across the arena.
+  const jacket = new T.CylinderGeometry(0.929, 0.929, 0.72, 40, 1, true);
+  jacket.rotateX(Math.PI / 2);
+  jacket.translate(0, 3, -2.8);
+  resources.push(jacket);
+  const sealCanvas = document.createElement("canvas");
+  sealCanvas.width = 128;
+  sealCanvas.height = 512;
+  const ink = sealCanvas.getContext("2d");
+  ink.fillStyle = "#a94e31";
+  ink.fillRect(0, 0, 128, 512);
+  ink.fillStyle = "#dcc38e";
+  for (const x of [6, 119]) ink.fillRect(x, 0, 3, 512);
+  ink.lineWidth = 6;
+  ink.strokeStyle = "#dcc38e";
+  for (const top of [74, 112]) {
+    ink.beginPath();
+    ink.moveTo(64, top);
+    ink.lineTo(99, top + 41);
+    ink.lineTo(64, top + 82);
+    ink.lineTo(29, top + 41);
+    ink.closePath();
+    ink.stroke();
+  }
+  ink.fillRect(62, 220, 4, 259);
+  const sealTexture = new T.CanvasTexture(sealCanvas);
+  sealTexture.colorSpace = T.SRGBColorSpace;
+  resources.push(sealTexture);
+  const seal = kit.material({ map: sealTexture, roughness: 0.9 });
+  const panel = new T.PlaneGeometry(4.4, 6.7);
+  resources.push(panel);
   function kitPart(part, zone) {
     const placed = library.place(
       part,
@@ -213,6 +245,29 @@ diffuseColor.rgb=hwTeam;totalEmissiveRadiance=hwTeam*1.9;`,
       quality === "low",
     );
     if (quality !== "low") library.place(part, zone, groups[zone].far, true);
+    if (placed && part.node.startsWith("pipeline_segment")) {
+      dummy.position.set(part.x, part.y, part.z);
+      dummy.rotation.set(0, part.yaw, 0);
+      dummy.rotateX(part.pitch);
+      dummy.scale.set(1, 1, part.length);
+      dummy.updateMatrix();
+      addGeometry(jacket, materials.paint, zone, dummy.matrix, false);
+    }
+    if (placed && part.node === "citadel_gate") {
+      for (const side of [-1, 1]) {
+        const matrix = new T.Matrix4().makeTranslation(
+          part.x + side * 16,
+          part.y + 19.5,
+          part.z + 3.84,
+        );
+        addGeometry(panel, seal, zone, matrix, false);
+        // Long standards hang between pilasters on the outer curtain, clear
+        // of the wing galleries and their walkable decks.
+        matrix.makeScale(0.73, 2.48, 1);
+        matrix.setPosition(part.x + side * 26.4, part.y + 12.6, part.z + 1.22);
+        addGeometry(panel, seal, zone, matrix, false);
+      }
+    }
     return placed;
   }
   // New artist files are optional until their manifest entry arrives. Named

@@ -3,11 +3,10 @@
 Rebuild:  /snap/bin/blender -b --factory-startup -t 2 -P tools/blender/hash-wars/rocks/build.py
 Repack:   python3 tools/blender/hash-wars/rocks/build.py --pack-existing
 
-columns.py makes the geometry (packed irregular six-sided columns with rounded
-edges, broken/tilted/stepped crowns, fallen drums), textures.py makes one
-tiling 2048 atlas (joints, spalls, near-black stone, weathered crowns).
-Every piece has a hand-built `_lod1` from the same layout: same crowns, no
-bevels, fewer faces. Nothing is decimated, so silhouettes never collapse.
+columns.py packs irregular basalt columns and fallen drums. formations.py
+shapes weathered lava banks, gorge cuts, ribs, and worn tread crowns.
+textures.py makes the shared 2048 atlas. Every piece has a coarser `_lod1`
+from the same profile.
 """
 import sys
 import os
@@ -32,6 +31,7 @@ import numpy as np  # noqa: E402
 from pack import pack as pack_attributes  # noqa: E402
 import columns as C  # noqa: E402
 import textures  # noqa: E402
+import formations  # noqa: E402
 
 S = C.smoothstep
 
@@ -45,82 +45,24 @@ def escarpment(seed, lod):
     n1 = lambda x: C.vnoise(x * .28, seed * .1, seed)
 
     def height(x, y, rng):
-        yy = y + (n1(x) - .5) * 2.6
+        rib = n1(x)
+        yy = y + (rib - .5) * 4.3
+        tooth = 1. + 3.8 * C.vnoise(x * .29, y * .14, seed + 9)
         g = ground(x, y)
         if yy < -4.6:
-            h = 9.5 + 1.6 * C.vnoise(x * .5, 3, seed)
+            h = 5.0 + 5.3 * rib + tooth
         elif yy < .4:
-            h = 17.0 + 1.8 * C.vnoise(x * .45, 7, seed)
+            h = 12.0 + 4.2 * rib + tooth
         elif yy < 4.6:
-            h = 24.2 + 1.2 * C.vnoise(x * .4, 11, seed)
+            h = 19.0 + 3.7 * rib + tooth
         else:
             h = g + .25 + 1.4 * C.vnoise(x * .9, y * .9, seed) ** 2
         h += 2.4 * (C.vnoise(x * .7, y * .7, seed + 5) - .5)
         h = max(h, g + .25) + rng.uniform(-.45, .45)
         return min(h, 27.8)
-    return C.field(seed, (-8.45, 8.45, -7.35, 7.35), 1.0, height, ground, lod=lod, broken=.15, stepped=.3)
-
-
-def gorge(seed, lod):
-    """Gorge wall, 16 x 14 m, 42 m tall: 20 m columns rising straight from the
-    floor, two broken tiers above, crowns sinking into the plateau."""
-    ground = lambda x, y: 2 + 38 * (1 - S(0, 1, (6.5 - y) / 13))
-
-    def height(x, y, rng):
-        yy = y + (C.vnoise(x * .3, 1, seed) - .5) * 2.4
-        g = ground(x, y)
-        if yy < -3.4:
-            h = 23.5 + 3.0 * C.vnoise(x * .4, 3, seed)
-        elif yy < 1.2:
-            h = 33.0 + 2.0 * C.vnoise(x * .5, 5, seed)
-        elif yy < 4.6:
-            h = 39.6 + 1.0 * C.vnoise(x * .5, 9, seed)
-        else:
-            h = g + .25 + 1.2 * C.vnoise(x * .8, y * .8, seed) ** 2
-        h += 2.6 * (C.vnoise(x * .6, y * .6, seed + 5) - .5)
-        return min(max(h, g + .25) + rng.uniform(-.5, .5), 41.8)
-    return C.field(seed, (-7.4, 7.4, -6.3, 6.3), 1.05, height, ground, lod=lod, broken=.15, stepped=.3)
-
-
-def wall(seed, lod, buttress):
-    """Summit colonnade piece, 7.4 x 4.1 m."""
-    def height(x, y, rng):
-        back = (y + 1.55) / 3.1           # 0 at the front, 1 at the back
-        tier = .5 + .5 * min(1, round(back * 2.4 + C.vnoise(x * .6, 4, seed) * .8) / 2)
-        if buttress:
-            return 13.7 * tier * (1 - .25 * abs(x) / 3.2) + rng.uniform(-.6, .4)
-        return 11.6 * tier + 1.2 * C.vnoise(x * .7, 2, seed) + rng.uniform(-.7, .4)
-    return C.field(seed, (-3.2, 3.2, -1.55, 1.55), .9, height, lod=lod, broken=.2, stepped=.3, tilt_max=.1)
-
-
-def tread(seed, lod, shifted):
-    """One walking-stair row: 6 m wide, 0.8 m deep, crowns at 2.4 m (the solid's
-    top). Crowns never rise above the solid; they only sit 0-2.5 cm under it."""
-    rng = random.Random(seed)
-    m = C.Mesh()
-    a, hgt = .82, .82 * .866
-    x = -3 - (a / 2 if shifted else 0)
-    jit = lambda: (rng.uniform(-.07, .07), rng.uniform(-.05, .05))
-    row = []
-    while x < 3 + a:
-        row.append(x); x += a
-    for x in row:
-        c = (x + rng.uniform(-.06, .06), 0.0)
-        nb = [(x + a, 0), (x + a / 2, hgt), (x - a / 2, hgt), (x - a, 0), (x - a / 2, -hgt), (x + a / 2, -hgt)]
-        nb = [(p[0] + j[0], p[1] + j[1]) for p, j in ((p, jit()) for p in nb)]
-        poly = [C.circumcentre(c, nb[k], nb[(k + 1) % 6]) for k in range(6)]
-        poly, centre, inr = C.shrink(poly, .03)
-        # squash the pointy hexes into the 0.8 m deep row, clip to the 6 m lane
-        poly = [(max(-3, min(3, p[0])), max(-.4, min(.4, p[1] * .82))) for p in poly]
-        if max(p[0] for p in poly) - min(p[0] for p in poly) < .12:
-            continue
-        h = 2.4 - rng.uniform(0, .05) - (rng.uniform(.1, .2) if rng.random() < .12 else 0)
-        t = rng.uniform(0, .03)
-        ang = rng.uniform(0, math.tau)
-        C.column(m, poly, centre, [0.0] * 6, h - t * .45, rng, lod=lod, voff=rng.uniform(0, 4),
-                 bevel=0 if lod else .03, rim=.035, tilt=(math.cos(ang) * t, math.sin(ang) * t),
-                 side_variant=rng.randrange(4), top_variant=rng.randrange(4))
-    return m
+    return C.field(seed, (-8.45, 8.45, -7.35, 7.35), 1.27, height, ground,
+                   lod=lod, broken=.22, stepped=.20, tilt_max=.22, jitter=.23,
+                   lean_amp=.055, joint_geometry=False, bevel=.015)
 
 
 def heap(seed, lod, size):
@@ -173,11 +115,8 @@ def stack(seed, lod):
 SPECS = [
     ('escarpment_0', lambda lod: escarpment(31, lod)),
     ('escarpment_1', lambda lod: escarpment(57, lod)),
-    ('gorge_mass', lambda lod: gorge(83, lod)),
-    ('wall_broken', lambda lod: wall(101, lod, False)),
-    ('buttress', lambda lod: wall(113, lod, True)),
-    ('stair_tread', lambda lod: tread(7, lod, False)),
-    ('stair_tread_b', lambda lod: tread(9, lod, True)),
+    ('stair_tread', lambda lod: formations.tread(7, lod)),
+    ('stair_tread_b', lambda lod: formations.tread(9, lod)),
     ('boulder_0', lambda lod: heap(201, lod, (1.7, 1.5, 1.0))),
     ('boulder_1', lambda lod: heap(211, lod, (2.6, 2.3, 1.5))),
     ('boulder_2', lambda lod: heap(221, lod, (3.4, 3.0, 1.7))),
@@ -188,6 +127,15 @@ SPECS = [
     ('sea_stack_0', lambda lod: stack(401, lod)),
     ('sea_stack_1', lambda lod: stack(419, lod)),
 ]
+
+for kind, seeds in [
+    ('lava_bank', (19, 26)),
+    ('cut_gorge', (4, 15)),
+    ('fins_bank', (33, 58)),
+    ('summit_ridge', (18, 29)),
+]:
+    for variant, seed in enumerate(seeds):
+        SPECS.append((f'{kind}_{variant}', lambda lod, k=kind, s=seed: formations.escarpment(k, s, lod)))
 
 
 # ---------------------------------------------------------------- blender

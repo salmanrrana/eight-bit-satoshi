@@ -148,6 +148,9 @@ export async function build({
   }
   const uniforms = {
     hwTime: { value: 0 },
+    hwStrikes: { value: new Float32Array(16 * 4) },
+    hwStrikeCount: { value: 0 },
+    hwStrikeTime: { value: 0 },
     hwSea: { value: seaY ?? -1 },
     hwContacts: { value: waterRocks.length ? 1 : 0 },
     hwBounds: { value: bounds },
@@ -705,8 +708,44 @@ export async function build({
       (g.isInstancedBufferGeometry ? g.instanceCount : 1);
   }
   material.userData.waterBudget = stats;
+  let strikeCursor = 0,
+    lastStrike = -Infinity;
   return {
-    update({ snapshot, time, env, camera }) {
+    update({ snapshot, time, env, camera, events }) {
+      const strikeTime = snapshot.time;
+      if (
+        strikeTime < uniforms.hwStrikeTime.value ||
+        snapshot.respawn > 0 ||
+        strikeTime - lastStrike > 2.65
+      ) {
+        uniforms.hwStrikeCount.value = strikeCursor = 0;
+      }
+      uniforms.hwStrikeTime.value = strikeTime;
+      for (const e of events) {
+        if (!(
+          e.type === "splash" ||
+          (e.hit === "water" && (e.type === "shot" || e.type === "bolt-hit"))
+        ))
+          continue;
+        const at = e.type === "shot" ? e.to : e.at;
+        const i = 4 * strikeCursor,
+          data = uniforms.hwStrikes.value;
+        data[i] = at[0];
+        data[i + 1] = at[2];
+        data[i + 2] = lastStrike = strikeTime;
+        const source = e.type === "shot" ? e.weapon : e.kind;
+        data[i + 3] =
+          source === "scatter"
+            ? 0.45
+            : source === "rail" || source === "charge"
+              ? 1.5
+              : 0.85;
+        strikeCursor = (strikeCursor + 1) % 16;
+        uniforms.hwStrikeCount.value = Math.min(
+          16,
+          uniforms.hwStrikeCount.value + 1,
+        );
+      }
       uniforms.hwTime.value = time;
       if (env?.sunDir) uniforms.hwSun.value.copy(env.sunDir);
       if (env?.sunColour) uniforms.hwSunColour.value.copy(env.sunColour);

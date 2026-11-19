@@ -177,7 +177,8 @@ ${physicalIBL}`,
         shader.fragmentShader;
       // Broad moving cloud shade shares one program with every kit material.
       // FLORA applies shared transmittance with its leaf transmission model.
-      if (!m.customProgramCacheKey().startsWith("hw-flora"))
+      const foliage = m.customProgramCacheKey().startsWith("hw-flora");
+      if (!foliage)
         shader.fragmentShader = shader.fragmentShader.replace(
           "#include <lights_fragment_end>",
           `#include <lights_fragment_end>
@@ -190,9 +191,15 @@ ${physicalIBL}`,
         "#include <aomap_fragment>",
         `#include <aomap_fragment>
 {
-float flSky=flSkyVisibility(cameraPosition-vViewPosition*mat3(viewMatrix),normalize(normal*mat3(viewMatrix)));
-reflectedLight.indirectDiffuse*=flSky;
-reflectedLight.indirectSpecular*=flSky;
+vec3 flNormal=normalize(normal*mat3(viewMatrix));
+vec3 flWorldPoint=cameraPosition-vViewPosition*mat3(viewMatrix);
+// Sample below a downward-facing surface to see the shelter under the slab.
+flWorldPoint.y+=min(0.,flNormal.y)*.65;
+float flSky=flSkyVisibility(flWorldPoint,flNormal);
+float flUpper=clamp(flNormal.y*.5+.5,0.,1.);
+reflectedLight.indirectDiffuse*=mix(mix(.25,1.,flSky),flSky,flUpper);
+reflectedLight.indirectDiffuse+=diffuseColor.rgb*vec3(.08,.07,.052)*(1.-flUpper)*flSky;
+reflectedLight.indirectSpecular*=flSky*${foliage ? ".38" : "mix(.55,1.,flUpper)"};
 }`,
       );
       // Derivative-based content normals can degenerate at grazing edges.
@@ -235,7 +242,7 @@ normal=normalize(normal+vec3(dFdx(ripple),dFdy(ripple),0.)*.04*rain*wetness);`,
       }
     };
     m.customProgramCacheKey = () =>
-      `${weather ? "first-light-weather-v2" : "first-light-dry-v1"}-${iblUniforms ? "blended-sky" : "single-sky"}-finite-normals-skyvis-${lighting.materialUniforms ? "downlights" : "radial"}`;
+      `${weather ? "first-light-weather-v2" : "first-light-dry-v1"}-${iblUniforms ? "blended-sky" : "single-sky"}-finite-normals-skyvis-v2-${lighting.materialUniforms ? "downlights" : "radial"}`;
     return m;
   }
   function roundedBox(w, h, d, r = 0.04) {

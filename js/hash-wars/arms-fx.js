@@ -1,9 +1,7 @@
 /** Fixed pools: one soft-effect shader and shared instanced PBR brass/cells. */
 export function createEffects({ T, kit, scene, viewGroup, sim, quality }) {
   const capacity = quality === "low" ? 256 : 512,
-    count = quality === "low" ? 36 : 72,
-    markCount = quality === "low" ? 32 : 64,
-    transientCount = capacity - markCount;
+    count = quality === "low" ? 36 : 72;
   const geometry = new T.PlaneGeometry(1, 1),
     params = new T.InstancedBufferAttribute(new Float32Array(capacity * 4), 4);
   geometry.setAttribute("effect", params);
@@ -38,7 +36,6 @@ float alpha=pow(max(0.,1.-r*r),2.);
 if(fx.y>.5&&fx.y<1.5){float billow=sin(p.x*6.+sin(p.y*8.)+fx.z)*sin(p.y*7.-fx.z);
 alpha*=smoothstep(-.8,.8,billow)*.65+.35;alpha*=1.-smoothstep(.55+.15*billow,1.,r);}
 if(fx.y>1.5&&fx.y<2.5)alpha=(1.-smoothstep(.018,.12,abs(r-.77)))*(1.-smoothstep(.95,1.,r));
-if(fx.y>2.5&&fx.y<3.5)alpha=pow(max(0.,1.-r),.6)*(.7+.3*sin(p.x*21.)*sin(p.y*17.));
 if(fx.y>3.5&&fx.y<4.5)alpha=pow(max(0.,1.-p.x*p.x),2.)*(1.-smoothstep(.65,1.,abs(p.y)));
 if(fx.y>4.5&&fx.y<5.5)alpha=exp(-r*r*5.)*(1.-smoothstep(.7,1.,r));
 if(fx.y>5.5&&fx.y<6.5)alpha=(1.-smoothstep(.22,.7,abs(p.x)+abs(p.y)*.7))*(.8+.2*sin(p.y*18.+fx.z));
@@ -47,6 +44,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
   const mesh = new T.InstancedMesh(geometry, material, capacity);
   mesh.name = "ARMS pooled soft effects";
   mesh.frustumCulled = false;
+  mesh.renderOrder = 5;
   mesh.setColorAt(0, new T.Color());
   scene.add(mesh);
   const flashGeo = new T.PlaneGeometry(1, 1),
@@ -91,6 +89,46 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
   }
   for (const attribute of [params, flashParams, scopeParams])
     attribute.setUsage(T.DynamicDrawUsage);
+  const chipGeometry = new T.TetrahedronGeometry(0.65);
+  const chipFade = new T.InstancedBufferAttribute(
+    new Float32Array(capacity),
+    1,
+  );
+  chipGeometry.setAttribute("chipFade", chipFade.setUsage(T.DynamicDrawUsage));
+  const chipMaterial = kit.material({
+    color: 0xffffff,
+    transparent: true,
+    depthWrite: false,
+  });
+  const compileChip = chipMaterial.onBeforeCompile;
+  chipMaterial.customProgramCacheKey = () => "hw-impact-chip";
+  chipMaterial.onBeforeCompile = (shader) => {
+    compileChip(shader);
+    shader.vertexShader =
+      "attribute float chipFade;varying float opacityChip;\n" +
+      shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nopacityChip=chipFade;",
+      );
+    shader.fragmentShader =
+      "varying float opacityChip;\n" +
+      shader.fragmentShader
+        .replace(
+          "#include <color_fragment>",
+          "#include <color_fragment>\ndiffuseColor.a*=opacityChip;",
+        )
+        .replace(
+          "#include <opaque_fragment>",
+          // Preserve the fragment shading while the orange muzzle light is on.
+          "outgoingLight=mix(vec3(dot(outgoingLight,vec3(.2126,.7152,.0722))),outgoingLight,.18);\n#include <opaque_fragment>",
+        );
+  };
+  const chips = new T.InstancedMesh(chipGeometry, chipMaterial, capacity);
+  chips.setColorAt(0, new T.Color());
+  chips.frustumCulled = false;
+  chips.receiveShadow = true;
+  chips.name = "ARMS stone fragments";
+  scene.add(chips);
   const zeroMatrix = new T.Matrix4().makeScale(0, 0, 0);
   const records = Array.from({ length: capacity }, () => ({
     x: 0,
@@ -108,6 +146,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     phase: 0,
     opacity: 1,
     gravity: 0,
+    floor: 0,
     minWidth: 0,
     boost: 1,
     normal: new T.Vector3(),
@@ -137,7 +176,6 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     helixNext = new T.Vector3(),
     barrel = new T.Vector3();
   let cursor = 0,
-    markCursor = 0,
     shellCursor = 0,
     write = 0,
     round = 0,
@@ -186,12 +224,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     stretch = 1,
     opacity = 1,
   ) {
-    const p =
-      records[
-        mode === 3
-          ? transientCount + (markCursor++ % markCount)
-          : cursor++ % transientCount
-      ];
+    const p = records[cursor++ % capacity];
     p.x = x;
     p.y = y;
     p.z = z;
@@ -266,7 +299,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     p.bounces = 0;
     p.floor = floor(p.p.x, p.p.z, p.p.y);
   }
-  function impact(at, hit, n) {
+  function impact(at, hit, n, weapon) {
     if (!hit) return;
     const x = at[0],
       y = at[1],
@@ -285,6 +318,56 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
       if (shield) return;
     }
     if (hit === "player") return;
+    const pellet = weapon === "scatter";
+    if (hit === "water") {
+      const force = pellet
+        ? 0.52
+        : weapon === "rail" || weapon === "charge"
+          ? 1.7
+          : 1;
+      const drops = pellet ? 4 : quality === "low" ? 7 : 12;
+      const phase = random() * Math.PI * 2;
+      for (let i = 0; i < drops; i++) {
+        const a = phase + (i * 6.283) / drops,
+          speed = (1.4 + random()) * force;
+        emit(
+          x,
+          y + 0.04,
+          z,
+          0,
+          0.15 * force,
+          1.4,
+          0xd9f8ff,
+          Math.cos(a) * speed,
+          (3.6 + random() * 1.8) * Math.sqrt(force),
+          Math.sin(a) * speed,
+          9,
+          null,
+          null,
+          1.6,
+        );
+        const drop = records[(cursor - 1) % capacity];
+        drop.life = (2 * drop.vy) / drop.gravity;
+      }
+      emit(
+        x,
+        y + 0.58 * force,
+        z,
+        4,
+        0.21 * force,
+        0.32,
+        0xf0ffff,
+        0,
+        0.7,
+        0,
+        0,
+        null,
+        up,
+        6,
+      );
+      emit(x, y + 0.19, z, 1, 0.67 * force, 0.53, 0xe0eff3, 0.15, 0.42, 0);
+      return;
+    }
     // A short hot pinpoint makes every hit readable at range.
     emit(
       x + normal.x * 0.03,
@@ -295,63 +378,58 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
       0.06,
       0xffe2b0,
     );
-    records[(cursor - 1) % transientCount].boost = 2.4;
-    const water = hit === "water" || hit === "wet",
-      metal = hit.includes("metal") || hit.includes("steel") || hull || weak,
-      rock =
-        hit.includes("rock") ||
-        hit.includes("stone") ||
-        hit.includes("concrete"),
-      sand = hit.includes("sand");
-    const colour = water
-      ? 0xb0d9df
-      : metal
-        ? 0xffb34f
-        : rock
-          ? 0x868781
-          : sand
-            ? 0xa49a84
-            : 0x70634b;
-    for (let i = 0; i < (quality === "low" ? 5 : 10); i++) {
-      const speed = metal ? 3.5 : 1.8,
-        vx = (random() - 0.5) * speed + normal.x * 1.5,
-        vy = random() * speed + normal.y,
-        vz = (random() - 0.5) * speed + normal.z * 1.5;
+    records[(cursor - 1) % capacity].boost = 2.4;
+    const metal = hit === "metal" || hull || weak,
+      stone = hit === "rock" || hit === "concrete" || hit === "stone";
+    const colour = metal
+      ? 0xffbd65
+      : hit === "grass"
+        ? 0x675635
+        : hit === "sand"
+          ? 0xb99762
+          : hit === "rock"
+            ? 0x858886
+            : hit === "stone"
+              ? 0x626b72
+              : 0x999e9d;
+    const particles = pellet ? 2 : quality === "low" ? 4 : 7;
+    const bottom = stone ? (normal.y > 0.85 ? y : floor(x, z, y)) : 0;
+    for (let i = 0; i < particles; i++) {
+      const speed = metal ? 5 : 2.7;
+      const vx = (random() - 0.5) * speed + normal.x * 2,
+        vy = 0.5 + random() * speed + normal.y,
+        vz = (random() - 0.5) * speed + normal.z * 2;
       axis.set(vx, vy, vz).normalize();
-      const chip = i % 3 === 0;
       emit(
         x,
-        y,
+        y + 0.02,
         z,
-        metal ? 4 : water ? 0 : chip ? 6 : 1,
-        metal ? 0.018 : water ? 0.045 : chip ? 0.055 : 0.19,
-        0.3 + random() * 0.55,
+        metal ? 4 : stone ? 9 : 6,
+        metal ? 0.034 : 0.065 + random() * 0.07,
+        stone ? 1.25 : 0.24 + random() * 0.24,
         colour,
         vx,
         vy,
         vz,
-        metal || water || chip ? 8 : 1.2,
+        9,
         null,
         axis,
-        metal ? 5 : water ? 2 : 1,
+        metal ? 6 : 1,
       );
+      records[(cursor - 1) % capacity].floor = bottom;
     }
-    if (water) emit(x, y + 0.02, z, 2, 0.7, 0.65, 0xa2cbd0, 0, 0, 0, 0, up);
-    else if (!hull && !weak)
-      emit(
-        x + normal.x * 0.014,
-        y + normal.y * 0.014,
-        z + normal.z * 0.014,
-        3,
-        metal ? 0.075 : rock ? 0.13 : 0.2,
-        30,
-        metal ? 0x272e2b : 0x38352b,
-        0,
-        0,
-        0,
-        0,
-        normal,
-      );
+    emit(
+      x + normal.x * 0.08,
+      y + 0.06,
+      z + normal.z * 0.08,
+      1,
+      metal ? 0.12 : pellet ? 0.23 : 0.58,
+      metal ? 0.82 : stone ? 1.32 : 0.46,
+      metal ? 0xa39d98 : colour,
+      normal.x * 0.5,
+      0.45 + normal.y * 0.4,
+      normal.z * 0.5,
+    );
   }
   // Thin warm tracer from the muzzle to the authoritative hit. The streak travels
   // so its head reaches the hit as it fades; width never drops under ~2 px.
@@ -375,7 +453,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
       dir,
       span / width,
     );
-    const p = records[(cursor - 1) % transientCount];
+    const p = records[(cursor - 1) % capacity];
     p.minWidth = 0.0042;
     p.boost = boost;
     // Seen nearly end-on a short streak shrinks to a dot, so the shot frame also
@@ -398,7 +476,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
       dir,
       reach / (width * 0.8),
     );
-    const q = records[(cursor - 1) % transientCount];
+    const q = records[(cursor - 1) % capacity];
     q.minWidth = 0.0032;
     q.boost = boost * 0.8;
   }
@@ -408,10 +486,11 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     flashShape = (flashShape + 1) % 3;
     flashRoll = random() * 6.28;
   }
-  function shot(event, start) {
+  function shot(event, start, contact) {
     if (event.weapon === "arc") return;
     const rail = event.weapon === "rail";
-    dir.fromArray(event.to).sub(start);
+    const to = contact?.at ?? event.to;
+    dir.fromArray(to).sub(start);
     const length = dir.length();
     dir.normalize();
     if (rail)
@@ -496,10 +575,11 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
         helixPrevious.copy(helixNext);
       }
     }
-    impact(event.to, event.hit, event.normal);
+    impact(to, event.hit, contact?.normal ?? event.normal, event.weapon);
   }
   function burst(at) {
     // MACHINES owns the hot flash/plume; this is the low ground shock and soil skirt.
+    if (at[1] < sim.waterY(at[0], at[2])) return;
     const y = floor(at[0], at[2], at[1] + 1) + 0.035;
     emit(at[0], y, at[2], 2, 5, 0.75, 0xd2b992, 0, 0, 0, 0, up);
     for (let i = 0; i < (quality === "low" ? 8 : 16); i++) {
@@ -590,6 +670,7 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     if (vent) {
       emit(vent.x, vent.y, vent.z, 1, 0.07, 0.8, 0xa5bfc0, 0, 0.3, 0.03);
     }
+    let chipCount = 0;
     for (const p of records) {
       if (p.age >= p.life) continue;
       p.age += dt;
@@ -600,10 +681,32 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
       const t = p.age / p.life,
         smoke = p.mode === 1,
         ring = p.mode === 2;
+      if (p.mode === 9) {
+        if (p.y <= p.floor && p.vy < 0) {
+          p.y = p.floor + 0.012;
+          p.vy = -p.vy * 0.28;
+          p.vx *= 0.48;
+          p.vz *= 0.48;
+          if (p.vy < 0.45) p.gravity = p.vx = p.vy = p.vz = 0;
+        }
+        const size = p.size;
+        chipFade.setX(chipCount, Math.min(1, Math.max(0, (1 - t) * 4)));
+        dummy.position.set(p.x, p.y, p.z);
+        dummy.rotation.set(
+          p.phase + p.age * p.vx,
+          p.phase + p.age * p.vz,
+          p.phase,
+        );
+        dummy.scale.set(size, size * 0.62, size * 0.8);
+        dummy.updateMatrix();
+        chips.setMatrixAt(chipCount, dummy.matrix);
+        chips.setColorAt(chipCount++, tint.set(p.tint));
+        continue;
+      }
       const size = p.size * (smoke ? 1 + t * 2 : ring ? 0.2 + t * 1.5 : 1),
         alpha =
           p.opacity *
-          (smoke ? 0.25 : p.mode === 3 ? 0.52 : 0.9) *
+          (smoke ? 0.25 : 0.9) *
           Math.min(1, Math.max(0, (1 - t) * 4));
       const width = p.minWidth
         ? Math.max(
@@ -621,12 +724,20 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
         alpha,
         p.mode,
         camera,
-        p.mode === 2 || p.mode === 3 ? p.normal : null,
+        p.mode === 2 ? p.normal : null,
         p.mode === 4 ? p.axis : null,
         p.phase + t * 0.6,
         p.boost,
       );
     }
+    chips.count = s.time === 0 ? Math.max(1, chipCount) : chipCount;
+    chips.visible = chips.count > 0;
+    if (chipCount)
+      chipFade.needsUpdate =
+        chips.instanceColor.needsUpdate =
+        chips.instanceMatrix.needsUpdate =
+          true;
+    if (!chipCount && s.time === 0) chips.setMatrixAt(0, zeroMatrix);
     mesh.count = s.time === 0 ? Math.max(1, write) : write;
     mesh.visible = write > 0 || s.time === 0;
     mesh.instanceMatrix.needsUpdate = true;
@@ -704,6 +815,9 @@ gl_FragColor=vec4(tint,alpha*fx.x);}`,
     floor,
     reset,
     dispose() {
+      chips.removeFromParent();
+      chips.dispose();
+      chipGeometry.dispose();
       mesh.removeFromParent();
       flash.removeFromParent();
       scope.removeFromParent();

@@ -266,9 +266,16 @@ export function terrainGeometry(T, sim, quality) {
   let pebbleCount = 0;
   for (let k = 0; k < (low ? 1800 : quality === "high" ? 4200 : 6500); k++) {
     const shorePocket = k % 6 === 0,
-      z = shorePocket ? 10 - rng() * 24 : 14 - rng() * 447,
+      summitPocket = k % 6 === 1,
+      sample = rng(),
+      z = shorePocket
+        ? 10 - sample * 24
+        : summitPocket
+          ? -391 - sample * 43
+          : 14 - sample * 447,
       centre = centreAt(sim, z),
-      x = centre + (rng() - 0.5) * (shorePocket ? 38 : 48),
+      spread = shorePocket ? 38 : summitPocket ? 20 : 48,
+      x = centre + (rng() - 0.5) * spread,
       y = sim.groundY(x, z);
     if (protectedAt(x, z) || (z < -150 && z > -230) || y < sim.SEA_Y + 0.15)
       continue;
@@ -287,21 +294,24 @@ export function terrainGeometry(T, sim, quality) {
       2;
     const edge = Math.exp(-(((Math.abs(lane) - 2.05) / 0.65) ** 2));
     const tide = Math.exp(-(((y - sim.SEA_Y - 0.65) / 0.7) ** 2));
+    const alpine = smooth(391, 415, -z);
+    const frostLine = Math.sin(x * 0.76 + z * 0.22 + Math.sin(z * 0.47));
+    const shelf = alpine * smooth(0.26, 0.93, frostLine);
     if (
       rng() >
-      (beach ? 0.12 + tide * 0.75 : 0.012 + edge * 0.75) *
-        smooth(0.35, 0.8, cluster)
+      (beach ? 0.12 + tide * 0.75 : 0.012 + edge * 0.75 + shelf * 0.92) *
+        smooth(0.35 - shelf * 0.16, 0.8, cluster)
     )
       continue;
-    const radius = 0.045 + rng() ** 1.7 * 0.22,
-      h = radius * (0.16 + rng() * 0.23),
+    const radius = 0.045 + rng() ** 1.7 * (0.22 + shelf * 0.32),
+      h = radius * (0.16 + rng() * (0.23 - shelf * 0.07)),
       base = p.length / 3,
       turn = rng() * Math.PI * 2;
     for (let j = 0; j < 2; j++)
       for (let i = 0; i < 6; i++) {
         const a = turn + (i * Math.PI) / 3,
           r = radius * (j ? 0.48 : 1) * (0.72 + rng() * 0.5),
-          xx = x + Math.cos(a) * r,
+          xx = x + Math.cos(a) * r * (1.0 + shelf * 0.39),
           zz = z + Math.sin(a) * r;
         const bed = renderGroundY(sim, xx, zz);
         p.push(

@@ -14,7 +14,16 @@ export async function build(ctx) {
     air = { value: new T.Color(0.45, 0.61, 0.78) };
   const geometry = terrainGeometry(T, sim, quality);
   resources.push(geometry);
-  const ground = new T.Mesh(geometry, terrainMaterial(kit, sim.SEA_Y, air));
+  const litter = await new T.TextureLoader().loadAsync(
+    "/assets/hash-wars/ground/litter.png",
+  );
+  litter.wrapS = litter.wrapT = T.RepeatWrapping;
+  litter.anisotropy = Math.min(8, ctx.renderer.capabilities.getMaxAnisotropy());
+  resources.push(litter);
+  const ground = new T.Mesh(
+    geometry,
+    terrainMaterial(kit, sim.SEA_Y, air, litter),
+  );
   ground.name = "LAND continuous groundY terrain";
   ground.receiveShadow = true;
   // WATER reads the complete skin topology for its tidal film.

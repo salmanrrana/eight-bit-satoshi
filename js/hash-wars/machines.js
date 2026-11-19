@@ -370,7 +370,7 @@ void main(){float d=length(vLocal-normalize(impact));float flarePatch=exp(-d*d*1
       e.z,
     );
     a.anchor.rotation.set(0, e.yaw, 0);
-    a.anchor.updateMatrixWorld(true);
+    a.anchor.updateWorldMatrix(true, false);
     for (const rig of [a.near, a.far])
       for (const leg of rig.legs) {
         leg.planted.copy(leg.ankle).applyMatrix4(a.anchor.matrixWorld);
@@ -490,7 +490,7 @@ void main(){float d=length(vLocal-normalize(impact));float flarePatch=exp(-d*d*1
       rig.nodes.body.position.z -= e.hit * 0.07;
       rig.nodes.body.rotation.x = -e.hit * 0.045;
     }
-    a.anchor.updateMatrixWorld(true);
+    a.anchor.updateWorldMatrix(true, false);
     a.stepClock += dt;
     let stepping = false;
     for (const leg of rig.legs) if (leg.progress < 1) stepping = true;
@@ -1018,7 +1018,6 @@ void main(){float d=length(vLocal-normalize(impact));float flarePatch=exp(-d*d*1
     if (haulerDust > 0.08 && !s.quiet) {
       haulerDust = 0;
       // Four separated outflows roll away from the actual nacelle footprint.
-      hauler.root.updateMatrixWorld(true);
       const hoverStrength = Math.max(0, 1 - Math.max(0, h.phase - 0.58) * 4);
       for (let i = 0; i < 4; i++) {
         const nozzle = hauler.nodes["thruster_" + i];
@@ -1041,7 +1040,6 @@ void main(){float d=length(vLocal-normalize(impact));float flarePatch=exp(-d*d*1
         );
       }
     }
-    hauler.root.updateMatrixWorld(true);
     for (let i = 0; i < 4; i++) {
       const nozzle = hauler.nodes["thruster_" + i];
       if (!nozzle) continue;

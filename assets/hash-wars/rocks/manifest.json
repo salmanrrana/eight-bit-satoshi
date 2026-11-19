@@ -2,98 +2,59 @@
   "files": [
     {
       "file": "basalt.glb",
-      "bytes": 4638780,
-      "triangles": 71124,
-      "lod1Triangles": 14976,
+      "bytes": 2985820,
+      "triangles": 31824,
+      "lod1Triangles": 11454,
       "nodes": {
         "escarpment_0": {
           "nodes": ["escarpment_0", "escarpment_0_lod1"],
-          "sizeMetres": [18.44, 27.028, 16.202],
-          "triangles": 20178,
-          "lod1Triangles": 3976,
+          "sizeMetres": [18.475, 26.453, 16.583],
+          "triangles": 8274,
+          "lod1Triangles": 2516,
           "solids": [
             {
               "shape": "box",
-              "min": [-9.22, 0, -8.101],
-              "max": [9.22, 27.028, 8.101]
+              "min": [-9.2375, 0, -8.2915],
+              "max": [9.2375, 26.453, 8.2915]
             }
           ]
         },
         "escarpment_1": {
           "nodes": ["escarpment_1", "escarpment_1_lod1"],
-          "sizeMetres": [18.73, 27.138, 15.912],
-          "triangles": 20788,
-          "lod1Triangles": 4066,
+          "sizeMetres": [19.049, 26.78, 16.015],
+          "triangles": 7674,
+          "lod1Triangles": 2448,
           "solids": [
             {
               "shape": "box",
-              "min": [-9.365, 0, -7.956],
-              "max": [9.365, 27.138, 7.956]
-            }
-          ]
-        },
-        "gorge_mass": {
-          "nodes": ["gorge_mass", "gorge_mass_lod1"],
-          "sizeMetres": [16.634, 41.653, 14.313],
-          "triangles": 18178,
-          "lod1Triangles": 2742,
-          "solids": [
-            {
-              "shape": "box",
-              "min": [-8.317, 0, -7.1565],
-              "max": [8.317, 41.653, 7.1565]
-            }
-          ]
-        },
-        "wall_broken": {
-          "nodes": ["wall_broken", "wall_broken_lod1"],
-          "sizeMetres": [7.372, 12.99, 4.327],
-          "triangles": 2096,
-          "lod1Triangles": 384,
-          "solids": [
-            {
-              "shape": "box",
-              "min": [-3.686, 0, -2.1635],
-              "max": [3.686, 12.99, 2.1635]
-            }
-          ]
-        },
-        "buttress": {
-          "nodes": ["buttress", "buttress_lod1"],
-          "sizeMetres": [6.87, 13.16, 4.223],
-          "triangles": 2200,
-          "lod1Triangles": 382,
-          "solids": [
-            {
-              "shape": "box",
-              "min": [-3.435, 0, -2.1115],
-              "max": [3.435, 13.16, 2.1115]
+              "min": [-9.5245, 0, -8.0075],
+              "max": [9.5245, 26.78, 8.0075]
             }
           ]
         },
         "stair_tread": {
           "nodes": ["stair_tread", "stair_tread_lod1"],
-          "sizeMetres": [6.006, 2.397, 0.756],
-          "triangles": 464,
-          "lod1Triangles": 128,
+          "sizeMetres": [6.0, 2.4, 0.8],
+          "triangles": 336,
+          "lod1Triangles": 196,
           "solids": [
             {
               "shape": "box",
-              "min": [-3.003, 0, -0.378],
-              "max": [3.003, 2.397, 0.378]
+              "min": [-3.0, 0, -0.4],
+              "max": [3.0, 2.4, 0.4]
             }
           ]
         },
         "stair_tread_b": {
           "nodes": ["stair_tread_b", "stair_tread_b_lod1"],
-          "sizeMetres": [6.009, 2.396, 0.755],
-          "triangles": 464,
-          "lod1Triangles": 128,
+          "sizeMetres": [6.0, 2.4, 0.8],
+          "triangles": 336,
+          "lod1Triangles": 196,
           "solids": [
             {
               "shape": "box",
-              "min": [-3.0045, 0, -0.3775],
-              "max": [3.0045, 2.396, 0.3775]
+              "min": [-3.0, 0, -0.4],
+              "max": [3.0, 2.4, 0.4]
             }
           ]
         },
@@ -211,6 +172,110 @@
               "shape": "box",
               "min": [-6.3, 0, -6.1255],
               "max": [6.3, 34.989, 6.1255]
+            }
+          ]
+        },
+        "lava_bank_0": {
+          "nodes": ["lava_bank_0", "lava_bank_0_lod1"],
+          "sizeMetres": [16.218, 30.339, 15.854],
+          "triangles": 1080,
+          "lod1Triangles": 352,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.109, 0, -7.927],
+              "max": [8.109, 30.339, 7.927]
+            }
+          ]
+        },
+        "lava_bank_1": {
+          "nodes": ["lava_bank_1", "lava_bank_1_lod1"],
+          "sizeMetres": [16.05, 30.251, 15.486],
+          "triangles": 1080,
+          "lod1Triangles": 352,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.025, 0, -7.743],
+              "max": [8.025, 30.251, 7.743]
+            }
+          ]
+        },
+        "cut_gorge_0": {
+          "nodes": ["cut_gorge_0", "cut_gorge_0_lod1"],
+          "sizeMetres": [16.063, 41.244, 14.854],
+          "triangles": 1148,
+          "lod1Triangles": 460,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.0315, 0, -7.427],
+              "max": [8.0315, 41.244, 7.427]
+            }
+          ]
+        },
+        "cut_gorge_1": {
+          "nodes": ["cut_gorge_1", "cut_gorge_1_lod1"],
+          "sizeMetres": [16.0, 40.937, 16.111],
+          "triangles": 1148,
+          "lod1Triangles": 460,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.0, 0, -8.0555],
+              "max": [8.0, 40.937, 8.0555]
+            }
+          ]
+        },
+        "fins_bank_0": {
+          "nodes": ["fins_bank_0", "fins_bank_0_lod1"],
+          "sizeMetres": [16.0, 33.309, 16.46],
+          "triangles": 916,
+          "lod1Triangles": 300,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.0, 0, -8.23],
+              "max": [8.0, 33.309, 8.23]
+            }
+          ]
+        },
+        "fins_bank_1": {
+          "nodes": ["fins_bank_1", "fins_bank_1_lod1"],
+          "sizeMetres": [16.102, 32.845, 15.943],
+          "triangles": 916,
+          "lod1Triangles": 300,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.051, 0, -7.9715],
+              "max": [8.051, 32.845, 7.9715]
+            }
+          ]
+        },
+        "summit_ridge_0": {
+          "nodes": ["summit_ridge_0", "summit_ridge_0_lod1"],
+          "sizeMetres": [16.175, 29.958, 16.001],
+          "triangles": 1080,
+          "lod1Triangles": 352,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.0875, 0, -8.0005],
+              "max": [8.0875, 29.958, 8.0005]
+            }
+          ]
+        },
+        "summit_ridge_1": {
+          "nodes": ["summit_ridge_1", "summit_ridge_1_lod1"],
+          "sizeMetres": [16.202, 29.826, 15.825],
+          "triangles": 1080,
+          "lod1Triangles": 352,
+          "solids": [
+            {
+              "shape": "box",
+              "min": [-8.101, 0, -7.9125],
+              "max": [8.101, 29.826, 7.9125]
             }
           ]
         }

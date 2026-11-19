@@ -1,6 +1,8 @@
 import { createRigs, reloadRig } from "./arms-rig.js";
 import { createEffects } from "./arms-fx.js";
 
+import { createImpacts } from "./arms-impacts.js";
+
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (t) => {
   const x = clamp(t, 0, 1);
@@ -12,6 +14,7 @@ export async function build(ctx) {
   const { T, kit, viewGroup, scene, sim } = ctx;
   const rigs = await createRigs(ctx),
     fx = createEffects(ctx),
+    impacts = createImpacts(ctx),
     rigList = Object.values(rigs.rigs);
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const muzzle = new T.Vector3(),
@@ -112,6 +115,7 @@ export async function build(ctx) {
     point.y *= ratio;
     point.applyMatrix4(camera.matrixWorld);
   }
+  let respawning = false;
   function nodeLocal(node, target, fallback) {
     if (node) {
       node.getWorldPosition(target);
@@ -123,7 +127,8 @@ export async function build(ctx) {
       const { snapshot: s, events, dt, time, camera, env } = frame,
         w = s.weapon,
         p = s.player;
-      const reset = s.time < lastTime;
+      const reset = s.time < lastTime || (s.respawn > 0 && !respawning);
+      respawning = s.respawn > 0;
       if (reset) {
         current = w.kind;
         previous = null;
@@ -140,6 +145,7 @@ export async function build(ctx) {
         shadeClock = 1;
         aimReturn = 1;
         fx.reset();
+        impacts.reset();
       }
       lastTime = s.time;
       if (current !== w.kind) {
@@ -267,7 +273,19 @@ export async function build(ctx) {
       nodeLocal(active.nodes.mag, cellPoint, muzzle);
       toWorld(cellPoint, camera);
       for (const e of events) {
-        if (e.type === "shot") fx.shot(e, worldMuzzle);
+        if (e.type === "shot") {
+          fx.shot(e, worldMuzzle, impacts.mark(e, e.to));
+        }
+        if (e.type === "bolt-hit") {
+          const contact = e.kind === "arc" && impacts.mark(e, e.at);
+          fx.impact(
+            contact?.at ?? e.at,
+            e.hit,
+            contact?.normal ?? e.normal,
+            e.kind,
+          );
+        }
+        if (e.type === "splash") fx.impact(e.at, "water", null, e.kind);
         if (e.type === "casing") {
           fx.muzzleFlash();
           fx.eject(ejectPoint, camera, e.weapon);
@@ -286,6 +304,7 @@ export async function build(ctx) {
         }
         if (e.type === "explode" && e.kind === "charge") fx.burst(e.at);
       }
+      impacts.update(s.time, s.zone);
       // A rail reload drops its old cell before the replacement seats.
       if (current === "rail" && lastReload < 0.28 && reload >= 0.28)
         fx.eject(cellPoint, camera, "rail", true);
@@ -334,6 +353,7 @@ export async function build(ctx) {
       delete viewGroup.userData.hwArmsMuzzleWorld;
       rigs.dispose();
       fx.dispose();
+      impacts.dispose();
       for (const pulse of pulses) pulse.root.removeFromParent();
     },
   };

@@ -39,6 +39,8 @@ export function planting(sim, x, z, terrain) {
     smooth(1.45, 2.8, pathDistance),
     (1 - smooth(0.2, 0.48, pathDistance)) * 0.32,
   );
+  const service = smooth(60, 66, s) * (1 - smooth(125, 133, s));
+  mask *= 1 - service * (1 - smooth(2, 4.2, Math.abs(x - routeX + 14)));
   if (pavedAt(x, z)) mask = 0;
   // A bridge spans bare gorge. Its deck is in layout, never in groundY.
   mask *=

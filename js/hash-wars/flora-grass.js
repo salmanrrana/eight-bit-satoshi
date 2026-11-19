@@ -70,6 +70,17 @@ export function buildGrass({ T, kit, scene, quality }, field, motion) {
       minima[k] = Math.min(minima[k], y);
       maxima[k] = Math.max(maxima[k], y);
     }
+  // Summed occupancy makes an exact rectangular planting query four reads,
+  // including empty tiles. Both rings share the immutable planting field.
+  const stride = image.width + 1;
+  const planted = new Uint32Array(stride * (image.height + 1));
+  for (let z = 0; z < image.height; z++) {
+    let row = 0;
+    for (let x = 0; x < image.width; x++) {
+      row += Number(image.data[(z * image.width + x) * 4 + 1] >= 0.06);
+      planted[(z + 1) * stride + x + 1] = planted[z * stride + x + 1] + row;
+    }
+  }
   const uniforms = {
     floraForward: { value: new T.Vector2(0, -1) },
     floraField: { value: field.texture },
@@ -196,15 +207,20 @@ vec2 xz=(grid+vec2(fh(grid+floraBlade*13.7),fh(grid+41.+floraBlade*8.1)))*${cell
 vec2 clump=floor(xz/.47); float tuft=fh(clump+17.3);
 vec2 centre=(clump+.5+(vec2(fh(clump+3.1),fh(clump+9.7))-.5)*.8)*.47;
 xz=mix(xz,centre,.46*fh(grid+floraBlade*5.));
-vec4 land=texture2D(floraField,(xz-floraBounds.xy)/floraBounds.zw);
+vec2 fieldUV=(xz-floraBounds.xy)/floraBounds.zw;
+float reach=length(xz-floraEye.xz);
+if(any(lessThan(fieldUV,vec2(0.)))||any(greaterThan(fieldUV,vec2(1.)))||reach>=${(far ? farOuter : nearOuter).toFixed(2)}${far ? `||reach<=${nearInner.toFixed(2)}` : ""}){
+  gl_Position=vec4(2.,2.,2.,1.);return;
+}
+vec4 land=texture2D(floraField,fieldUV);
+if(land.y<.06){gl_Position=vec4(2.,2.,2.,1.);return;}
 vec3 root=vec3(xz.x,land.x-.018,xz.y);
-float reach=length(root.xz-floraEye.xz);
 float growthPatch=fn(xz*.28+fn(xz*.08)*2.);
-float bare=mix(.87,1.,smoothstep(.18,.48,growthPatch));
+float alpine=smoothstep(318.,352.,-xz.y);
+float bare=mix(.32,1.,smoothstep(.20,.65,growthPatch))*(1.-alpine*.68);
 float ring=${far ? `smoothstep(${nearInner.toFixed(2)},${nearOuter.toFixed(2)},reach)*(1.-smoothstep(35.,${farOuter.toFixed(2)},reach))` : `1.-smoothstep(${nearInner.toFixed(2)},${nearOuter.toFixed(2)},reach)`};
-float inside=step(floraBounds.x,xz.x)*step(floraBounds.y,xz.y)*step(xz.x,floraBounds.x+floraBounds.z)*step(xz.y,floraBounds.y+floraBounds.w);
-float growth=step(.06,land.y)*step(fh(grid+63.7+floraBlade*9.1),bare)*inside;
-float bladeHeight=(.19+seed*.26)*(.7+tuft*.65)*mix(.4,1.,land.y)*ring*growth;
+if(fh(grid+63.7+floraBlade*9.1)>bare){gl_Position=vec4(2.,2.,2.,1.);return;}
+float bladeHeight=(.19+seed*.26)*(.7+tuft*.65)*mix(.4,1.,land.y)*ring;
 float angle=(fh(clump+29.)+(seed-.5)*.8)*6.2831853;
 vec2 direction=vec2(cos(angle),sin(angle));
 vec2 facing=vec2(cos(seed*25.),sin(seed*25.));
@@ -259,8 +275,9 @@ colour=mix(colour,colour*vec3(1.12,1.09,.83),tip*tip*.35);
 // Sample the same world-space cloud transmittance as LAND and structures.
 float cloud=texture2D(floraCloudMap,(floraWorld.xz-floraCloudBounds.xy)/floraCloudBounds.zw).r;
 float distanceBlend=${far ? "1." : "smoothstep(14.,38.,distance(floraWorld.xz,floraEye.xz))"};
-vec3 farSward=vec3(.12,.18,.035)*(.78+.4*floraInfo.y);
+vec3 farSward=mix(floraLush,floraDry*.77,smoothstep(.30,.70,floraInfo.y));
 colour=mix(colour,farSward,distanceBlend);
+colour=mix(colour,floraDry*.73,smoothstep(318.,352.,-floraWorld.z)*.85);
 diffuseColor.rgb*=colour;`,
       );
       s.fragmentShader = s.fragmentShader.replace(
@@ -294,7 +311,7 @@ reflectedLight.indirectDiffuse+=diffuseColor.rgb*(.06+.08*tip);`,
       );
     };
     material.customProgramCacheKey = () =>
-      `hw-flora-grass-${quality}-${far}-v3`;
+      `hw-flora-grass-${quality}-${far}-v4`;
     const mesh = new T.Mesh(geometry, material);
     mesh.name = `Meadow ${far ? "far tufts" : "blades"} ${count}`;
     mesh.frustumCulled = false;
@@ -302,11 +319,62 @@ reflectedLight.indirectDiffuse+=diffuseColor.rgb*(.06+.08*tip);`,
     mesh.userData.noReflect = mesh.userData.noSkyVis = true;
     group.add(mesh);
     meshes.push(mesh);
-    mesh.userData.grid = { cell, span, count, far, cells: cells.slice() };
+    // Each axis keeps the field coordinates for this camera-centred window.
+    // Grass still uses the original wrapping IDs, in the original draw order.
+    const axis = () =>
+      Array.from({ length: span }, () => ({
+        world: 0,
+        tileMin: 0,
+        tileMax: 0,
+        sampleMin: 0,
+        sampleMax: 0,
+        wrapEdge: false,
+      }));
+    mesh.userData.grid = { cell, span, far, xAxis: axis(), zAxis: axis() };
     geometry.attributes.floraCell.setUsage(T.DynamicDrawUsage);
+  }
+  function updateAxis(axis, eye, offset, cell, origin, length, tiles, samples) {
+    const span = axis.length,
+      gridEye = (eye + offset) / cell,
+      base = Math.floor(gridEye),
+      first = base - Math.floor(span / 2);
+    let id = ((base % span) + span) % span;
+    // The shader wraps with float32 values. Let its fade decide for cells
+    // that could wrap to the opposite edge when the eye crosses a cell line.
+    const nearWrap = Math.abs(gridEye - Math.round(gridEye)) < 0.001;
+    for (let i = 0; i < span; i++) {
+      const world = (first + i) * cell - eye + eye,
+        entry = axis[id];
+      entry.world = world;
+      entry.wrapEdge = nearWrap && (i === 0 || i === span - 1);
+      entry.tileMin = Math.max(
+        0,
+        Math.min(tiles - 1, Math.floor((world - 1.5 - origin) / tileSize)),
+      );
+      entry.tileMax = Math.max(
+        0,
+        Math.min(
+          tiles - 1,
+          Math.floor((world + cell + 1.5 - origin) / tileSize),
+        ),
+      );
+      // Include jitter, clump attraction and both bilinear neighbours.
+      entry.sampleMin = Math.max(
+        0,
+        Math.floor(((world - 1 - origin) / length) * samples - 0.5),
+      );
+      entry.sampleMax = Math.min(
+        samples - 1,
+        Math.ceil(((world + cell + 1 - origin) / length) * samples + 0.5),
+      );
+      if (++id === span) id = 0;
+    }
   }
   return {
     update({ camera }) {
+      const eye = camera.position;
+      group.visible = eye.z < -20 && eye.z > -500;
+      if (!group.visible) return;
       camera.updateMatrixWorld();
       frustum.setFromProjectionMatrix(
         projection.multiplyMatrices(
@@ -323,123 +391,109 @@ reflectedLight.indirectDiffuse+=diffuseColor.rgb*(.06+.08*tip);`,
       uniforms.floraPixel.value =
         (2 * Math.tan((camera.fov * Math.PI) / 360)) /
         Math.max(240, window.innerHeight);
-      // Compact only zero-area/out-of-view clumps. Cell IDs and the shader's
-      // world wrapping are unchanged, so surviving foliage never jumps.
+      const rearMargin = 3 + Math.abs(Math.sin(camera.rotation.x)) * 90;
       for (const mesh of meshes) {
-        const { cell, span, count, far, cells } = mesh.userData.grid;
+        const { cell, span, far, xAxis, zAxis } = mesh.userData.grid;
         const attribute = mesh.geometry.attributes.floraCell;
         const offset = far && quality === "high" ? 5.4 : 0;
-        const eyeX = Math.floor(
-          (camera.position.x + forward.x * offset) / cell,
+        updateAxis(
+          xAxis,
+          eye.x,
+          forward.x * offset,
+          cell,
+          bounds.x,
+          bounds.z,
+          columns,
+          image.width,
         );
-        const eyeZ = Math.floor(
-          (camera.position.z + forward.z * offset) / cell,
+        updateAxis(
+          zAxis,
+          eye.z,
+          forward.z * offset,
+          cell,
+          bounds.y,
+          bounds.w,
+          rows,
+          image.height,
         );
-        const radius = (far ? farOuter : nearOuter) + 2;
-        const rearMargin = 3 + Math.abs(Math.sin(camera.rotation.x)) * 90;
+        // Jitter stays in the cell. Clump attraction moves a root by at most
+        // .46 * .47 * .9 metres on either axis. Allow extra for shader rounding.
+        const drift = 0.21;
+        const outer = far ? farOuter : nearOuter;
+        const wrapRadiusSquared = (outer + 2) ** 2;
+        const outerSquared = (outer + 0.01) ** 2;
+        const innerSquared = (nearInner - 0.01) ** 2;
         let used = 0;
-        for (let i = 0; i < count; i++) {
-          const cx = cells[i * 3],
-            cz = cells[i * 3 + 1];
-          const x =
-            (((((cx - eyeX) % span) + span) % span) +
-              eyeX -
-              Math.floor(span / 2)) *
-              cell -
-            camera.position.x;
-          const z =
-            (((((cz - eyeZ) % span) + span) % span) +
-              eyeZ -
-              Math.floor(span / 2)) *
-              cell -
-            camera.position.z;
+        for (let cz = 0; cz < span; cz++) {
+          const row = zAxis[cz],
+            z = row.world - eye.z;
+          const zNear = Math.max(0, z - drift, -z - cell - drift);
+          const zNearSquared = zNear * zNear;
           if (
-            x * x + z * z > radius * radius ||
-            x * forward.x + z * forward.z < -rearMargin
+            (!row.wrapEdge && zNearSquared > outerSquared) ||
+            row.sampleMin > row.sampleMax
           )
             continue;
-          const worldX = x + camera.position.x,
-            worldZ = z + camera.position.z;
-          const tx0 = Math.max(
-            0,
-            Math.min(
-              columns - 1,
-              Math.floor((worldX - 1.5 - bounds.x) / tileSize),
-            ),
+          const zFar = Math.max(
+            Math.abs(z - drift),
+            Math.abs(z + cell + drift),
           );
-          const tx1 = Math.max(
-            0,
-            Math.min(
-              columns - 1,
-              Math.floor((worldX + cell + 1.5 - bounds.x) / tileSize),
-            ),
-          );
-          const tz0 = Math.max(
-            0,
-            Math.min(
-              rows - 1,
-              Math.floor((worldZ - 1.5 - bounds.y) / tileSize),
-            ),
-          );
-          const tz1 = Math.max(
-            0,
-            Math.min(
-              rows - 1,
-              Math.floor((worldZ + cell + 1.5 - bounds.y) / tileSize),
-            ),
-          );
-          let minY = Infinity,
-            maxY = -Infinity;
-          for (let j = tz0; j <= tz1; j++)
-            for (let k = tx0; k <= tx1; k++) {
-              minY = Math.min(minY, minima[j * columns + k]);
-              maxY = Math.max(maxY, maxima[j * columns + k]);
+          const minXSquare = innerSquared - zFar * zFar;
+          const maxXSquare = outerSquared - zNearSquared;
+          const rear = -rearMargin - z * forward.z;
+          const lower = row.sampleMin * stride;
+          const upper = (row.sampleMax + 1) * stride;
+          for (let cx = 0; cx < span; cx++) {
+            const column = xAxis[cx],
+              x = column.world - eye.x;
+            if (x * forward.x < rear || column.sampleMin > column.sampleMax)
+              continue;
+            if (row.wrapEdge || column.wrapEdge) {
+              if (x * x + z * z > wrapRadiusSquared) continue;
+            } else {
+              const xNear = Math.max(0, x - drift, -x - cell - drift);
+              if (xNear * xNear > maxXSquare) continue;
+              if (far && minXSquare > 0) {
+                const xFar = Math.max(
+                  Math.abs(x - drift),
+                  Math.abs(x + cell + drift),
+                );
+                if (xFar * xFar <= minXSquare) continue;
+              }
             }
-          box.min.set(worldX - 1.5, minY - 0.1, worldZ - 1.5);
-          box.max.set(worldX + cell + 1.5, maxY + 0.75, worldZ + cell + 1.5);
-          if (!frustum.intersectsBox(box)) continue;
-          if (quality === "low") {
-            // Include jitter, clump attraction and both bilinear neighbours.
-            const x0 = Math.max(
-              0,
-              Math.floor(
-                ((worldX - 1 - bounds.x) / bounds.z) * image.width - 0.5,
-              ),
+            const left = column.sampleMin,
+              right = column.sampleMax + 1;
+            const occupied =
+              planted[upper + right] -
+              planted[lower + right] -
+              planted[upper + left] +
+              planted[lower + left];
+            if (!occupied) continue;
+
+            let minY = Infinity,
+              maxY = -Infinity;
+            for (let j = row.tileMin; j <= row.tileMax; j++)
+              for (let k = column.tileMin; k <= column.tileMax; k++) {
+                minY = Math.min(minY, minima[j * columns + k]);
+                maxY = Math.max(maxY, maxima[j * columns + k]);
+              }
+            box.min.set(column.world - 1.5, minY - 0.1, row.world - 1.5);
+            box.max.set(
+              column.world + cell + 1.5,
+              maxY + 0.75,
+              row.world + cell + 1.5,
             );
-            const x1 = Math.min(
-              image.width - 1,
-              Math.ceil(
-                ((worldX + cell + 1 - bounds.x) / bounds.z) * image.width + 0.5,
-              ),
-            );
-            const z0 = Math.max(
-              0,
-              Math.floor(
-                ((worldZ - 1 - bounds.y) / bounds.w) * image.height - 0.5,
-              ),
-            );
-            const z1 = Math.min(
-              image.height - 1,
-              Math.ceil(
-                ((worldZ + cell + 1 - bounds.y) / bounds.w) * image.height +
-                  0.5,
-              ),
-            );
-            let grows = false;
-            for (let j = z0; j <= z1 && !grows; j++)
-              for (let k = x0; k <= x1; k++)
-                if (image.data[(j * image.width + k) * 4 + 1] >= 0.06) {
-                  grows = true;
-                  break;
-                }
-            if (!grows) continue;
+            if (frustum.intersectsBox(box)) attribute.setXYZ(used++, cx, cz, 0);
           }
-          attribute.setXYZ(used++, cx, cz, 0);
         }
         mesh.geometry.instanceCount = used;
-        attribute.needsUpdate = true;
+        mesh.visible = used > 0;
+        if (used) {
+          attribute.clearUpdateRanges();
+          attribute.addUpdateRange(0, used * attribute.itemSize);
+          attribute.needsUpdate = true;
+        }
       }
-      group.visible = camera.position.z < -20 && camera.position.z > -500;
     },
     dispose() {
       group.removeFromParent();

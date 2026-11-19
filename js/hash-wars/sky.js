@@ -123,7 +123,7 @@ export function createSky(renderer, scene, quality) {
   bakeScene.add(quad);
   // Display the unfiltered sky-view texture; PMREM is only for rough reflections.
   const display = new T.ShaderMaterial({
-    depthTest: false,
+    depthTest: true,
     depthWrite: false,
     uniforms: {
       skyView: { value: null },
@@ -133,7 +133,8 @@ export function createSky(renderer, scene, quality) {
       inverseProjection: { value: new T.Matrix4() },
       cameraWorld: { value: new T.Matrix4() },
     },
-    vertexShader: vertex,
+    vertexShader:
+      "varying vec2 v;void main(){v=uv;gl_Position=vec4(position.xy,1.,1.);}",
     fragmentShader: `varying vec2 v;uniform sampler2D skyView,nextView;uniform float blend;uniform vec3 sun;uniform mat4 inverseProjection,cameraWorld;
 ${noiseGLSL}
 vec4 view(vec2 uv){return mix(texture2D(skyView,uv),texture2D(nextView,uv),blend);}
@@ -152,7 +153,8 @@ gl_FragColor=vec4(c,1.);}`,
   });
   const backdrop = new T.Mesh(new T.PlaneGeometry(2, 2), display);
   backdrop.frustumCulled = false;
-  backdrop.renderOrder = -10000;
+  // Draw at the far plane after opaque surfaces, before transparent water and FX.
+  backdrop.renderOrder = 10000;
   backdrop.onBeforeRender = (r, s, c) => {
     display.uniforms.inverseProjection.value.copy(c.projectionMatrixInverse);
     display.uniforms.cameraWorld.value.copy(c.matrixWorld);
@@ -216,7 +218,7 @@ gl_FragColor=vec4(c,1.);}`,
     sunDir: new T.Vector3(),
     sunColour: new T.Color(),
     sunIntensity: 4.8,
-    fillIntensity: 0.4,
+    fillIntensity: 0.82,
     environmentIntensity: 0.45,
     hazeDensity: 0.00032,
     hazeStart: 180,

@@ -146,11 +146,15 @@ gl_FragColor=vec4(scatter,trans);
     );
     sun.target.position.copy(center);
     sun.position.copy(center).addScaledVector(dir, 420);
-    // Sky fill from above; from below, sunlight bounced off the ground.
-    ambient.color.copy(env.ambient);
+    // Scattered daylight keeps a little blue. The ground contributes a soft,
+    // earthy return without giving every overhang the same bright underside.
+    const skyLevel = env.ambient.g * 0.95;
+    ambient.color
+      .copy(env.ambient)
+      .lerp(bounce.setRGB(skyLevel, skyLevel, skyLevel), daylight * 0.68);
     ambient.groundColor
       .setRGB(0.11, 0.11, 0.15)
-      .lerp(bounce.copy(env.sunColour).multiplyScalar(0.55), daylight);
+      .lerp(bounce.copy(env.sunColour).multiplyScalar(0.3), daylight);
     ambient.intensity = env.fillIntensity;
     selectionAge += dt;
     if (

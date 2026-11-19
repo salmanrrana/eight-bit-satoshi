@@ -54,7 +54,8 @@ wp=(modelMatrix*vec4(transformed,1.)).xyz;`,
       "#include <project_vertex>",
       "#include <project_vertex>\nif(hwData.y<.5)gl_Position.z=min(gl_Position.z,gl_Position.w*.99999);",
     );
-    s.fragmentShader = `varying vec4 wd;varying vec2 wf;varying vec3 wp;varying vec3 wb;
+    s.fragmentShader = `uniform vec4 hwStrikes[16];uniform int hwStrikeCount;uniform float hwStrikeTime;
+varying vec4 wd;varying vec2 wf;varying vec3 wp;varying vec3 wb;
 ${waves}\n${s.fragmentShader}`;
     s.fragmentShader = s.fragmentShader.replace(
       "#include <normal_fragment_maps>",
@@ -121,6 +122,16 @@ slope*=1.-pool*.68;
 if(hwContacts>.5){
  float contact=texture2D(hwBed,clamp((p-hwBounds.xy)/hwBounds.zw,0.,1.)).b;
  foam=max(foam,contact*(.35+.5*cells)*smoothstep(0.,.3,depth));
+}
+if(wet<.5) for(int i=0;i<hwStrikeCount;i++){
+ vec4 hit=hwStrikes[i];float age=hwStrikeTime-hit.z;
+ vec2 offset=p-hit.xy;
+ if(age<0.||age>2.65||dot(offset,offset)>36.) continue;
+ float dist=length(offset),trail=dist-age*(1.25+.55*hit.w);
+ float env=(1.-smoothstep(.05,.45,abs(trail)))*(1.-smoothstep(.7,2.65,age))*hit.w;
+ slope+=offset/max(.03,dist)*sin(trail*32.)*env*.32;
+ foam=max(foam,env*(.44+.36*cos(trail*32.)));
+ foam=max(foam,(1.-smoothstep(.02,.61*hit.w+age*.19,dist))*(1.-smoothstep(.5,2.65,age))*(.55+.4*cells));
 }
 // Interpolated bed-aligned normals keep channel and pool highlights smooth too.
 vec3 geometric=normalize(wb);

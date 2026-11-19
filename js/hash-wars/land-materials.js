@@ -14,7 +14,7 @@ float lf(vec3 p){return ln(p)*.62+ln(p*2.03+17.)*.26+ln(p*4.07+31.)*.12;}
 
 `;
 
-export function terrainMaterial(kit, seaY, air) {
+export function terrainMaterial(kit, seaY, air, litter) {
   const m = kit.material({ color: 0xffffff, roughness: 0.94 });
   const base = m.onBeforeCompile;
   m.onBeforeCompile = (s, r) => {
@@ -23,6 +23,7 @@ export function terrainMaterial(kit, seaY, air) {
       landNoise: { value: kit.noiseMap },
       landAir: air,
       landSea: { value: seaY },
+      landLitter: { value: litter },
     });
     s.vertexShader =
       "attribute vec2 place; attribute vec3 soil; varying vec3 landWorld,landNormal,landSoil; varying vec2 landPlace,landPod;\n" +
@@ -34,7 +35,7 @@ landWorld=(modelMatrix*vec4(position,1.)).xyz;landNormal=normal;landPlace=place;
     );
     s.fragmentShader =
       fields +
-      "uniform float landSea; varying vec3 landSoil; varying vec2 landPod;\n" +
+      "uniform sampler2D landLitter; uniform float landSea; varying vec3 landSoil; varying vec2 landPod;\n" +
       s.fragmentShader;
     s.fragmentShader = s.fragmentShader.replace(
       "#include <roughnessmap_fragment>",
@@ -69,24 +70,27 @@ track*=1.-crown*(.66+.2*patchNoise);
 // Damp hollows, pale dry hummocks, metre-scale clumps, and filtered blade litter.
 float damp=smoothstep(.42,.7,broad*.55+landSoil.z*.45)*(1.-smoothstep(.12,.5,steep));
 float dry=clamp(smoothstep(.42,.7,ln(lp*.11+11.))*(1.-damp)*(1.25-landSoil.z*.5),0.,1.);
-vec3 turf=mix(vec3(.065,.14,.017),vec3(.19,.255,.048),dry);
-turf=mix(turf,vec3(.033,.087,.014),damp*.7);
+vec3 turf=mix(vec3(.056,.108,.037),vec3(.234,.215,.101),dry);
+turf=mix(turf,vec3(.032,.074,.033),damp*.7);
 turf*=.72+.5*patchNoise+.20*grain+.08*grit;
 // Tuft-scale thatch remains once individual blades fall below a pixel.
 float tuftNoise=ln(lp*vec3(3.7,1.,3.7));
-vec3 fibrePoint=vec3(lp.x*24.+lp.z*5.,lp.y*.4,lp.z*7.-lp.x*3.);
-float fibreNoise=ln(fibrePoint);
-float fibreFade=exp(-pow(footprint*28.,2.));
-float fibre=(fibreNoise-.5)*fibreFade;
-float thatch=smoothstep(.28,.76,tuftNoise);
-turf*=.83+thatch*.3+fibre*.13;
-turf=mix(turf,vec3(.20,.158,.067),smoothstep(.73,.88,tuftNoise)*.3);
-float bare=smoothstep(.72,.85,ln(lp*1.1))*(.35+.65*dry);
+// Mipmapped fallen stems and grit, with metre-scale variation in the turf underneath.
+vec3 litter=texture2D(landLitter,lp.xz*.25+vec2(patchNoise,broad)*.08).rgb;
+float thatch=smoothstep(.30,.71,tuftNoise);
+// The summit's exposed sheets alternate with pockets of low, dry turf.
+float alpine=smoothstep(388.,413.,landPlace.y+8.*patchNoise);
+float gate=smoothstep(304.,324.,landPlace.y)*(1.-smoothstep(370.,395.,landPlace.y));
+float gateThatch=smoothstep(.35,.76,patchNoise*.55+broad*.45);
+turf=mix(turf,mix(vec3(.076,.132,.032),vec3(.215,.201,.080),gateThatch),gate*.65);
+turf*=.63+.43*thatch+.69*litter.r;
+turf=mix(turf,vec3(.27,.203,.092),smoothstep(.56,.8,litter.r)*(.26+.32*dry));
+float bare=smoothstep(.54,.74,patchNoise*.4+ln(lp*.37+2.)*.6)*(.45+.55*dry);
 vec3 earth=mix(vec3(.085,.056,.029),vec3(.22,.168,.094),broad)*(.55+.32*grain+.25*patchNoise+.32*clods);
 // Continuous crumb avoids the regular dots of one stone per grid cell.
 float crumb=smoothstep(.55,.75,grain*.7+grit*.3);
-earth*=1.-crumb*.13*smallFade;
-turf=mix(turf,earth,bare*.55);
+earth*=(1.-crumb*.13*smallFade)*(.77+.60*litter.r);
+turf=mix(turf,earth,bare*.83);
 // Keep the costly fracture field off coherent turf/sand regions.
 float joint=0.,streak=0.;
 vec3 basalt=vec3(.04,.05,.055);
@@ -96,10 +100,10 @@ if(steep>.01||landSoil.y>.5){
 float strataNoise=ln(lp*vec3(.05,.16,.05));
 float strataY=lp.y*.55+strataNoise*3.2+ln(lp*vec3(.21,.05,.21))*1.4;
 float layer=fract(strataY);
-float bed=smoothstep(.0,.08,layer)*(1.-smoothstep(.86,1.,layer));
-joint=(1.-bed)*.8*fractureFade;
 float flowTone=ln(vec3(floor(strataY)*3.1,lp.x*.06,lp.z*.06));
 float blocks=ln(lp*vec3(.9,.45,.9));
+float bed=smoothstep(.0,.08,layer)*(1.-smoothstep(.86,1.,layer));
+joint=(1.-bed)*smoothstep(.36,.73,blocks*.72+patchNoise*.28)*fractureFade;
 float weather=smoothstep(.3,.75,patchNoise*.5+blocks*.3+flowTone*.2);
 basalt=mix(vec3(.026,.03,.035),vec3(.085,.088,.088),weather);
 basalt*=.74+.3*grain+.1*grit;
@@ -114,10 +118,13 @@ basalt=mix(basalt,vec3(.048,.095,.012)*(.75+.5*grain),moss*.7);
 // Wind/wave ripples live in sand, not the entire landscape.
 // Ripple crests turn with a slow direction field and die out in the smooth
 // swash band, so the beach never shows one even washboard.
-float ripplePhase=lp.z*19.+sin(lp.x*.18+ln(lp*.06)*2.)*5.+ln(lp*.7)*2.;
-float rippleFilter=exp(-pow(footprint*9.,2.))*smoothstep(landSea+.5,landSea+1.9,lp.y);
+float ripplePhase=0.,rippleFilter=0.;
+vec3 sand=vec3(0.);
+if(beach>.001){
+ripplePhase=lp.z*19.+sin(lp.x*.18+ln(lp*.06)*2.)*5.+ln(lp*.7)*2.;
+rippleFilter=exp(-pow(footprint*9.,2.))*smoothstep(landSea+.5,landSea+1.9,lp.y);
 float ripple=sin(ripplePhase)*rippleFilter*(.18+.82*smoothstep(.22,.72,ln(lp*vec3(.45,1.,.9))));
-vec3 sand=mix(vec3(.018,.023,.027),vec3(.06,.064,.06),broad);
+sand=mix(vec3(.018,.023,.027),vec3(.06,.064,.06),broad);
 sand*=.80+.25*grain+.2*grit+ripple*.23;
 float tide=exp(-pow((lp.y-landSea-.9+patchNoise*.1)*12.,2.));
 float weed=tide*smoothstep(.48,.69,ln(lp*vec3(5.,1.,1.5)));
@@ -131,12 +138,37 @@ float blast=pow(.5+.5*sin(podAngle*9.+ln(lp*.8)*2.),4.)*exp(-pow((podRadius-5.0)
 sand=mix(sand,vec3(.10,.096,.083),ejecta*.7);
 sand*=1.-crater*.72-blast*.25;
 sand*=1.-(1.-smoothstep(3.0,4.7,podRadius))*.5;
-vec3 c=mix(turf,earth,track);
-c*=1.-rut*.22;
+}
+// Crushed ballast follows the west service verge under the trunk and piers.
+float service=smoothstep(60.,66.,landPlace.y)*(1.-smoothstep(125.,133.,landPlace.y));
+service*=1.-smoothstep(2.0,4.2,abs(landPlace.x+14.)+edgeNoise*1.8);
+vec3 ballast=mix(vec3(.095,.083,.071),vec3(.24,.211,.155),clods)*(.59+.64*litter.r+.24*grain);
+vec3 c=mix(mix(turf,ballast,service),earth,track*(1.-alpine));
+c*=1.-rut*.20*(1.-alpine);
+if(alpine>.001){
+  // Elongated shallow beds follow the slope, with fine gravel and dry turf
+  // caught in the breaks. Keep the central path visible through the outcrop.
+  float ribs=ln(vec3((lp.x+lp.z*.29)*.72,lp.y*.093,lp.z*.17));
+  float plates=ribs*.70+patchNoise*.21+broad*.09;
+  float exposed=smoothstep(.42,.61,plates+track*.038);
+  float seams=(1.-smoothstep(.015,.084,abs(plates-.53)))*fractureFade;
+  float broken=ln(lp*vec3(2.4,1.,1.8)+vec3(21.));
+  float chips=smoothstep(.46,.68,broken*.61+clods*.39)*clodFade;
+  vec3 slab=mix(vec3(.069,.088,.090),vec3(.28,.268,.212),patchNoise*.47+broken*.53);
+  slab*=.68+.33*grain+.17*grit+.12*(1.-seams);
+  vec3 gravel=mix(vec3(.096,.087,.069),vec3(.28,.246,.168),clods);
+  gravel*=.75+.39*litter.r+.20*grain;
+  vec3 heath=mix(vec3(.058,.097,.034),vec3(.235,.181,.086),dry*.65+thatch*.35);
+  heath*=.77+.40*litter.r+.13*grain;
+  vec3 upland=mix(heath,slab,exposed);
+  upland=mix(upland,gravel,clamp(seams*.38+track*(.92-exposed*.57)+chips*.43,0.,1.));
+  c=mix(c,upland,alpine);
+}
 c=mix(c,basalt,steep);
 c=mix(c,sand,beach);
 // Embedded pebbles use the terrain program and catch a real sunlit upper edge.
 vec3 pebble=mix(vec3(.055,.064,.067),vec3(.19,.181,.156),landSoil.z);
+pebble=mix(pebble,vec3(.14,.157,.152)*(.75+.67*landSoil.z),alpine*.86);
 pebble*=.78+.3*grain;
 c=mix(c,pebble,step(.5,landSoil.y));
 c=mix(c,vec3(.32,.30,.24)*(.7+.5*landSoil.z),step(1.5,landSoil.y));
@@ -160,6 +192,8 @@ if(fineFade>.001)
 terrainGradient+=lg(lp*67.,gritRaw)*67.*.002*fineFade*(1.-rockWeight);
 if(clodFade>.001&&track>.01&&landSoil.y<.5)
 terrainGradient+=lg(lp*3.1+13.,clodRaw)*3.1*.028*clodFade*track;
+if(clodFade>.001&&alpine>.01&&landSoil.y<.5)
+terrainGradient+=lg(lp*3.1+13.,clodRaw)*3.1*.16*clodFade*alpine*(1.-track*.6);
 if(fractureFade>.001&&rockWeight>.01)
 terrainGradient+=lg(lp*.68,patchNoise)*.68*.16*fractureFade*rockWeight;
 if(smallFade>.001&&rockWeight>.01){float mid=ln(lp*vec3(2.3,1.4,2.3)+5.);
@@ -170,10 +204,7 @@ phaseGradient+=lg(lp*.7,ln(lp*.7))*.7*2.;
 terrainGradient+=cos(ripplePhase)*phaseGradient*.009*rippleFilter*(.18+.82*smoothstep(.22,.72,ln(lp*vec3(.45,1.,.9))))*beach*(1.-wet*.9);
 }
 if(steep<.5&&beach<.5&&landSoil.y<.5){
-vec3 fibreG=lg(fibrePoint,fibreNoise);
-vec3 fibreGradient=vec3(fibreG.x*24.-fibreG.z*3.,0.,fibreG.x*5.+fibreG.z*7.)*.009*fibreFade;
-terrainGradient+=fibreGradient*(1.-track);
-terrainGradient+=lg(lp*vec3(3.7,1.,3.7),tuftNoise)*vec3(3.7,1.,3.7)*.05*clodFade*(1.-track);
+terrainGradient.xz-=(litter.gb*2.-1.)*.36*(1.-track*.45)*(1.-alpine*.70);
 }
 vec3 worldGroundNormal=normalize(landNormal);
 terrainGradient-=worldGroundNormal*dot(terrainGradient,worldGroundNormal);
@@ -181,7 +212,7 @@ normal=normalize(normal-mat3(viewMatrix)*terrainGradient);
 `,
     );
   };
-  m.customProgramCacheKey = () => "hash-wars-land-v5";
+  m.customProgramCacheKey = () => "hash-wars-land-v7";
   return m;
 }
 

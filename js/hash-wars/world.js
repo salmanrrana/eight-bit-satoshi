@@ -1,9 +1,29 @@
 import * as T from "three";
+
+// Three updates hidden descendants by default. The color and shadow passes
+// both skip them; gameplay queries can still update their own ancestor chains.
+export function updateVisibleMatrices(object, force = false) {
+  if (!object.visible) {
+    if (force) object.matrixWorldNeedsUpdate = true;
+    return;
+  }
+  // Skinned meshes and other Three subclasses can have work beyond transforms.
+  if (object.updateMatrixWorld !== T.Object3D.prototype.updateMatrixWorld) {
+    object.updateMatrixWorld(force);
+    return;
+  }
+  const changed =
+    force || object.matrixAutoUpdate || object.matrixWorldNeedsUpdate;
+  object.updateWorldMatrix(false, false, force);
+  for (const child of object.children) updateVisibleMatrices(child, changed);
+}
+
 /** Content modules have stable zone ownership; distant land belongs to scene. */
 export async function buildWorld(ctx) {
   const groups = ctx.sim.ZONES.map((z) => {
     const g = new T.Group();
     g.name = z.name;
+    g.matrixAutoUpdate = false;
     ctx.scene.add(g);
     return g;
   });
@@ -46,22 +66,27 @@ export async function buildWorld(ctx) {
     const size = solid.max.map((v, i) => v - solid.min[i]);
     const mesh = ctx.kit.box(...size, proxyMaterial, 0.04);
     mesh.position.set(...solid.min.map((v, i) => (v + solid.max[i]) / 2));
+    mesh.updateMatrix();
+    mesh.matrixAutoUpdate = false;
     mesh.castShadow = mesh.receiveShadow = true;
     zoneGroup(solid.zone).add(mesh);
-    proxies.push({ solid, mesh });
+    if (solid.dynamic === "boss") proxies.push(mesh);
   }
+  let visibleZone;
   return {
     groups,
     update(frame) {
-      groups.forEach(
-        (g, i) => (g.visible = Math.abs(i - frame.snapshot.zone) <= 1),
-      );
+      const { zone, boss } = frame.snapshot;
+      if (visibleZone !== zone) {
+        groups.forEach((g, i) => (g.visible = Math.abs(i - zone) <= 1));
+        visibleZone = zone;
+      }
       modules.forEach((m) => m.update(frame));
-      for (const { solid, mesh } of proxies)
-        mesh.visible = solid.dynamic !== "boss" || frame.snapshot.boss.alive;
+      for (const mesh of proxies) mesh.visible = boss.alive;
     },
     showAll() {
       groups.forEach((g) => (g.visible = true));
+      visibleZone = undefined;
     },
     dispose() {
       modules.forEach((m) => m.dispose());

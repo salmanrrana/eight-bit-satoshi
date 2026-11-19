@@ -2,7 +2,7 @@ import { renderGroundY } from "./land-terrain.js";
 import { rockMoss } from "./flora-moss.js";
 import { hash, occupied, riverMargin } from "./flora-field.js";
 
-// Small fully modelled flowers and folded leaf sprays, merged into 16 m tiles.
+// Small fully modelled flowers and folded leaf sprays, merged into 32 m tiles.
 // No alpha cards, texture downloads, individual Object3Ds, or runtime buffers.
 export function buildPlants(ctx, field, motion) {
   const { T, sim, kit, scene, quality } = ctx;
@@ -121,15 +121,23 @@ reflectedLight.directSpecular*=mix(1.,cloud,floraCloud);`,
         const x = tx + hash(tx, tz, i + 7) * 16,
           z = tz + hash(tx, tz, i + 277) * 16;
         const cover = field.sample(x, z);
-        if (cover < 0.42 || hash(x, z, 41) > cover || drift(x, z) < 0.58)
+        // The Gate approach has low meadow pockets on the shoulders. Reuse
+        // the same candidate budget and the field's paving/solid exclusions.
+        const gateMeadow = z < -318 && z > -357;
+        if (
+          cover < (gateMeadow ? 0.35 : 0.42) ||
+          hash(x, z, 41) > cover ||
+          drift(x, z) < (gateMeadow ? 0.47 : 0.58)
+        )
           continue;
         const y = renderGroundY(sim, x, z) - 0.012,
           seed = hash(x, z, 8),
           a = seed * Math.PI * 2;
+        const seedHead = seed < (gateMeadow ? 0.45 : 0.33);
         const h =
           (0.22 + hash(x, z, 4) * 0.25) *
           (0.5 + cover * 0.5) *
-          (seed < 0.33 ? 1.45 : 1);
+          (seedHead ? 1.45 : 1);
         stem(
           x,
           y,
@@ -153,7 +161,7 @@ reflectedLight.directSpecular*=mix(1.,cloud,floraCloud);`,
           );
         const xx = x + 0.025 * Math.cos(a),
           zz = z + 0.025 * Math.sin(a);
-        if (seed < 0.33) {
+        if (seedHead) {
           stats.seeds++;
           // Open oat-like heads with individual hanging grains, not a solid cone.
           for (let k = 0; k < 6; k++) {
@@ -297,7 +305,7 @@ reflectedLight.directSpecular*=mix(1.,cloud,floraCloud);`,
           continue;
         stats.moss++;
         const radius = 0.16 + hash(x, z, 7) * 0.38;
-        const colour = [0.065, 0.115 + hash(x, z, 16) * 0.04, 0.018];
+        const colour = [0.075, 0.108 + hash(x, z, 16) * 0.035, 0.019];
         for (let k = 0; k < 9; k++) {
           const a = (k * Math.PI * 2) / 9,
             b = ((k + 1) * Math.PI * 2) / 9;

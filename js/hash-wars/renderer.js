@@ -5,7 +5,7 @@ import { createLighting } from "./light.js";
 import { createKit } from "./kit.js";
 import { createAssets } from "./assets.js";
 import { bakeSkyVisibility } from "./skyvis.js";
-import { buildWorld } from "./world.js";
+import { buildWorld, updateVisibleMatrices } from "./world.js";
 export async function create(canvas, callbacks) {
   const context = canvas.getContext("webgl2", {
     alpha: false,
@@ -99,23 +99,39 @@ export async function create(canvas, callbacks) {
     progress,
   });
   kit.finishBakes();
+  // Hash Wars uses fixed noon lighting; moving clouds still update via the kit.
+  const env = sky.update(0.5);
   world.update({
     snapshot: window.HashWars.create().snapshot(),
     events: [],
     dt: 0,
     time: 0,
     camera,
-    env: sky.update(0.5),
+    env,
   });
   world.showAll();
   const skyVisibility = bakeSkyVisibility(renderer, scene, window.HashWars);
   kit.uniforms.flSkyVis.value = skyVisibility.texture;
+  scene.matrixAutoUpdate = scene.matrixWorldAutoUpdate = false;
+  viewFill.color.copy(env.ambient);
+  viewFill.intensity = env.fillIntensity;
+  viewFill.groundColor.setRGB(0.32, 0.28, 0.22);
+  viewScene.environmentIntensity = env.environmentIntensity;
+  viewKey.intensity = env.sunIntensity;
+  viewKey.color.copy(env.sunColour);
+  const inverseView = new T.Quaternion();
   // Everything after the scene render (fog, occlusion, anti-aliasing, bloom,
   // tone map, grade) lives in post.js.
   const post = createPost(renderer, {
     quality,
     fogMaterial: lighting.fogMaterial,
   });
+  // Restrained noon grade: cool shade, near-neutral ceramic highlights.
+  const day = T.MathUtils.smoothstep(env.sunDir.y, -0.02, 0.12);
+  post.grade.shadowTint.value.setRGB(0.93 + 0.03 * day, 1, 1.07 - 0.02 * day);
+  post.grade.highlightTint.value.setRGB(1, 1, 1);
+  post.grade.saturation.value = 1.02 + 0.02 * day;
+  post.grade.contrast.value = 0.08;
   let width = 0,
     height = 0,
     last = 0,
@@ -287,15 +303,6 @@ export async function create(canvas, callbacks) {
     viewCamera.updateProjectionMatrix();
     camera.updateProjectionMatrix();
   }
-  // Restrained noon grade: cool shade, near-neutral ceramic highlights.
-  function grade(env) {
-    const day = T.MathUtils.smoothstep(env.sunDir.y, -0.02, 0.12),
-      g = post.grade;
-    g.shadowTint.value.setRGB(0.93 + 0.03 * day, 1, 1.07 - 0.02 * day);
-    g.highlightTint.value.setRGB(1, 1, 1);
-    g.saturation.value = 1.02 + 0.02 * day;
-    g.contrast.value = 0.08;
-  }
   // Draws one frame. `prepare` runs after the world updates and before the
   // draw; the warm-up uses it to switch hidden objects on for one frame.
   function renderFrame(snapshot, dt, time, fade = 0, prepare) {
@@ -303,7 +310,6 @@ export async function create(canvas, callbacks) {
     renderer.info.reset();
     // The camera is final here: jitter it before anything copies its matrices.
     post.begin(camera);
-    const env = sky.update(0.5);
     kit.update(env, reduced ? 0 : time);
     world.update({
       snapshot,
@@ -313,7 +319,6 @@ export async function create(canvas, callbacks) {
       camera,
       env,
     });
-    camera.updateMatrixWorld();
     const muzzleLocal = viewGroup.userData.hwArmsMuzzleLocal;
     if (muzzleLocal) viewGlow.position.copy(muzzleLocal);
     lighting.effects(
@@ -325,22 +330,16 @@ export async function create(canvas, callbacks) {
     lighting.update(env, camera, dt);
     viewCamera.position.copy(camera.position);
     viewCamera.quaternion.copy(camera.quaternion);
-    viewScene.environment = scene.environment;
-    viewFill.color.copy(env.ambient);
-    viewFill.intensity = env.fillIntensity;
-    viewScene.environmentIntensity = env.environmentIntensity;
-    viewKey.intensity = env.sunIntensity;
-    viewKey.color.copy(env.sunColour);
     viewKey.position
       .copy(env.sunDir)
-      .applyQuaternion(camera.quaternion.clone().invert())
+      .applyQuaternion(inverseView.copy(camera.quaternion).invert())
       .multiplyScalar(5);
     viewGlow.color.set(snapshot.weapon.kind === "arc" ? 0x68dfff : 0xffbd7d);
     viewGlow.intensity +=
       ((snapshot.weapon.firing ? 3 : 0) - viewGlow.intensity) *
       (1 - Math.exp(-dt * 10));
-    grade(env);
     prepare?.();
+    updateVisibleMatrices(scene);
     post.render(scene, camera, {
       time: reduced ? 0 : time,
       view: () => {
@@ -437,9 +436,8 @@ export async function create(canvas, callbacks) {
             (2 * Math.atan(Math.tan((34 * Math.PI) / 180) / 2.5) * 180) /
               Math.PI
           : 12) +
-      (Math.hypot(p.vx, p.vz) > 4 ? 3 : 0);
+      (Math.hypot(p.vx, p.vz) > 5.3 ? 3 : 0);
     camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 5));
-    camera.updateProjectionMatrix();
     snapshot.events = pendingEvents;
     renderFrame(snapshot, dt, now / 1000, fade);
     pendingEvents.length = 0;

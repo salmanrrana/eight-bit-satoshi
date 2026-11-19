@@ -263,11 +263,24 @@ export function createRigs(ctx, manifest) {
     });
     return list;
   }
+  // Feet, dust and falling debris repeatedly ask for support near one actor.
+  // Bin the same static solids by route distance once at load.
+  const supportBands = new Map();
+  const emptyBand = [];
+  for (const solid of sim.layout) {
+    if (solid.dynamic === "boss") continue;
+    const box = solid.shape === "box";
+    const first = Math.floor((box ? solid.min[2] : solid.z - solid.r) / 8);
+    const last = Math.floor((box ? solid.max[2] : solid.z + solid.r) / 8);
+    for (let i = first; i <= last; i++) {
+      if (!supportBands.has(i)) supportBands.set(i, []);
+      supportBands.get(i).push(solid);
+    }
+  }
   // Ray support is limited by the ankle's current height: a foot cannot jump onto a roof.
   function ground(x, z, ceiling = Infinity) {
     let y = sim.groundY(x, z);
-    for (const s of sim.layout) {
-      if (s.dynamic === "boss") continue;
+    for (const s of supportBands.get(Math.floor(z / 8)) ?? emptyBand) {
       if (s.shape === "box") {
         if (
           s.max[1] <= ceiling &&
@@ -298,7 +311,6 @@ export function createRigs(ctx, manifest) {
     const root = rig.root;
     if (!rig.legs.length) return;
     root.position.y = 0;
-    root.updateMatrixWorld(true);
     // The hull yields to the longest loaded leg, so reaching cannot lift a planted sole.
     let drop = 0;
     for (const leg of rig.legs) {
@@ -312,10 +324,10 @@ export function createRigs(ctx, manifest) {
       drop = Math.max(drop, target.y - leg.target.y - available);
     }
     root.position.y = -drop;
-    root.updateMatrixWorld(true);
     for (const leg of rig.legs) {
       // Work in the thigh parent's frame; the pole chooses the authored knee side.
       target.copy(leg.target);
+      leg.thigh.parent.updateWorldMatrix(true, false);
       leg.thigh.parent.worldToLocal(target);
       target.sub(leg.thigh.position);
       const d = Math.max(
@@ -339,7 +351,6 @@ export function createRigs(ctx, manifest) {
       inverse.copy(leg.thigh.quaternion).invert();
       bend.copy(target).sub(knee).applyQuaternion(inverse).normalize();
       leg.shin.quaternion.setFromUnitVectors(leg.lower, bend);
-      leg.shin.updateWorldMatrix(true, false);
       leg.shin.getWorldQuaternion(inverse).invert();
       q.setFromAxisAngle(axis.set(0, 1, 0), bodyYaw);
       // Terrain-aligned soles; rotate their rest ankle-to-sole offset with the slope.

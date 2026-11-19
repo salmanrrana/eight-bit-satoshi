@@ -155,18 +155,142 @@ test("route height, solids, terrain and nearest actor stop movement and shots", 
   g.state.enemies.forEach((e) => (e.hp = 0));
   place(g, -6, -26);
   tick(g, { moveZ: -1 }, 180);
-  assert.ok(g.state.player.z > -28.5);
+  assert.ok(g.state.player.z > -29.1);
   assert.equal(
     g.trace([-6, sim.groundY(-6, -30) + 0.8, -26], [0, 0, -1]).hit,
     "rock",
   );
-  assert.equal(g.trace([0, 10, 0], [0, -1, 0]).hit, "rock");
+  assert.equal(g.trace([0, 10, 0], [0, -1, 0]).hit, "sand");
   place(g, 0, 0);
   const a = g.spawn("gnat", 0, -4),
     b = g.spawn("gnat", 0, -8);
   assert.equal(g.trace([0, 2.5, 0], [0, 0, -1]).enemy, a);
   assert.equal(b.hp, 36);
   assert.equal(sim.groundY(0, -430), 60);
+});
+test("carbine and scatter shots hit the sea, river and plunge pool at the surface", () => {
+  for (const [x, z, weapon] of [
+    [0, 20, "carbine"],
+    [22, -88, "scatter"],
+    [18, -212, "carbine"],
+  ]) {
+    const g = sim.create();
+    g.state.quiet = true;
+    place(g, x, z, sim.waterY(x, z) + 1.1);
+    if (weapon === "scatter") {
+      g.give(weapon);
+      g.state.weapon.raise = 0;
+    }
+    tick(g, { fire: true, pitch: -1.4 });
+    const shots = g.state.events.filter((e) => e.type === "shot");
+    assert.equal(shots.length, sim.WEAPONS[weapon].pellets);
+    for (const shot of shots) {
+      const [sx, sy, sz] = shot.to;
+      assert.equal(shot.hit, "water");
+      assert.equal(shot.index, -1);
+      assert.equal(sy, sim.waterY(sx, sz));
+      assert.deepEqual(shot.normal, [0, 1, 0]);
+    }
+  }
+});
+test("a dam collider above the plunge pool takes the shot before the water", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  place(g, 8.9, -166, 2.5);
+  tick(g, { fire: true, pitch: -1.4 });
+  const shot = g.state.events.find((e) => e.type === "shot");
+  const solid = sim.layout[shot.index];
+  assert.equal(shot.hit, "concrete");
+  assert.equal(solid.stationAssembly.node, "dam_sluice");
+  assert.equal(shot.to[1], solid.max[1]);
+  assert.equal(sim.waterY(shot.to[0], shot.to[2]), sim.waterfall.foot.y);
+});
+test("beach and the dry river bank report different ground surfaces", () => {
+  assert.equal(sim.waterY(19.8, -88), -Infinity);
+  assert.ok(Number.isFinite(sim.waterY(20.05, -88)));
+  for (const [x, z, hit] of [
+    [0, 0, "sand"],
+    [19.8, -88, "grass"],
+  ]) {
+    const g = sim.create();
+    g.state.quiet = true;
+    place(g, x, z);
+    tick(g, { fire: true, yaw: Math.PI / 2, pitch: -1.4 });
+    const shot = g.state.events.find((e) => e.type === "shot");
+    assert.equal(shot.hit, hit);
+    assert.equal(shot.index, -1);
+    const [sx, sy, sz] = shot.to;
+    assert.ok(Math.abs(sy - sim.groundY(sx, sz)) < 0.001);
+  }
+
+  const g = sim.create();
+  g.state.quiet = true;
+  tick(g, { fire: true, pitch: 1.4 });
+  const miss = g.state.events.find((e) => e.type === "shot");
+  assert.equal(miss.hit, null);
+  assert.equal(miss.index, -1);
+});
+test("enemy line of sight remains clear across the river", () => {
+  const g = sim.create();
+  g.setZone(1);
+  g.state.enemies.forEach((e) => (e.hp = 0));
+  place(g, 24, -104);
+  const turret = g.spawn("turret", 16.5, -84);
+  const delta = [
+    24 - turret.x,
+    g.state.player.y + 1.2 - (turret.y + sim.MACHINES.turret.muzzle[1]),
+    -104 - turret.z,
+  ];
+  turret.yaw = Math.atan2(delta[0], delta[2]);
+  const distance = Math.hypot(...delta);
+  const origin = [turret.x, turret.y + sim.MACHINES.turret.muzzle[1], turret.z];
+  const direction = delta.map((v) => v / distance);
+  assert.equal(
+    g.trace(origin, direction, distance, false, null, true).hit,
+    "water",
+  );
+  tick(g);
+  assert.equal(turret.visible, true);
+});
+test("rail penetration ends at water after hitting the first enemy", () => {
+  const g = sim.create();
+  g.state.enemies.forEach((e) => (e.hp = 0));
+  place(g, 0, 24, 0);
+  const pitch = -0.2;
+  const [first, submerged] = [29, 41].map((z) => {
+    const y = 1.68 + Math.tan(pitch) * (z - 24) - sim.MACHINES.gnat.centre;
+    const e = g.spawn("gnat", 0, z, y);
+    e.thinkAt = Infinity;
+    return e;
+  });
+  g.give("rail");
+  Object.assign(g.state.weapon, { raise: 0, charging: 0.999 });
+  tick(g, { fire: true, yaw: Math.PI, pitch });
+  const shot = g.state.events.find((e) => e.type === "shot");
+  assert.equal(shot.hit, "enemy");
+  assert.equal(shot.enemy, first.id);
+  assert.equal(shot.index, -1);
+  assert.equal(first.hp, 0);
+  assert.equal(submerged.hp, sim.MACHINES.gnat.hp);
+});
+test("station traces distinguish exposed stone, concrete and metal", () => {
+  const g = sim.create();
+  for (const [node, surface, offset, direction] of [
+    ["terrace_wall", "stone", [0, 1.8, -4], [0, 0, 1]],
+    ["causeway_pier", "concrete", [2.9, 20, 2], [0, 0, -1]],
+    ["control_kiosk", "metal", [1, 1.4, 1], [0, 0, -1]],
+    ["immersion_tank", "metal", [0, 1.1, 4], [0, 0, -1]],
+  ]) {
+    const { stationPart } = sim.layout.find(
+      (b) => b.stationPart?.node === node,
+    );
+    const origin = [stationPart.x, stationPart.y, stationPart.z].map(
+      (v, i) => v + offset[i],
+    );
+    const hit = g.trace(origin, direction, 9, false);
+    assert.equal(hit.hit, surface, node);
+    assert.equal(sim.layout[hit.index]?.stationAssembly?.node, node);
+  }
 });
 test("shield multipliers, rail penetration, and hull weak points", () => {
   const g = sim.create();
@@ -203,7 +327,12 @@ test("arc heat forces vent, battery drains and bolts damage shields", () => {
   assert.equal(g.state.weapon.venting, false);
 });
 test("two weapons, swapping, hold pickup/drop and automatic ammo", () => {
-  const g = sim.create();
+  const pickedUp = [];
+  const g = sim.create({
+    sfx: (type, _, detail) => {
+      if (type === "pickup-weapon") pickedUp.push(detail.weapon);
+    },
+  });
   g.state.quiet = true;
   g.give("rail");
   g.give("scatter");
@@ -211,12 +340,28 @@ test("two weapons, swapping, hold pickup/drop and automatic ammo", () => {
   tick(g, { swap: true });
   assert.equal(g.state.weapon.kind, "carbine");
   g.state.pickups.push({ id: 999, kind: "arc", x: 0, y: 0, z: -1 });
-  tick(g, { use: true }, 90);
+  tick(g, { use: true }, 360);
   assert.equal(g.state.weapon.kind, "arc");
+  assert.deepEqual(pickedUp, ["arc"]);
   assert.equal(g.state.weapons.length, 2);
   assert.ok(g.state.pickups.some((e) => e.kind === "carbine"));
+  tick(g);
+  tick(g, { use: true }, 90);
+  assert.equal(
+    g.state.weapon.kind,
+    "arc",
+    "dropping a gun requires backing away first",
+  );
+  tick(g, { moveZ: 1 }, 63);
+  tick(g, { use: true }, 90);
+  assert.equal(
+    g.state.weapon.kind,
+    "carbine",
+    "the dropped gun can be picked up again",
+  );
   g.state.weapons[1].spare = 0;
-  g.state.pickups.push({ id: 998, kind: "ammo", x: 0, y: 0, z: 0 });
+  const { x, y, z } = g.state.player;
+  g.state.pickups.push({ id: 998, kind: "ammo", x, y, z });
   tick(g);
   assert.ok(g.state.weapons[1].spare > 0);
 });
@@ -242,6 +387,83 @@ test("charges bounce, burst once and bolts stop at cover", () => {
   });
   tick(g, {}, 100);
   assert.equal(g.state.player.shield, 100);
+  assert.equal(g.state.bolts.length, 0);
+});
+test("bolt-hit reports the actual contact and index on short projectile steps", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  for (const [x, y, z] of [
+    [0, -0.9, 20],
+    [8.9, 2.1, -166],
+  ])
+    g.state.bolts.push({
+      kind: "arc",
+      from: "player",
+      age: 0,
+      x,
+      y,
+      z,
+      vx: 0,
+      vy: -18,
+      vz: 0,
+    });
+  tick(g);
+  const hits = g.state.events.filter((e) => e.type === "bolt-hit");
+  const water = hits.find((e) => e.hit === "water");
+  const dam = hits.find((e) => e.hit === "concrete");
+  assert.equal(hits.length, 2);
+  assert.equal(g.state.bolts.length, 0);
+  assert.deepEqual(water.at, [0, sim.SEA_Y, 20]);
+  assert.deepEqual(water.normal, [0, 1, 0]);
+  assert.equal(water.index, -1);
+  assert.equal(sim.layout[dam.index]?.stationAssembly?.node, "dam_sluice");
+  assert.deepEqual(dam.at, [8.9, sim.layout[dam.index].max[1], -166]);
+  assert.deepEqual(dam.normal, [0, 1, 0]);
+
+  // The player is in front of the dam along this enemy bolt's step.
+  place(g, 8.9, -164.3, 2);
+  g.state.bolts.push({
+    kind: "watcher",
+    from: "enemy",
+    age: 0,
+    x: 8.9,
+    y: 2.1,
+    z: -163.8,
+    vx: 0,
+    vy: -36,
+    vz: -120,
+  });
+  tick(g);
+  const playerHit = g.state.events.find((e) => e.type === "bolt-hit");
+  assert.equal(playerHit.hit, "player");
+  assert.equal(playerHit.index, -1);
+  assert.equal(playerHit.at[2], g.state.player.z + 0.3);
+  assert.deepEqual(playerHit.normal, [0, 0, 1]);
+});
+test("a charge splashes once and still settles and explodes on the river bed", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  place(g, 19.8, -88);
+  const splashes = [],
+    bursts = [];
+  let settledBelowSurface = false;
+  for (let i = 0; i < 210; i++) {
+    tick(g, { yaw: -Math.PI / 2, pitch: -0.8, charge: i === 0 });
+    const b = g.state.bolts.find((b) => b.kind === "charge");
+    if (b?.settled && b.y < sim.waterY(b.x, b.z)) settledBelowSurface = true;
+    for (const e of g.state.events) {
+      if (e.kind !== "charge") continue;
+      if (e.type === "splash") splashes.push([...e.at]);
+      if (e.type === "explode") bursts.push([...e.at]);
+    }
+  }
+  assert.equal(splashes.length, 1);
+  const [x, y, z] = splashes[0];
+  assert.equal(y, sim.waterY(x, z));
+  assert.ok(settledBelowSurface);
+  assert.equal(bursts.length, 1);
+  const [bx, by, bz] = bursts[0];
+  assert.ok(by < sim.waterY(bx, bz));
   assert.equal(g.state.bolts.length, 0);
 });
 test("valley charges stay above terrain through bounce, settling and fuse", () => {
@@ -324,6 +546,26 @@ test("death restores checkpoint weapons and machines and costs one life", () => 
   assert.ok(g.state.player.safe > 1);
   assert.ok(g.state.enemies.find((a) => a.id === e.id).hp > 0);
   assert.ok(g.state.weapons.some((a) => a.kind === "rail"));
+});
+test("a rail rifle taken after entering the causeway returns to its case on death", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  place(g, -1, -149.9, 22);
+  tick(g, { moveZ: -1 }, 22);
+  assert.equal(g.state.checkpoint, 2);
+  tick(g, { use: true }, 100);
+  assert.equal(g.state.weapon.kind, "rail");
+  const rail = sim.entities.pickups.find((e) => e.kind === "rail");
+  assert.ok(!g.state.pickups.some((e) => e.id === rail.id));
+  g.hurt(300);
+  tick(g, {}, 90);
+  assert.equal(g.state.weapon.kind, "carbine");
+  assert.deepEqual(
+    g.state.pickups.find((e) => e.id === rail.id),
+    rail,
+  );
+  tick(g, { use: true }, 100);
+  assert.equal(g.state.weapon.kind, "rail");
 });
 test("station requires clear, hold use relights and reduces hashrate", () => {
   const g = sim.create();
@@ -448,6 +690,94 @@ test("natural banks reject uphill walking and jumping; bridge spans the gorge", 
   assert.ok(g.state.player.z < -183);
   for (const p of sim.river) assert.ok(sim.groundY(p.x, p.z) < p.y);
   assert.ok(sim.waterfall.top.y > sim.waterfall.foot.y + 10);
+});
+
+test("jumping under the pipeline hits its underside without rising through it", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  place(g, -12.75, -65.5);
+  const start = g.state.player.y;
+  const trunk = sim.layout.find((b) => b.kind === "pipeline-trunk");
+  tick(g, { jump: true }, 12);
+  assert.ok(g.state.player.y > start);
+  assert.ok(g.state.player.y + 1.9 <= trunk.min[1] + 0.001);
+  assert.ok(g.state.player.vy < 0 && !g.state.player.grounded);
+  tick(g, {}, 120);
+  assert.equal(g.state.player.y, start);
+});
+
+test("the wellhead is climbable from the ground via its lower slab and ledge", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  const well = sim.layout.find(
+    (b) => b.stationPart?.node === "wellhead",
+  ).stationPart;
+  place(g, -4.96, -122.9);
+  tick(g, { jump: true, moveZ: -1 }, 38);
+  tick(g, {}, 140);
+  assert.equal(g.state.player.y, well.y + 0.28);
+  tick(g, { jump: true, moveZ: -1 }, 35);
+  tick(g, {}, 140);
+  assert.ok(g.state.player.z < -124.85);
+  assert.ok(g.state.player.grounded);
+  assert.equal(g.state.player.y, well.y + 1.28);
+  const hit = g.trace([-4.96, well.y + 2, -125.09], [0, -1, 0]);
+  assert.ok(Math.abs(hit.distance - 0.72) < 0.001);
+});
+
+test("rock corners leave clearance at the cove and causeway", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+  place(g, 9.5, -44.22);
+  tick(g, { moveX: -1 }, 48);
+  assert.ok(g.state.player.x < 8.95, JSON.stringify(g.state.player));
+  place(g, -1.46, -171.08, 24);
+  g.state.player.grounded = false;
+  tick(g, {}, 160);
+  assert.equal(g.state.player.y, 22);
+  place(g, -2.8, -170, 24);
+  g.state.player.grounded = false;
+  tick(g, {}, 160);
+  assert.ok(g.state.player.grounded && g.state.player.y > 23);
+});
+
+test("Causeway cover supports feet and blocks shots along its visible west edge", () => {
+  const g = sim.create();
+  g.state.quiet = true;
+
+  const p = g.state.player;
+  for (const fps of [30, 60, 120]) {
+    place(g, -4.21, -168.5, 22);
+    for (let i = 0; i < fps * 2; i++) g.update(1 / fps, { moveZ: -1 });
+    for (let i = 0; i < fps / 2; i++) g.update(1 / fps, {});
+    assert.ok(p.z < -169.25 && p.z > -169.4, "the rock stops forward movement");
+    assert.ok(
+      p.grounded && p.y === 22,
+      `walking cannot climb rock at ${fps} FPS`,
+    );
+  }
+
+  place(g, -4.21, -168.8, 22);
+  tick(g, { jump: true, moveZ: -1 }, 19);
+  tick(g, {}, 140);
+  assert.ok(Math.abs(p.z + 169.47) < 0.03);
+  assert.ok(
+    p.grounded && p.y > 22.85 && p.y < 23.1,
+    "feet land on the raised edge",
+  );
+
+  place(g, -4.21, -168.6, 22);
+  tick(g, { ...aim(p, { x: -4.21, y: 22.08, z: -169.47 }), fire: true });
+  const throughRecess = g.state.events.find((e) => e.type === "shot");
+  assert.equal(throughRecess?.hit, "concrete");
+  assert.ok(throughRecess.to[2] < -169.47);
+
+  tick(g, {}, 60);
+  place(g, -4.1, -168.6, 22);
+  tick(g, { ...aim(p, { x: -4.1, y: 22.6, z: -169.69 }), fire: true });
+  const intoRock = g.state.events.find((e) => e.type === "shot");
+  assert.equal(intoRock?.hit, "rock");
+  assert.ok(intoRock.to[2] > -169.72);
 });
 
 test("deep water respawns once with bridge checkpoint support", () => {
@@ -579,8 +909,10 @@ test("hearing investigates without wall vision, then lost sight searches the las
   const g = sim.create();
   g.state.enemies.forEach((e) => (e.hp = 0));
   g.state.god = true;
-  place(g, -6, -26);
-  const e = g.spawn("strider", -6, -35);
+  // Use the high side of the beach boulder for an occluded sightline.
+  const coverX = -5.4;
+  place(g, coverX, -26);
+  const e = g.spawn("strider", coverX, -35);
   tick(g, { fire: true, yaw: Math.PI });
   assert.equal(e.visible, false);
   assert.equal(e.awareness, "suspicious");
@@ -598,8 +930,13 @@ test("hearing investigates without wall vision, then lost sight searches the las
   assert.equal(e.awareness, "engage");
   assert.equal(e.visible, true);
   const last = { ...e.memory };
-  place(g, -6, -32);
-  Object.assign(e, { x: -6, z: -26, y: sim.groundY(-6, -26), thinkAt: 0 });
+  place(g, coverX, -32);
+  Object.assign(e, {
+    x: coverX,
+    z: -26,
+    y: sim.groundY(coverX, -26),
+    thinkAt: 0,
+  });
   tick(g, {}, 190);
   assert.equal(e.visible, false);
   assert.equal(e.awareness, "search");
@@ -664,14 +1001,24 @@ test("opening budgets and watcher sites stay fair across 100 seeds", () => {
     }
   }
 });
-test("cliff checkpoint preserves dead scouts and restores at the climb top", () => {
+test("cliff checkpoint restores pickups and lets the player walk off the stairs", () => {
   const g = sim.create({ death: () => true });
   g.killAll();
-  place(g, 0, -55.1);
+  const pickup = { id: 999, kind: "scatter", x: 0, y: 12, z: -55.1 };
+  g.state.pickups.push(pickup);
+  place(g, 0, -55.1, 12.04);
   tick(g);
+  tick(g, { use: true }, 90);
+  assert.equal(g.state.weapon.kind, "scatter");
   g.hurt(300);
   tick(g, {}, 100);
-  assert.ok(-g.state.player.z >= 55);
+  assert.equal(g.state.weapon.kind, "carbine");
+  assert.deepEqual(
+    g.state.pickups.find((e) => e.id === pickup.id),
+    pickup,
+  );
+  tick(g, { moveZ: -1 }, 120);
+  assert.ok(g.state.player.z < -58);
   assert.ok(
     g.state.enemies.filter((e) => e.zone === 0).every((e) => e.hp === 0),
   );
@@ -754,14 +1101,15 @@ test("a suspicious machine travels around cover toward the noise", () => {
   const g = sim.create();
   g.killAll();
   g.state.god = true;
-  place(g, -6, -26);
-  const e = g.spawn("strider", -6, -35),
+  const coverX = -5.4;
+  place(g, coverX, -26);
+  const e = g.spawn("strider", coverX, -35),
     start = { x: e.x, z: e.z };
   tick(g, { fire: true, yaw: Math.PI });
   assert.equal(e.awareness, "suspicious");
   tick(g, {}, 600);
   assert.ok(Math.hypot(e.x - start.x, e.z - start.z) > 2);
-  assert.ok(Math.hypot(e.x + 6, e.z + 26) < 9);
+  assert.ok(Math.hypot(e.x - coverX, e.z + 26) < 9);
 });
 
 test("at least eight of ten ordinary input players survive the first two zones", (t) => {
@@ -777,7 +1125,17 @@ test("landed siege stays west of the route and blocks shots and feet", () => {
   g.setZone(4);
   g.state.quiet = true;
   assert.deepEqual([sim.siege.landing.x, sim.siege.landing.z], [-19, -378]);
+  const upright = sim.layout.find((b) => b.kind === "siege-hull");
+  const uprightOrigin = [
+    upright.min[0] - 0.5,
+    upright.min[1] + 3.3,
+    (upright.min[2] + upright.max[2]) / 2,
+  ];
+  const uprightHit = g.trace(uprightOrigin, [1, 0, 0], 1, false);
+  assert.equal(uprightHit.hit, "metal");
+  assert.equal(uprightHit.distance, 0.5);
   g.state.boss.alive = false;
+  assert.equal(g.trace(uprightOrigin, [1, 0, 0], 1, false).hit, null);
   tick(g, {}, 481);
   const q = g.state.boss.pose;
   const min = [q.x - 27, q.y - 7.72, q.z - 2.805],
@@ -913,6 +1271,9 @@ test("a cleared pylon takes priority over dropped weapons without losing the pic
   assert.equal(g.state.stations[1].state, "keeper");
   assert.ok(g.state.pickups.some((p) => p.id === 9999));
   assert.equal(g.target().type, "weapon");
+  tick(g, { use: true }, 100);
+  assert.ok(!g.state.weapons.some((w) => w.kind === "scatter"));
+  tick(g);
   tick(g, { use: true }, 100);
   assert.ok(g.state.weapons.some((w) => w.kind === "scatter"));
 });
